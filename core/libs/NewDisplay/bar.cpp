@@ -79,7 +79,7 @@ void cBar::setColors(const uint32_t* colors)
 
 void cBar::setData(void* data)
 {
-    data = (strBarData*)(data);
+    this->data = (strBarData*)(data);
 }
 
 //--------------------------------------------------------------------------------
@@ -270,14 +270,22 @@ void cBar::update()
     }
     else if (style & controlStyleValueLeftRight_24_24 && value >= -24 && value <= 24)
     {
-        uint16_t barFillY = barHeight - (barHeight * value) / 100;
+        // Bipolar -24..24, filled from the centre like the -100..100 variant. The previous
+        // code scaled by 100 and filled from the bottom, so negative values drew past the bar.
+        int scaled = (value * 100) / 24;
+        uint16_t halfFill = barHeight / 2;
+
+        uint16_t barFillYtop =
+          (barY + 1) + (scaled > 0 ? ((halfFill * (100 - scaled)) / 100) : halfFill);
+        uint16_t barFillYbott =
+          (barY) + barHeight - (scaled < 0 ? ((halfFill * (100 + scaled)) / 100) : halfFill);
 
         API_COLOR(colors[0]);
 
         API_LINE_WIDTH(16);
         API_BEGIN(RECTS);
-        API_VERTEX2F(barX + 1, barY + barFillY + 1);
-        API_VERTEX2F(barX + barWidth - 1, barY + barHeight - 1);
+        API_VERTEX2F(barX + 1, barFillYtop);
+        API_VERTEX2F(barX + barWidth - 1, barFillYbott);
         API_END();
     }
 }

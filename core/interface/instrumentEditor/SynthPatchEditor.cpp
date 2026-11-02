@@ -844,7 +844,7 @@ void cInstrumentEditor::changeSynthMacroName()
 
     int macroIdx = sectionIds[sectionListPos];
 
-    if (macroIdx < 0 && macroIdx >= std::ssize(metadata.macros))
+    if (macroIdx < 0 || macroIdx >= std::ssize(metadata.macros))
     {
         return;
     }
@@ -1576,7 +1576,7 @@ void cInstrumentEditor::showSynthPatchSectionParamValue(bool refreshList)
     const auto& metadata = patch.getMetadata();
 
     int paramIdx = sectionParamsIds[paramListPos];
-    if (paramIdx < 0 && paramIdx >= std::ssize(metadata.params))
+    if (paramIdx < 0 || paramIdx >= std::ssize(metadata.params))
     {
         display.setControlHide(barControl[7]);
         display.setControlHide(modelListControl);
@@ -1718,7 +1718,7 @@ void cInstrumentEditor::showSynthPatchMacroParamValue(bool refreshList)
     const auto& metadata = patch.getMetadata();
 
     int macroIdx = sectionIds[sectionListPos];
-    if (macroIdx < 0 && macroIdx >= std::ssize(metadata.macros))
+    if (macroIdx < 0 || macroIdx >= std::ssize(metadata.macros))
     {
         display.setControlHide(barControl[7]);
         display.setControlHide(modelListControl);
