@@ -204,6 +204,7 @@ class cDisplay
 
     uint32_t memoryUsed = 0;
     uint32_t lastMemoryUsed = 0;
+    uint32_t droppedControlsCount = 0; // DEBUG only: frames where the 8 KB display list overflowed
 
     uint8_t fontsCount = displayFontCount;
     int8_t controls_count = 0;

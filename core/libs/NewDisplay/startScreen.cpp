@@ -80,7 +80,7 @@ void cStartScreen::setColors(const uint32_t* colors)
 
 void cStartScreen::setData(void* data)
 {
-    data = (char*)(data);
+    this->data = (char*)(data);
 }
 
 //--------------------------------------------------------------------------------
