@@ -1,6 +1,6 @@
 # Parameter Visualization Overhaul: Inventory & Proposal
 
-> Status: **draft / pre-discussion**. Nothing here is implemented yet. This is the groundwork I want in hand before opening a GitHub Discussion or Backstage topic, which `CONTRIBUTING.md` asks for before any UI redesign.
+> Status: **draft / pre-discussion**. The redesign itself isn't implemented yet. Phase 0 (the bug fixes) is in [PR #1](https://github.com/thoughtgrain/tracker-ce/pull/1). This is the groundwork I want in hand before opening a GitHub Discussion or Backstage topic, which `CONTRIBUTING.md` asks for before any UI redesign.
 
 ## Why I'm doing this
 
@@ -190,7 +190,7 @@ editor-fx-sdk/tracker_plugin.h, core/effector/tracker_plugin.h, editor-fx-sdk/pt
 
 Each phase is shippable on its own:
 
-0. **Fix the bugs I found** (list below). This has nothing to do with the redesign and is worth doing anyway.
+0. **Fix the bugs I found** (list below). This has nothing to do with the redesign and is worth doing anyway. *In progress: [PR #1](https://github.com/thoughtgrain/tracker-ce/pull/1).*
 1. **`ParamSpec` + adapters, no visual change.** Route existing `cBar` values through `paramNormalize`. It's pure refactoring and easy to review, and it already fixes the synth curve mismatch.
 2. **`cParamWidget` in bar layout.** Bipolar centre-fill, 0 dB ticks, log mapping, segments, default ticks. This fixes the biggest *correctness* problems without changing the look of any screen.
 3. **Measure the budget on every screen**, then add the arc layout and the XY pad, and delete the `1000 + packed` hack.
@@ -203,15 +203,21 @@ Each phase is shippable on its own:
 
 ## Bugs found along the way
 
-| # | Where | What | Confidence |
+Items 1-7 are fixed on `fix/ui-param-display-bugs` ([PR #1](https://github.com/thoughtgrain/tracker-ce/pull/1), draft until it builds in CI and gets hardware testing). Line numbers below are from `main`, before the fix.
+
+| # | Where | What | Status |
 |---|---|---|---|
-| 1 | `SynthPatchEditor.cpp:1579` | `paramIdx < 0 && paramIdx >= size` can never be true. It should be `\|\|`, so the out-of-range guard is dead code. | Verified |
-| 2 | `SynthPatchEditor.cpp:847`, `:1721` | Same `&&`/`\|\|` mistake for `macroIdx`, in two places | Verified |
-| 3 | `fSampleEdit.cpp:1047` | The bar value is computed as a float and stored in `uint8_t`. If the value ever sits below its minimum, that's a negative float → unsigned conversion, which is undefined behaviour. The TS Beat/TS Note defaults are `0` (`sampleEditor.h:171-172`) while their minimums are 40 and 0.1. | Defaults verified. Whether they're overwritten before display is not yet checked. |
-| 4 | `sampleEditor.h:426`, `fSampleEdit.cpp:1020-1024` | `parameterValueLabel[16]` is filled with unbounded `sprintf("%.2f")` plus a unit `strcat`. Built-in ranges fit, but a `.ptfx` plugin declares its own min/max, and a large float there overflows the buffer. Plugin-supplied data can corrupt memory. | Verified by reading |
-| 5 | `bar.cpp:271` | The `LeftRight_24_24` branch computes the fill as if the range were 0..100, so negative values would draw outside the bar. It's currently unused, so this is latent. | Verified by reading |
-| 6 | `display.cpp:640` | When the display-list budget is exceeded, the remaining controls are silently dropped | Verified (design issue, not a typo) |
-| 7 | `fSamplePlay.cpp:1922` | The play-mode list value is `playMode + sample.type`. For wavetable samples this may select the Granular index. | Uncertain. Needs hardware or a deeper read. |
+| 1 | `SynthPatchEditor.cpp:847, 1579, 1721` | Three guards written `idx < 0 && idx >= size`, which can never be true, so an out-of-range index reads past `metadata.params` / `.macros` | Fixed in PR #1 |
+| 2 | `bar.cpp:81`, `startScreen.cpp:81` | `setData()` assigned its argument to itself, so `display.setControlData()` never updated these controls | Fixed in PR #1 |
+| 3 | `sampleImporter.h:158` | "Memory full" bar data initialized `{ 100 }`, which sets `changingColor` instead of `value`. Hidden until #2 was fixed. | Fixed in PR #1 |
+| 4 | `fSampleEdit.cpp:1020-1031` | `parameterValueLabel[16]` filled with unbounded `sprintf`/`strcat`. A `.ptfx` plugin's own min/max can overflow it. | Fixed in PR #1 (sanitizer-tested) |
+| 5 | `fSampleEdit.cpp:1047` | Negative float stored into `uint8_t` bar value. Timestretch Beat/Note default to `0` ("auto": project tempo / selection length, see `mtEffectTimestretch.cpp:20, 35`), below their minimums. | Fixed in PR #1 (sanitizer-tested) |
+| 6 | `fSamplePlay.cpp:1922` | Play-mode list value `playMode + sample.type` highlights Granular for wavetable instruments | Fixed in PR #1, needs hardware check |
+| 7 | `bar.cpp:271` | `LeftRight_24_24` scaled as 0..100 and filled from the bottom. Unused, so latent. | Fixed in PR #1 |
+| 8 | `display.cpp:640` | Exceeding the display-list budget silently drops the remaining controls | Partly addressed: PR #1 adds a `DEBUG`-only `droppedControlsCount`. Changing the drop behaviour itself waits for hardware measurements (phase 3). |
+
+Still open, deliberately left for the redesign:
+- The Timestretch "0 = auto" value displays as "0 BPM" / "0.00 s" instead of the resolved value. That's a labelling choice, and `ParamSpec` formatting is the right place to fix it.
 
 ---
 
