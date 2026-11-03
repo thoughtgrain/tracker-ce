@@ -4,6 +4,18 @@ All notable changes to the **Polyend Tracker Community Edition (CE)** firmware a
 
 ---
 
+## [Unreleased]
+
+### Added
+
+1. **`TORO` Synthesizer Engine (Tracker+ & Tracker Mini)**
+   * Two oscillators (saw to triangle morph) and noise into a wavefolder, a resonant low-pass and soft-clip drive, with an ADSR amp envelope and Always / Overlap / Legato glide.
+   * **APHX** gives every key its own fixed drift in tuning, cutoff, fold, shape and resonance: a little old-poly character at low settings, keys thrown semitones apart and crushed at their own rates at the top.
+   * Ported from the OP-1 / OP-XY `toro` ([`thoughtgrain/labyrinth`](https://github.com/thoughtgrain/labyrinth)) with the same integer DSP, so it sounds the same on all three.
+   * See [`docs/toro_synth.md`](docs/toro_synth.md).
+
+---
+
 ## [1.0.0] - Initial Community Edition Release
 
 > **⚠️ Important :: Project Compatibility Notice:**
