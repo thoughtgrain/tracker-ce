@@ -22,9 +22,10 @@ The firmware build doesn't depend on any of this. It's opt-in developer tooling,
 | `display_controls` | Control classes, ids, stages, create sites, budgets, free style bits, RAM_G layout with computed overlaps | Compiler (ids, constants, style bits, image `sizeof`) |
 | `where_is(symbol)` | Definition and declaration sites of a name or `Class::name`, each with the targets that compile it | Locations the other tools derive, per-target preprocessor, mutation (comments and strings) |
 | `interrupt_context(function)` | Whether a function runs in interrupt context, with the call path from each interrupt root, the line of every hop and the targets that compile the path. Labelled heuristic: "not reachable" isn't proof | Every hop re-read from its cited line, the C1/C2 findings, main-loop negatives, mutation, planted bugs |
+| `rules(path)` | The root `AGENTS.md` plus every area `AGENTS.md` above a path, verbatim, by section with heading lines | Lossless split, subtree scoping by mutation; separately, every path, `file:line`, link and symbol in every `AGENTS.md` is checked against the tree (`tests/test_anchors.py`) and each factual claim in the root file against the tools (`tests/test_guidance.py`) |
 | `test_suites` | Host test suites, how to run them, which firmware sources each compiles | The real suites from their branches |
 
-The remaining planned tool (`rules`) is in [`docs/design/ai-dev-guidance-plan.md`](../../docs/design/ai-dev-guidance-plan.md).
+The plan these tools came from, and what's next for them, is in [`docs/design/ai-dev-guidance-plan.md`](../../docs/design/ai-dev-guidance-plan.md).
 
 Some tools need build tools on the machine running them: `build_config` and `test_suites` run `make -n` (nothing is built; the tests check the tree is untouched), and the accuracy tests need `g++` and GNU binutils (`ld`, `objdump`).
 

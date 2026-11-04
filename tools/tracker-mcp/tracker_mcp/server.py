@@ -19,6 +19,7 @@ from . import fx as _fx
 from . import interrupts as _interrupts
 from . import memory as _memory
 from . import project_map as _project_map
+from . import rules as _rules
 from . import screens as _screens
 from . import suites as _suites
 from . import symbols as _symbols
@@ -130,6 +131,15 @@ def interrupt_context(function: str = "") -> dict[str, Any]:
     compile the whole path. With no function, lists the roots and every reachable function. A text-based
     heuristic: reachable=false is never proof, so check the callers yourself."""
     return _interrupts.interrupt_context(_root(), function)
+
+
+@server.tool()
+def rules(path: str = "") -> dict[str, Any]:
+    """The contribution rules that apply to a path, verbatim from the AGENTS.md files: the root rules plus
+    every area AGENTS.md in the directories above the path (nearest last), split into sections with the
+    line each heading is on. Pass the file you're about to edit. With no path, the root rules and a list
+    of area files."""
+    return _rules.rules(_root(), path)
 
 
 def main() -> None:
