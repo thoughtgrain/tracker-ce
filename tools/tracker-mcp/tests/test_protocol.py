@@ -14,7 +14,7 @@ from support import ROOT, check_provenance
 
 PKG_DIR = Path(__file__).resolve().parents[1]
 EXPECTED_TOOLS = {"project_map", "list_synth_engines", "list_screens", "find_screen", "memory_map", "build_config", "step_fx", "display_controls",
-                  "test_suites", "where_is", "interrupt_context"}
+                  "test_suites", "where_is", "interrupt_context", "rules"}
 
 
 async def _session_run(calls):
@@ -50,7 +50,8 @@ class Protocol(unittest.TestCase):
                  ("build_config", {}), ("step_fx", {"query": "T"}),
                  ("display_controls", {}), ("test_suites", {}),
                  ("where_is", {"symbol": "cDisplay::update"}),
-                 ("interrupt_context", {"function": "Sequencer::stop"})]
+                 ("interrupt_context", {"function": "Sequencer::stop"}),
+                 ("rules", {"path": "core/source/Tracker.cpp"})]
         cls.init, cls.tools, cls.results = asyncio.run(_session_run(calls))
 
     def _get(self, name, args=None):
