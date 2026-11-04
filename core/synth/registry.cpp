@@ -2,6 +2,7 @@
 #ifdef FEATURE_SYNTH
 
 #include "PolySynth/sdk/InstrumentTypeRegistry.h"
+#include "engines/AcidSynthVoice.h"
 #include "engines/ChiptuneSynthVoice.h"
 #include "engines/ToroSynthVoice.h"
 
@@ -35,6 +36,7 @@ void InstrumentTypeRegistry::registerInstrumentTypes(
     registry.addInstrumentType(static_cast<int>(InstrumentTypeId::kChiptuneSynth),
                                createChiptuneSynth());
     registry.addInstrumentType(static_cast<int>(InstrumentTypeId::kToroSynth), createToroSynth());
+    registry.addInstrumentType(static_cast<int>(InstrumentTypeId::kAcidSynth), createAcidSynth());
 }
 
 } // namespace polysynth

@@ -15,6 +15,7 @@ Welcome to the official documentation for **Polyend Tracker Community Edition (C
 * **[Modular Sample Editor Effects - User & Architecture Guide (`docs/modular_effects_system.md`)](modular_effects_system.md)**
   * Overview of hot-loadable `.ptfx` Sample Editor effects and generators (`/Effects/*.ptfx`), bundled reference plugins, and hardware memory/cache architecture.
 * **[TORO Synth Engine (`docs/toro_synth.md`)](toro_synth.md)**
+* **[ACID Synth Engine (`docs/acid_synth.md`)](acid_synth.md)**
   * Two oscillators, a wavefolder, a resonant low-pass and APHX key-tracked chaos on **Tracker+** and **Tracker Mini**: parameters, glide modes, macros and starting-point patches.
 * **[SD Card Image Viewer (`docs/image_viewer.md`)](image_viewer.md)**
   * How to prepare and view up to 48 baseline JPEGs (`800 × 390` px) per folder in `/Images/Reference/`, `/Images/Notes/`, and `/Images/Custom/` under `Config > Info`.

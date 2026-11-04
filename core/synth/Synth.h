@@ -40,7 +40,8 @@ class Synth
                                                 polysynth::InstrumentTypeId::kFMSynth,
                                                 polysynth::InstrumentTypeId::kDrumSynth,
                                                 polysynth::InstrumentTypeId::kShapingSynth, polysynth::InstrumentTypeId::kChiptuneSynth,
-                                                polysynth::InstrumentTypeId::kToroSynth };
+                                                polysynth::InstrumentTypeId::kToroSynth,
+                                                polysynth::InstrumentTypeId::kAcidSynth };
     static constexpr auto kInitPatchName = "Init";
 
     Synth();

@@ -77,6 +77,8 @@
 #include "images/chip_mini_nomark_80x28_L2.h"
 #include "images/toro_med_108x40_L2.h"
 #include "images/toro_mini_nomark_80x28_L2.h"
+#include "images/acid_med_108x40_L2.h"
+#include "images/acid_mini_nomark_80x28_L2.h"
 
 #endif
 
@@ -214,6 +216,8 @@ const strBitmap bitmaps[displayBitmapsCount] = {
     // RAM_G 128800..149999 is free between the synth badges and the control display lists (150000)
     { toro_mini_nomark_80x28_L2, 128800, 560, 80, 28, L2, 20 },
     { toro_med_108x40_L2, 129400, 1080, 108, 40, L2, 27 },
+    { acid_mini_nomark_80x28_L2, 130500, 560, 80, 28, L2, 20 },
+    { acid_med_108x40_L2, 131100, 1080, 108, 40, L2, 27 },
 
 #endif
 };

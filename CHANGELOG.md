@@ -14,6 +14,13 @@ All notable changes to the **Polyend Tracker Community Edition (CE)** firmware a
    * Ported from the OP-1 / OP-XY `toro` ([`thoughtgrain/labyrinth`](https://github.com/thoughtgrain/labyrinth)) with the same integer DSP, so it sounds the same on all three.
    * See [`docs/toro_synth.md`](docs/toro_synth.md).
 
+2. **`ACID` Synthesizer Engine (Tracker+ & Tracker Mini)**
+   * An acid bass and lead voice: saw, pulse and sub oscillators with noise, three resonant filters (12 dB, 24 dB, ladder), a mod envelope, an LFO and four glide modes, including the Legato slides acid lines rely on.
+   * An open engine ported from OpenTracker's ACD ([`sandlbn/polyend-tracker-re`](https://github.com/sandlbn/polyend-tracker-re), Apache-2.0), renamed because Polyend's own ACD is a different engine. Its sound code also runs on the Original Tracker's chip, ready for when the Original gets a synth host.
+   * See [`docs/acid_synth.md`](docs/acid_synth.md).
+
+3. **Open synth engines.** TORO now runs on an open engine (`core/synth/open/`) hosted through the SDK on Tracker+ and Mini. Existing TORO projects sound exactly the same: it was checked sample for sample against the previous TORO voice.
+
 ---
 
 ## [1.0.0] - Initial Community Edition Release

@@ -23,10 +23,14 @@
 
 #include "PolySynth/sdk/SynthVoiceSDK.h"
 #include "open/OpenSynthEngine.h"
+#include "open/OpenSynthLayout.h"
 #include "open/OpenSynthParams.h"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <cstring>
+#include <utility>
 
 namespace polysynth::sdk
 {
@@ -145,5 +149,58 @@ class OpenEngineVoice : public CustomSynthVoice<VoiceClass, ParamIdEnum>
     bool started = false;
     bool gated = false;
 };
+
+// The SDK handler for parameter I: hands the value to the open engine. An empty type, as ParamHelper needs.
+template<class VoiceClass, int I>
+struct OpenEngineSetParam
+{
+    void operator()(VoiceClass& voice, Patch::optional_paramvalue_t v) const { voice.setParam(I, *v); }
+};
+
+// Adds every parameter of an open engine to the SDK metadata. Name, default and range always come from the
+// open engine's table (open/OpenSynthParams.cpp), so they can't drift from what the engine clamps to; `ui`
+// adds the presentation per parameter (edit curve, enum flag, MIDI CC, formatter), in the engine's order.
+template<class VoiceClass, int32_t kEngine, size_t N>
+void addOpenEngineParams(ParamHelper<VoiceClass>& helper, std::array<Patch::Metadata::Param, N> ui)
+{
+    int count = 0;
+    const opensynth::ParamInfo* table = opensynth::paramTable(kEngine, &count);
+    assert(table && count == static_cast<int>(N));
+    [&]<size_t... I>(std::index_sequence<I...>)
+    {
+        (
+          [&]
+          {
+              auto def = std::move(ui[I]);
+              def.displayName = table[I].name;
+              def.defaultValue = table[I].def;
+              def.minValue = static_cast<Patch::paramvalue_short_t>(table[I].min);
+              def.maxValue = static_cast<Patch::paramvalue_short_t>(table[I].max);
+              helper.addParam(static_cast<int>(I), std::move(def), OpenEngineSetParam<VoiceClass, static_cast<int>(I)>{});
+          }(),
+          ...);
+    }(std::make_index_sequence<N>{});
+}
+
+// The patch editor layout of an open engine, from open/OpenSynthLayout.cpp. `shortNames` gives each
+// section's grid label, in order.
+inline Patch::Metadata::EditorLayout openEngineLayout(int32_t engine, std::initializer_list<const char*> shortNames)
+{
+    using Layout = Patch::Metadata::EditorLayout;
+    Layout layout;
+    int n = 0;
+    const opensynth::Section* sections = opensynth::sectionTable(engine, &n);
+    assert(sections && n == static_cast<int>(shortNames.size()));
+    auto shortName = shortNames.begin();
+    for (int k = 0; k < n; k++, ++shortName)
+    {
+        Layout::EditorSection section{ .name = sections[k].name, .shortName = *shortName };
+        for (int j = 0; j < sections[k].count; j++)
+            section.elements.push_back(
+              Layout::EditorElement{ .type = Layout::EditorElement::Type::kParam, .id = sections[k].params[j] });
+        layout.sections.push_back(std::move(section));
+    }
+    return layout;
+}
 
 } // namespace polysynth::sdk
