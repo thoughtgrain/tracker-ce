@@ -48,3 +48,9 @@ Polyend Tracker Community Edition (CE) incorporates or links against the followi
 * **Location**: `synth/lib/`
 * **License**: Polyend Precompiled Synthesizer & DSP Library License (`synth/lib/LICENSE-PROPRIETARY.txt`)
 * **Copyright**: Copyright (c) 2023-2026 Polyend Sp. z o.o. All rights reserved.
+
+## 10. OpenTracker synth engines
+* **Location**: `core/synth/open/` (engine interface `OpenSynthEngine.h`, parameter ranges in `OpenSynthParams.cpp`, and the engines under `engines/`; currently ACID, ported from OpenTracker's ACD)
+* **Source**: OpenTracker, https://github.com/sandlbn/polyend-tracker-re (commit `6c93bbb`). Only the sound engines are taken; each ported file's header lists what was changed (renames, include paths, the fast-RAM marker).
+* **License**: Apache License 2.0 (`core/synth/open/LICENSE-APACHE-2.0`)
+* **Copyright**: Copyright the OpenTracker contributors.
