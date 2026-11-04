@@ -12,5 +12,7 @@ TARGET_DEFINES: dict[str, dict[str, str]] = {
 TRACKED_GUARDS = ("PLATFORM_IMX", "FEATURE_SYNTH", "TRACKER_MINI", "KINETISK")
 
 # Macros known to be undefined in the release builds `make all` produces (debug builds add -DDEBUG). A value
-# test like `#if DEBUG` evaluates to 0 for these instead of raising. Checked against build_config.
-RELEASE_UNDEFINED: frozenset[str] = frozenset({"DEBUG"})
+# test like `#if DEBUG` evaluates to 0 for these instead of raising. PRODUCT and WAVE are tested by the
+# PolySynth config.h (`#if PRODUCT == WAVE`); neither is a -D macro in any build (PRODUCT is only a make
+# variable), so as in C both are 0 and the test is true. Checked against build_config.
+RELEASE_UNDEFINED: frozenset[str] = frozenset({"DEBUG", "PRODUCT", "WAVE"})
