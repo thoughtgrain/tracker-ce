@@ -18,6 +18,7 @@
 #include "sdk_fixture.h"
 
 #include "open/OpenSynthEngine.h"
+#include "open/OpenSynthLayout.h"
 #include "open/OpenSynthParams.h"
 #include "open/engines/Toro.h"
 
@@ -147,8 +148,27 @@ std::vector<Step> oneNote(int note, int offBlock) { return { { 0, true, note }, 
 
 } // namespace
 
+// The open layout must be the SDK voice's editor layout: same sections, names, order and parameters, so
+// TORO's patch editor looks the same on every device.
+void sameLayout()
+{
+    Engine e;
+    const auto& sdk = e.patch.metadata.layoutFlat.sections;
+    int n = 0;
+    const opensynth::Section* open = opensynth::sectionTable(opensynth::kOpenEngineToro, &n);
+    CHECK(open && n == static_cast<int>(sdk.size()), "open TORO has the SDK voice's %zu sections", sdk.size());
+    for (int k = 0; open && k < n && k < static_cast<int>(sdk.size()); k++)
+    {
+        CHECK(sdk[k].name == open[k].name, "section %d: SDK '%s', open '%s'", k, sdk[k].name.c_str(), open[k].name);
+        CHECK(sdk[k].elements.size() == open[k].count, "section '%s': same parameter count", open[k].name);
+        for (int j = 0; j < open[k].count && j < static_cast<int>(sdk[k].elements.size()); j++)
+            CHECK(sdk[k].elements[j].id == open[k].params[j], "section '%s' element %d: same parameter", open[k].name, j);
+    }
+}
+
 int main()
 {
+    sameLayout();
     std::vector<Case> cases;
     cases.push_back({ "default patch", {}, oneNote(48, 40) });
 

@@ -26,6 +26,12 @@ Everything that hosts the engines in CE gets written for CE: voice allocation, m
 
 They're renamed because Polyend's own ACD, FAT, VAP, WTFM and PERC are different engines. Reusing the names would make "ACD" mean two different sounds depending on the firmware.
 
+## Editor layout and icons
+
+Each open engine has a section layout in `core/synth/open/OpenSynthLayout.cpp`: which parameters go in which section of the patch editor's grid, and the icon each section gets. `sectionIcon` applies the patch editor's own word rules. `tests/opensynth/layout_test.cpp` reads `SynthPatchEditor.cpp` to check it uses the same words in the same order, and that every engine fits the grid with every parameter shown once. TORO's layout is its SDK layout; the parity test compares them.
+
+The icon images are still only compiled for Tracker+ and Mini (`FEATURE_SYNTH`). They move to all three devices, about 2.2 KB of flash, in the same change that gives the Original Tracker a synth editor (stage 3), so they don't sit unused in the Original build before then.
+
 ## How a port is checked
 
 - **The source diff.** Each ported file differs from OpenTracker's only by names, include paths and the fast-RAM marker, and its header says so. The diff is the proof that the DSP is unchanged. Re-run it when updating from upstream.
