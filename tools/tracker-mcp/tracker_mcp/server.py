@@ -16,6 +16,7 @@ from mcp.server.mcpserver import MCPServer
 from . import build as _build
 from . import display as _display
 from . import fx as _fx
+from . import interrupts as _interrupts
 from . import memory as _memory
 from . import project_map as _project_map
 from . import screens as _screens
@@ -119,6 +120,16 @@ def where_is(symbol: str) -> dict[str, Any]:
     compile it (compiled_for, from the per-target preprocessor). A comment-stripped text search, not a
     compiler: it skips uses inside function bodies, so grep for callers afterwards."""
     return _symbols.where_is(_root(), symbol)
+
+
+@server.tool()
+def interrupt_context(function: str = "") -> dict[str, Any]:
+    """Does a function (name or Class::name) run in interrupt context, and by which call path? Returns the
+    shortest path from each interrupt root that reaches it (audio DMA callbacks, MIDI handlers dispatched by
+    midiUpdate, the MIDI clock timer, IRQ handlers), every hop with the line it's called at and which targets
+    compile the whole path. With no function, lists the roots and every reachable function. A text-based
+    heuristic: reachable=false is never proof, so check the callers yourself."""
+    return _interrupts.interrupt_context(_root(), function)
 
 
 def main() -> None:
