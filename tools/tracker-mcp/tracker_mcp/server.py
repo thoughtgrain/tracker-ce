@@ -13,6 +13,7 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
+from . import build as _build
 from . import memory as _memory
 from . import project_map as _project_map
 from . import screens as _screens
@@ -70,6 +71,15 @@ def memory_map() -> dict[str, Any]:
     placement macro (AUDIO_CORE_RAM, AUDIO_CORE_FLASH, DMAMEM, __NOINIT(EXTERNAL_RAM), ...) and plain
     code/data actually land. Use before adding static buffers or moving code into fast RAM."""
     return _memory.memory_map(_root())
+
+
+@server.tool()
+def build_config() -> dict[str, Any]:
+    """Build configuration per target (original, plus, mini) exactly as make expands it: effective compile
+    flags per compile unit (core vs platform; C/C++/asm) with each -D traced to its makefile line, flags that
+    are overridden, link inputs, the output .ptf, and which #if guards used in core/ are defined per target.
+    Runs `make -n` with a dummy toolchain: nothing is built or written."""
+    return _build.build_config(_root())
 
 
 def main() -> None:
