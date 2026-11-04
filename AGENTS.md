@@ -118,3 +118,18 @@ Rules for using the ladder:
 - **Use the PR template** (`.github/PULL_REQUEST_TEMPLATE.md`): goal, behaviour changes, target devices, honest hardware testing table, step-by-step test instructions, checklist.
 - **Discuss first** for UI redesigns, workflow changes or anything that moves muscle memory: a GitHub Discussion or a Backstage topic, per the README's guiding principles.
 - **Licensing:** contributions are under the repository [`LICENSE`](LICENSE) (MIT, with the wholesale-clone restriction for the complete firmware). Polyend may relicense contributed changes. Third-party code needs an entry in `NOTICE.md`.
+
+---
+
+## 8. Area rules
+
+These directories have their own `AGENTS.md`, with the pitfalls specific to that code. Each one adds to this file; none replaces it. `rules` with the path you're editing returns this file plus every area file above it.
+
+| File | Covers |
+| :--- | :--- |
+| `core/source/AGENTS.md` | Sequencer and MIDI in the interrupt, existing violations not to copy, struct-size and format-version contracts |
+| `core/libs/Audio/AGENTS.md` | Audio node `update()` rules and the block pool |
+| `core/FileManager/AGENTS.md` | Synchronous `*Now()` functions, old-format loading, FatFs buffer alignment |
+| `core/libs/NewDisplay/AGENTS.md` | How the frame budget drops controls, interrupt-side setters, RAM_G layout, style bits |
+| `core/synth/AGENTS.md` | `FEATURE_SYNTH` scope, voice code in the interrupt, engine IDs, RAM per engine |
+| `platforms/AGENTS.md` | Two separately linked trees, the interrupt entry points, the `Platform` interface, vendored code |
