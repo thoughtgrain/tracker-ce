@@ -121,6 +121,7 @@ struct alignas(8) SynthVoice {
     float bendStart = 0.0f;  // ... at the block start
     float level = 0.0f;      // engine: amplitude-envelope level 0..1
     uint8_t slot = 0;        // 0..2
+    uint8_t index = 0;       // the host's number for this voice (stable for the voice's life): per-voice seeds
     uint8_t note = 0;
     bool gate = false;       // key held (false after noteOff)
     // This block is the voice's last (stolen / cut: the gain ramp falls to 0 and the record is freed

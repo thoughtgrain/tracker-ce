@@ -8,8 +8,8 @@
 //  - A fresh voice starts zeroed, so "the previous note" for glide comes from the slot (Slot::lastPitch)
 //    rather than from a voice object that lives forever. For one voice that's the same thing; with
 //    polyphony, every voice glides from the slot's last note.
-//  - The noise seed comes from a per-slot counter instead of the SDK's voice index (it only decorrelates
-//    the noise of simultaneous voices).
+//  - The noise seed comes from SynthVoice::index, the host's voice number, as the SDK voice's comes from
+//    its voice index (owner = index + 1).
 //  - Pitch bend arrives as SynthVoice::bendStart -> bend over the block (the SDK has one value per block).
 //  - SynthVoice::cutoffOct (the Performance filter offset) isn't applied yet: ToroCore.h has no cutoff input
 //    besides its knob, and changing the core would break its OP-XY parity.
@@ -50,7 +50,6 @@ struct Voice {
 };
 
 struct Slot {
-    uint32_t starts;  // voices started from silence (noise seeds)
     float lastPitch;  // the slot's last note, for glide from a fresh voice
     bool hasLast;
 };
@@ -130,7 +129,7 @@ public:
         // A voice coming out of silence starts toro fresh (phases, filter, no cutoff sweep). A voice that is
         // still sounding keeps its state, so a retrigger or a steal doesn't click.
         if (a.envStage == kEnvIdle) {
-            core::reset(a.dsp, 1u + (s.starts++ % static_cast<uint32_t>(kSynthMaxVoices)));
+            core::reset(a.dsp, 1u + static_cast<core::u32>(v.index));
             a.envLevel = 0.0f;
         }
         // The SDK's legato step: a note while another is held, in Legato mode.
