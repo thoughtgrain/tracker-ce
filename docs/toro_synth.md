@@ -102,8 +102,9 @@ These are the presets from the OP-XY build. On the Tracker, dial them in from **
 
 | File | What's in it |
 | :--- | :--- |
-| [`core/synth/engines/ToroCore.h`](../core/synth/engines/ToroCore.h) | The DSP, header-only and dependency-free. Block length is a template parameter: `render<6>` matches the OP-XY, `render<7>` is the Tracker. |
-| [`core/synth/engines/ToroSynthVoice.cpp`](../core/synth/engines/ToroSynthVoice.cpp) | The PolySynth voice: parameters, formatters, ADSR, glide, pitch, editor layout and macros |
+| [`core/synth/open/engines/ToroCore.h`](../core/synth/open/engines/ToroCore.h) | The DSP, header-only and dependency-free, shared by both builds below. Block length is a template parameter: `render<6>` matches the OP-XY, `render<7>` is the Tracker. |
+| [`core/synth/engines/ToroSynthVoice.cpp`](../core/synth/engines/ToroSynthVoice.cpp) | The PolySynth (SDK) voice for Tracker+ and Mini: parameters, formatters, ADSR, glide, pitch, editor layout and macros |
+| [`core/synth/open/engines/Toro.cpp`](../core/synth/open/engines/Toro.cpp) | The open engine for all three Trackers: the same ADSR, glide and pitch on the open interface. Nothing plays it yet; see [`docs/design/open-synth-host.md`](design/open-synth-host.md) |
 | [`core/libs/images/gen_toro_badges.py`](../core/libs/images/gen_toro_badges.py) | Generates the two L2 badges from the CHIP pill silhouette |
 | [`tests/toro/`](../tests/toro/) | Host tests |
 

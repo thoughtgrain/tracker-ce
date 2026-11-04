@@ -15,7 +15,7 @@ BUILD    := build
 CXX      ?= g++
 FLAGS    := -std=gnu++20 -O1 -g -Wall -Wextra -Werror -ffp-contract=off -fsanitize=address,undefined \
             -fno-sanitize-recover=undefined -DOPENSYNTH_HOST
-CE_SRCS  := $(OPEN)/engines/Acid.cpp $(OPEN)/OpenSynthRegistry.cpp $(OPEN)/OpenSynthParams.cpp
+CE_SRCS  := $(OPEN)/engines/Acid.cpp $(OPEN)/engines/Toro.cpp $(OPEN)/OpenSynthRegistry.cpp $(OPEN)/OpenSynthParams.cpp
 DEPS     := $(CE_SRCS) $(wildcard $(OPEN)/*.h $(OPEN)/engines/*.h) scenarios.h goldens.inc
 
 .PHONY: all test syntax print-goldens clean
