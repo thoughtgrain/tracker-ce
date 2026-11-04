@@ -20,9 +20,10 @@ The firmware build doesn't depend on any of this. It's opt-in developer tooling,
 | `build_config` | Per target: effective compile flags per unit with each `-D` traced to its makefile line, overridden flags, link inputs, output `.ptf`, guard matrix | `make -n` expansion, host GCC `-dM` |
 | `step_fx(query)` | Every step FX: stored id, menu letter/name, min / max / default (and randomized bounds), per target where they differ | The real `getFxMin`/`getFxMax`/`getFxDefault` compiled and run |
 | `display_controls` | Control classes, ids, stages, create sites, budgets, free style bits, RAM_G layout with computed overlaps | Compiler (ids, constants, style bits, image `sizeof`) |
+| `where_is(symbol)` | Definition and declaration sites of a name or `Class::name`, each with the targets that compile it | Locations the other tools derive, per-target preprocessor, mutation (comments and strings) |
 | `test_suites` | Host test suites, how to run them, which firmware sources each compiles | The real suites from their branches |
 
-The remaining planned tools (interrupt context, `where_is`, rules) are in [`docs/design/ai-dev-guidance-plan.md`](../../docs/design/ai-dev-guidance-plan.md).
+The remaining planned tools (interrupt context, rules) are in [`docs/design/ai-dev-guidance-plan.md`](../../docs/design/ai-dev-guidance-plan.md).
 
 Some tools need build tools on the machine running them: `build_config` and `test_suites` run `make -n` (nothing is built; the tests check the tree is untouched), and the accuracy tests need `g++` and GNU binutils (`ld`, `objdump`).
 

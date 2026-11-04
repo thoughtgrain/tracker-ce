@@ -20,6 +20,7 @@ from . import memory as _memory
 from . import project_map as _project_map
 from . import screens as _screens
 from . import suites as _suites
+from . import symbols as _symbols
 from . import synth as _synth
 from .source import find_repo_root
 
@@ -109,6 +110,15 @@ def test_suites() -> dict[str, Any]:
     (from make's own dry run of the suite's test target). Use it to find the test that covers code you're
     changing, or to see that none does yet."""
     return _suites.test_suites(_root())
+
+
+@server.tool()
+def where_is(symbol: str) -> dict[str, Any]:
+    """Definition and declaration sites of a symbol (a name or Class::name): types, enums, enumerators,
+    functions, macros, typedefs, variables, members and externs, each with file:line and which targets
+    compile it (compiled_for, from the per-target preprocessor). A comment-stripped text search, not a
+    compiler: it skips uses inside function bodies, so grep for callers afterwards."""
+    return _symbols.where_is(_root(), symbol)
 
 
 def main() -> None:
