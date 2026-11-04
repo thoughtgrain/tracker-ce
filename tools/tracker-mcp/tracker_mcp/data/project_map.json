@@ -49,7 +49,7 @@
     },
     {
       "path": "core/interface",
-      "purpose": "UI screens (modules): one directory per screen, g*.cpp draws, f*.cpp handles input. See list_screens.",
+      "purpose": "UI screens (modules): one directory per screen, g*.cpp draws, f*.cpp handles input. Recipe: ui-screen.",
       "key_files": [
         { "path": "core/interface/core/interface.cpp", "symbol": "Interface::modules", "why": "The table of screens; slot numbers used throughout the UI." },
         { "path": "core/interface/core/interfaceMenuPopup.cpp", "symbol": "kModuleNamesList", "why": "Screen names in the Tracker Mini module menu and Fn key bindings." }
@@ -72,7 +72,7 @@
     },
     {
       "path": "core/synth",
-      "purpose": "Synth glue for Tracker+ and Mini: engine registry, the Synth wrapper, open-source engines. See list_synth_engines.",
+      "purpose": "Synth glue for Tracker+ and Mini: engine registry, the Synth wrapper, open-source engines. Recipe: synth-engine.",
       "key_files": [
         { "path": "core/synth/registry.cpp", "symbol": "InstrumentTypeRegistry::registerInstrumentTypes", "why": "Where synth engines are registered." },
         { "path": "core/synth/Synth.h", "symbol": "kSynthTypes", "why": "The Model menu order; indexes the UI name and badge tables." }

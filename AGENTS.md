@@ -8,17 +8,17 @@ These rules apply to any tool: Claude Code, Codex, Cursor, Copilot, Gemini or an
 
 ## 0. Start here: look things up, don't guess
 
-[`tools/tracker-mcp`](tools/tracker-mcp/README.md) is an MCP server that answers "what is this and where does it live" by parsing this checkout. Every answer carries `file:line` provenance, and its tests check the answers against the compiler, the linker and make. Set it up once with `make -C tools/tracker-mcp setup`. If your tool can't use MCP, run the same functions from Python, or read the files the answers cite.
+[`tools/tracker-mcp`](tools/tracker-mcp/README.md) is a small MCP server with three tools: a map of where things live, the rules and build recipes for the code you're touching, and whether a function runs in the audio interrupt. It points you at the right files; the code itself is the answer, so read it. Set it up once with `make -C tools/tracker-mcp setup`. If your tool can't use MCP, read [`docs/recipes/`](docs/recipes) and the area `AGENTS.md` files directly.
 
 **Change protocol.** Each step, and the tool that answers it:
 
 | Step | Question | Use |
 | :--- | :--- | :--- |
-| 1. Locate | Where does this live? What is it called in the code? | `project_map`, `find_screen`, `where_is`, `list_synth_engines`, `step_fx` |
-| 2. Scope | What may this change touch, and what depends on it? | `where_is` for definitions, then grep the callers. `interrupt_context` to see whether anything you touch runs in the audio interrupt. `build_config` for which devices compile it. |
-| 3. Budget | Will it fit? | `memory_map` (where code and data land, per device), `display_controls` (display-list budget, free style bits, graphics memory) |
-| 4. Rules | What's specific to this area? | `rules`, which serves this file and the area `AGENTS.md` files |
-| 5. Verify | Which test proves the invariant? | `test_suites`, then the ladder in section 6 |
+| 1. Locate | Where does this live? | `project_map` for the area and its key files, then read and grep the code |
+| 2. Build | Is there a known way to add this? | `rules` with `recipe=` (synth engine, UI screen, step FX, `.ptfx` effect, host test) |
+| 3. Scope | What may this change touch, and what depends on it? | Grep the callers. `interrupt_context` for whether anything you touch runs in the audio interrupt. `#ifdef` guards (section 4) for which devices compile it. |
+| 4. Rules | What's specific to this area? | `rules` with the path you're editing: this file plus the area `AGENTS.md` files |
+| 5. Verify | Which check proves the invariant? | The ladder in section 6; the CI build's memory report answers "will it fit" |
 
 If a tool returns an error, the source has changed shape in a way it doesn't understand. Read the files it names; don't guess around it.
 
@@ -76,7 +76,7 @@ A function that's fine in the main loop can be wrong in the interrupt. When you 
 
 - **Three devices, one `core/`.** Use the guards in [developer guide §7](docs/developer_guide.md#7-conditional-compilation-targeting-specific-platforms-or-devices): `PLATFORM_IMX` / `!PLATFORM_IMX`, `TRACKER_MINI`, `FEATURE_SYNTH` (IMX only), and `#if GUI_HANDLE_SYNTH` (always defined, so never use `#ifdef`). Never use `__MK66FX1M0__` in `core/`: it's defined on both platforms.
 - **Memory is tight on Tracker+ and Mini.** The developer guide (§1) measured about 21 KB of fast data RAM and about 22 KB of fast code RAM (ITCM) free. Those figures come from a build and shrink with every feature, so re-check the ARM build's memory report rather than trusting them. Big or cold buffers go in `EXTERNAL_RAM` (`__NOINIT`), which isn't zeroed at startup.
-- **Hot code placement:** `AUDIO_CORE_RAM` puts code in ITCM on IMX. On MK66, both `AUDIO_CORE_RAM` and `AUDIO_CORE_FLASH` land in flash, so that choice only matters on IMX. `memory_map` shows where every placement macro, and plain code and data, lands on each device.
+- **Hot code placement:** `AUDIO_CORE_RAM` puts code in ITCM on IMX. On MK66, both `AUDIO_CORE_RAM` and `AUDIO_CORE_FLASH` land in flash, so that choice only matters on IMX.
 - **The display budget is 8,172 bytes per frame**, shared by every visible control (`core/libs/NewDisplay/display.cpp`). Past it, the remaining controls are **silently not drawn**. Count the display-list bytes a new or changed control emits.
 - **SD reads and writes** are much faster when the buffer pointer is 4-byte aligned. The NXP driver drops to one 512-byte sector per command otherwise.
 - **`core/makefile` compiles every `.cpp` under `core/source`, `core/libs`, `core/interface`, `core/effector`, `core/FileManager`, `core/Exporter`, `core/AudioEngine` and `core/synth`.** Host tests, tools and experiments must live outside those directories (e.g. `tests/<area>/`, `tools/`), or they get compiled into the firmware.
@@ -99,7 +99,7 @@ Use the cheapest rung that proves your invariant, and say in the PR which one yo
 | Rung | What it proves | How |
 | :--- | :--- | :--- |
 | 1. Host syntax check | It compiles against the real headers | `g++ -std=gnu++20 -fsyntax-only` with the makefile's include paths |
-| 2. Host tests | Logic, bit-exact output, golden hashes | `test_suites` lists the suites in this checkout, how to run each, and which firmware files each one compiles. The pattern: render the real firmware code on the host (plain `g++`, AddressSanitizer + UBSan + `-Werror`) and compare with golden hashes from a reference. The audio DSP harness and the TORO suite follow it; both are on their branches until they merge. |
+| 2. Host tests | Logic, bit-exact output, golden hashes | The `host-test` recipe ([`docs/recipes/host-test.md`](docs/recipes/host-test.md)). The pattern: render the real firmware code on the host (plain `g++`, AddressSanitizer + UBSan + `-Werror`) and compare with golden hashes from a reference. The audio DSP harness and the TORO suite follow it; both are on their branches until they merge. |
 | 3. ARM build | It builds for every device, and the memory report still fits | `make all` with the GNU Arm toolchain `10.3-2021.10`, or the PR's CI run. Read the `Memory region` lines in the summary. |
 | 4. Hardware smoke test | It boots and the touched screens and features work | Flash the CI `.ptf`. Note which device(s) in the PR's hardware table. |
 | 5. Hardware measurement | Performance and timing claims | `Profiler` audio load (wraps every audio block), the DEBUG-build `lastMemoryUsed` (display-list bytes the last frame used, against the 8,172 budget), wall-clock for file operations, a MIDI monitor or logic analyser for clock jitter |

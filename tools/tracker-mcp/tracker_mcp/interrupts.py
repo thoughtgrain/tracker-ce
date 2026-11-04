@@ -20,9 +20,8 @@ Edges come from call sites in function bodies. A call through `obj.f()` / `obj->
 the declared type of `obj` (local, parameter, member, file-level or extern global), including overrides
 in derived classes, since any of them may be the dynamic target. A call whose receiver type can't be
 worked out links only if exactly one method in the tree has that name; otherwise it's reported as
-unresolved. A call through a plain function-pointer variable links every function assigned to it
-(`ptr = func;`) anywhere in the tree. Other indirect calls (pointers in structs, arrays or parameters) are
-missed, and a callback stored for later isn't a call, so "not reachable" is never proof.
+unresolved. Calls through function pointers, other than the roots and the MIDI handlers, are missed (and a
+callback stored for later isn't a call), so "not reachable" is never proof.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from .source import ParseError
-from .symbols import _active_lines, _files, _index
+from .scopes import _active_lines, _files, _index
 from .targets import TARGET_DEFINES
 
 KEYWORDS = frozenset("""if for while switch return sizeof alignof decltype catch static_cast reinterpret_cast
@@ -77,7 +76,6 @@ class Model:
     global_vars: dict[str, set[str]] = field(default_factory=dict)
     roots: list[dict[str, Any]] = field(default_factory=list)
     dispatch: dict[int, list[tuple[int, str, str]]] = field(default_factory=dict)  # fid -> (callee, rel, pos)
-    fptrs: dict[str, list[tuple[int, str, int]]] = field(default_factory=dict)  # pointer var -> (fid, rel, pos)
     library_callbacks: list[int] = field(default_factory=list)
     library_entry: str = ""
     lines: dict[str, list[int]] = field(default_factory=dict)
@@ -167,7 +165,6 @@ def _cached_model(root_s: str, sig: tuple) -> Model:
         parent: list[int] = []
         stack: list[int] = []
         children: dict[int, list[tuple[int, int]]] = {}
-        top: list[tuple[int, int]] = []
         for i, (s, e, kind, header) in enumerate(scopes):
             while stack and scopes[stack[-1]][1] < s:
                 stack.pop()
@@ -225,13 +222,6 @@ def _cached_model(root_s: str, sig: tuple) -> Model:
     for fid, f in enumerate(model.funcs):
         model.by_name.setdefault(f.name, []).append(fid)
         model.by_key.setdefault((f.owner, f.name), []).append(fid)
-    # Plain function-pointer variables: every visible `ptr = func;` is a possible target of `ptr()`.
-    for rel, _ in sig:
-        for m in re.finditer(r"(?<![\w.>:])([A-Za-z_]\w*)\s*=\s*&?\s*([A-Za-z_]\w*)\s*;", model.code(rel)):
-            if m.group(1) in model.by_name:
-                continue
-            for fid in _free(model, m.group(2), rel):
-                model.fptrs.setdefault(m.group(1), []).append((fid, rel, m.start()))
     _find_roots(model, sig)
     _find_library_callbacks(model)
     return model
@@ -367,11 +357,6 @@ def _visible(model: Model, fids: list[int], caller_rel: str | None) -> list[int]
     return [f for f in fids if _platform(model.funcs[f].rel) in (None, plat)]
 
 
-def _visible_fptr(model: Model, name: str, caller_rel: str) -> list[tuple[int, str, int]]:
-    plat = _platform(caller_rel)
-    return [a for a in model.fptrs[name] if plat is None or _platform(a[1]) in (None, plat)]
-
-
 def _hierarchy_up(model: Model, cls: str) -> list[str]:
     out, queue, seen = [], deque([cls]), {cls}
     while queue:
@@ -454,10 +439,6 @@ def _edges(model: Model, fid: int) -> tuple[list[tuple[int, str, str, int]], lis
                                f"{LIBRARY_ENTRY[1]}::{name} (declared at {model.library_entry})", f.rel, pos))
             continue
         if name not in model.by_name:
-            if name in model.fptrs and not re.search(r"(?:\.|->|::)\s*$", code[max(0, pos - 4) : pos]):
-                for t, rel, apos in _visible_fptr(model, name, f.rel):
-                    out.append((t, f"through function pointer {name} (assigned at {model.where(rel, apos)})",
-                                f.rel, pos))
             continue
         before = code[max(0, pos - 240) : pos].rstrip()
         targets: list[tuple[int, str]] = []
@@ -558,9 +539,9 @@ def _reachable(model: Model) -> set[int]:
 
 
 NOTES = [
-    "Heuristic: a text-based call graph, not a compiler's. Calls through function pointers held in structs, "
-    "arrays or parameters are missed (plain pointer variables and the registered MIDI handlers are "
-    "followed), so reachable=false is never proof. Check the callers yourself (where_is, then grep).",
+    "Heuristic: a text-based call graph, not a compiler's. Calls through function pointers (other than the "
+    "roots and the registered MIDI handlers) are missed, so reachable=false is never proof. Grep the callers "
+    "yourself.",
     "Virtual calls link every override in derived classes, so a path can go through an override that isn't "
     "the dynamic type at runtime. Read the path before relying on it.",
     "compiled_for on a path is the set of targets whose preprocessor keeps every call site on it.",
@@ -580,7 +561,7 @@ def interrupt_context(root: Path, function: str = "") -> dict[str, Any]:
         }
     goal = set(_targets(model, function))
     if not goal:
-        raise ValueError(f"no function definition named {function!r} in the scanned source; check where_is")
+        raise ValueError(f"no function definition named {function!r} in the scanned source; grep for it")
     paths, seen_roots = [], set()
     unresolved: dict[str, dict[str, str]] = {}
     for r in model.roots:

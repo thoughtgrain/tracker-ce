@@ -1,51 +1,43 @@
 # tracker-ce project MCP server
 
-An [MCP](https://modelcontextprotocol.io) server that answers "what is this and where does it live" about the Polyend Tracker CE firmware, for AI coding tools (Claude Code, Cursor, Codex and others). The answers come from parsing **this checkout** every time a tool is called, so they follow the code instead of drifting from it.
+A small [MCP](https://modelcontextprotocol.io) server for AI coding tools (Claude Code, Cursor, Codex and others) working on the Polyend Tracker CE firmware. It doesn't try to catalogue the code. It tells an agent **where to look** and **how things are built here**, then gets out of the way so the agent reads the real source.
 
 ```bash
 make -C tools/tracker-mcp setup   # once: .venv + the official MCP Python SDK (Python 3.10+)
-make -C tools/tracker-mcp test    # accuracy + protocol tests
+make -C tools/tracker-mcp test    # about 15 s, Python only
 ```
 
-The firmware build doesn't depend on any of this. It's opt-in developer tooling, and it lives outside the directories the firmware makefiles compile.
+The firmware build doesn't depend on any of this. It's opt-in tooling, and it lives outside the directories the firmware makefiles compile.
 
 ## Tools
 
-| Tool | What it answers | Checked against |
+| Tool | What it answers | Why it's a tool rather than a doc |
 | :--- | :--- | :--- |
-| `project_map` | What each area of the repo is for, file counts, key files with their **current** line numbers, which `core/` directories the firmware build compiles | Anchors re-read, independent file walk |
-| `list_synth_engines` | Every `InstrumentTypeId`: value, registered or not, open-source or precompiled, Model-menu position, UI name, badges, consistency warnings | Compiler (enum completeness, `kSynthTypes`) |
-| `list_screens`, `find_screen(query)` | Every UI screen: slot, class, draw (`g*`) / input (`f*`) files, desktop button, Tracker Mini menu name | Independent class scan, menu vs button tables |
-| `memory_map` | Per target: linker regions, output sections, and where each placement macro and plain code/data lands | GNU `ld` linking the real macros against the real scripts |
-| `build_config` | Per target: effective compile flags per unit with each `-D` traced to its makefile line, overridden flags, link inputs, output `.ptf`, guard matrix | `make -n` expansion, host GCC `-dM` |
-| `step_fx(query)` | Every step FX: stored id, menu letter/name, min / max / default (and randomized bounds), per target where they differ | The real `getFxMin`/`getFxMax`/`getFxDefault` compiled and run |
-| `display_controls` | Control classes, ids, stages, create sites, budgets, free style bits, RAM_G layout with computed overlaps | Compiler (ids, constants, style bits, image `sizeof`) |
-| `where_is(symbol)` | Definition and declaration sites of a name or `Class::name`, each with the targets that compile it | Locations the other tools derive, per-target preprocessor, mutation (comments and strings) |
-| `interrupt_context(function)` | Whether a function runs in interrupt context, with the call path from each interrupt root, the line of every hop and the targets that compile the path. Labelled heuristic: "not reachable" isn't proof | Every hop re-read from its cited line, the C1/C2 findings, main-loop negatives, mutation, planted bugs |
-| `rules(path)` | The root `AGENTS.md` plus every area `AGENTS.md` above a path, verbatim, by section with heading lines | Lossless split, subtree scoping by mutation; separately, every path, `file:line`, link and symbol in every `AGENTS.md` is checked against the tree (`tests/test_anchors.py`) and each factual claim in the root file against the tools (`tests/test_guidance.py`) |
-| `test_suites` | Host test suites, how to run them, which firmware sources each compiles | The real suites from their branches |
+| `project_map` | What each area of the repo is for, key files with their current line numbers, which `core/` directories the firmware build compiles | Line numbers are found live, so they never go stale |
+| `rules(path, recipe)` | With `path`: the root `AGENTS.md` plus every area `AGENTS.md` above that file. With `recipe`: a build guide from [`docs/recipes/`](../../docs/recipes) (synth engine, UI screen, step FX, `.ptfx` effect, host test) | Agents don't reliably find nested guidance files on their own |
+| `interrupt_context(function)` | Whether a function runs in the audio interrupt, by which call path, and on which devices | The trace crosses about 600 files, MIDI handlers called through function pointers, and a precompiled synth library. Grep can't do that |
 
-The plan these tools came from, and what's next for them, is in [`docs/design/ai-dev-guidance-plan.md`](../../docs/design/ai-dev-guidance-plan.md).
+`interrupt_context` is a heuristic over source text, and every answer says so. "Reachable" comes with a path you can check line by line; "not reachable" isn't proof, because calls through function pointers can hide a path. It found two interrupt-rule violations nobody had listed, both recorded in `core/source/AGENTS.md`.
 
-Some tools need build tools on the machine running them: `build_config` and `test_suites` run `make -n` (nothing is built; the tests check the tree is untouched), and the accuracy tests need `g++` and GNU binutils (`ld`, `objdump`).
+## How to update things
 
-## Why you can trust an answer (and when you can't)
+Everything here is plain text, and only one check runs on it: **every path and name a doc mentions must exist**. Reword whatever you like; nothing breaks unless you point at something that's gone.
 
-- **Everything carries provenance.** Every fact has a `file:line` (`where`, `declared` or `position`). Open it before relying on a detail.
-- **Parsers fail loudly.** If the source doesn't look the way a parser expects (an enum renamed, a table restructured), the tool returns an error naming the file. It doesn't return a partial or guessed answer. An error means "go read the source", not "nothing there".
-- **One hand-written file.** The only hand-written facts are the area descriptions in `tracker_mcp/data/project_map.json`. Each key file there names a symbol, the tool finds its line live, and a missing symbol is an error. Line numbers are never stored.
+- **Guidance (`AGENTS.md`, area `AGENTS.md`, recipes):** edit the markdown, then run `make -C tools/tracker-mcp test`. If `test_anchors` fails, it names the file and the backticked token: you either typo'd it, or the code was renamed and the doc needs to follow.
+- **A new area file:** add `<dir>/AGENTS.md` and list it in section 8 of the root `AGENTS.md` (a test checks the listing). Keep it short; it gets read on every edit in that directory.
+- **A new recipe:** add `docs/recipes/<name>.md`. Its first paragraph is the summary `rules` shows, and the file name is the recipe name. Name the files and symbols to touch in backticks so the existence check covers them.
+- **The map:** `tracker_mcp/data/project_map.json` is the only hand-written data. Each key file names a symbol, and the tool finds its line live. If a symbol is renamed, the tool errors and names it.
+- **`interrupt_context` roots:** found in the source (the platform audio callbacks, `scheduleMidiClockUs` callbacks, IRQ handlers, the MIDI handler registrations in `midiInit`). If one moves, the tool raises an error naming the file instead of quietly returning less.
 
-The tests check accuracy five ways (`tests/`):
+## What the tests check
 
-| Layer | Example |
+| Test | What it proves |
 | :--- | :--- |
-| **Compiler ground truth** | A probe compiled against the real `config.h` switches over every enumerator the parser found, with `-Werror=switch`. If the parser missed one, the compiler rejects the probe. Its printed values must match. `Synth::kSynthTypes` is checked the same way. |
-| **Independent re-derivation** | The screen list must equal the set of `class cX : public ModuleBase` found by a separate scan. The Mini menu table and the button table must agree on which slot each button opens. |
-| **Mutation** | Add an engine, rename a menu entry, or drop a UI name in a temporary copy of the source, and the answer must change. A restructured table must raise, not mislead. |
-| **Anchor checks** | Every `file:line` in every answer exists, and every curated anchor's line really contains its symbol. |
-| **Protocol** | The official SDK client starts the server over stdio, lists the tools and calls each one. The wire answers must equal the direct calls. |
-
-The tests were themselves checked by planting bugs in copies of the parsers (dropping an enumerator, an off-by-one implicit value, a dropped screen). Each planted bug made the suite fail.
+| `test_anchors` | Every path, `file:line`, link and code name in every `AGENTS.md` and recipe exists. A self-test feeds it planted bad tokens |
+| `test_rules` | Guidance and recipes are served whole (split losslessly), area files apply only to their own subtree |
+| `test_project_map` | Every key file's line really contains its symbol; file counts match an independent walk |
+| `test_interrupts` | Every hop of every returned path is re-read from its cited line. The known interrupt SD-card paths are found, main-loop code isn't, and a planted call changes the answer |
+| `test_protocol` | The official SDK client starts the server over stdio, lists the three tools and calls them; wire answers equal direct calls |
 
 ## Using it from an editor or agent
 
@@ -63,6 +55,6 @@ claude mcp add tracker-ce --scope project \
   -- tools/tracker-mcp/.venv/bin/python -m tracker_mcp.server
 ```
 
-Other MCP clients take the same command, `PYTHONPATH` and `TRACKER_CE_ROOT`. A checked-in `.mcp.json` comes in phase 4.
+Other MCP clients take the same command, `PYTHONPATH` and `TRACKER_CE_ROOT`. Without MCP, read [`docs/recipes/`](../../docs/recipes) and the `AGENTS.md` files directly; the server adds nothing to them except finding them.
 
 `TRACKER_CE_ROOT` is optional: without it the server finds the checkout by walking up from its own location.
