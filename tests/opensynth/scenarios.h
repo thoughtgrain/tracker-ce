@@ -1,21 +1,24 @@
-// Render scenarios shared by the CE test (core/synth/open) and the golden generator (OpenTracker's own
-// engine). Both sides run exactly this code through a traits type, so a matching hash means the CE port
-// renders the same samples as OpenTracker for every scenario.
+// Render scenarios for the open synth engines (core/synth/open). Each scenario drives an engine the way
+// the engine contract in OpenSynthEngine.h describes a host doing it: slotReset once, then per block
+// setTempo -> prepare -> render each sounding voice, with note-on / note-off between blocks. Gain is a
+// flat value (Volume and velocity belong to the host, not the engine).
 //
-// The framework is emulated the way OpenTracker's synth_bank drives an engine: slotReset once, then per
-// block setTempo -> prepare -> render each sounding voice; note-on / note-off between blocks. Gain is a
-// flat 1.0 (Volume and velocity belong to the framework, not the engine).
+// The traits type supplies the engine-side types, so the same scenarios can drive any engine that
+// follows the contract.
 #pragma once
 
 #include <cmath>
 #include <cstdint>
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
 namespace scenarios {
 
 constexpr int kAcidParams = 29;
-constexpr int kMaxBlocksAfterOff = 3000;  // ~8.7 s: every scenario's release ends well before this
+// ~23 s. The longest release is 10 s, reaching 1 % (-40 dB) in its stage time; a voice ends at -80 dB,
+// so after about twice that. Anything still sounding past this cap is a voice that never ends.
+constexpr int kMaxBlocksAfterOff = 8000;
 
 // FNV-1a over the exact bits of everything an engine produces.
 struct Hash {
@@ -121,10 +124,19 @@ inline std::vector<Scenario> all() {
     return out;
 }
 
-// Runs one scenario through an engine and returns its hash. T supplies the engine-side types.
-// `defs` / `lo` / `hi` are the parameter defaults and ranges (the same table on both sides).
+struct Result {
+    uint64_t hash = 0;
+    bool finite = true;   // every sample and level was a finite number
+    bool ended = true;    // every voice ended within kMaxBlocksAfterOff blocks of the scenario's end
+    int blocks = 0;
+    float peak = 0.0f;    // largest |L| sample
+};
+
+// Runs one scenario through an engine. T supplies the engine-side types; `defs` / `lo` / `hi` are the
+// parameter defaults and ranges; `gain` is the flat host gain passed to render().
 template <class T>
-uint64_t run(const Scenario& sc, const float* defs, const float* lo, const float* hi) {
+Result run(const Scenario& sc, const float* defs, const float* lo, const float* hi, float gain = 1.0f) {
+    Result res;
     using Params = typename T::Params;
     using Voice = typename T::Voice;
     using Slot = typename T::Slot;
@@ -175,7 +187,7 @@ uint64_t run(const Scenario& sc, const float* defs, const float* lo, const float
         }
         if (block >= sc.blocks && !active[0] && !active[1]) break;
         if (block >= sc.blocks + kMaxBlocksAfterOff) {
-            h.u(0xDEADu);  // a voice that never ends changes the hash
+            res.ended = false;
             break;
         }
         if (sc.rampParam >= 0) {
@@ -197,18 +209,23 @@ uint64_t run(const Scenario& sc, const float* defs, const float* lo, const float
         std::fill(R.begin(), R.end(), 0.0f);
         for (int k = 0; k < 2; ++k) {
             if (!active[k]) continue;
-            active[k] = eng->render(voices[k], p, 1.0f, 0.0f, L.data(), R.data());
+            active[k] = eng->render(voices[k], p, gain, 0.0f, L.data(), R.data());
             h.u(active[k]);
             h.f(voices[k].level);
+            res.finite = res.finite && std::isfinite(voices[k].level);
         }
         for (uint32_t i = 0; i < T::kBlock; ++i) {
             h.f(L[i]);
             h.f(R[i]);
+            res.finite = res.finite && std::isfinite(L[i]) && std::isfinite(R[i]);
+            res.peak = std::max(res.peak, std::fabs(L[i]));
         }
         if (sc.rampParam >= 0) std::memcpy(p.start, p.end, sizeof(p.end));
     }
     h.u(uint32_t(block));
-    return h.h;
+    res.hash = h.h;
+    res.blocks = block;
+    return res;
 }
 
 }  // namespace scenarios

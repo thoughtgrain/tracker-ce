@@ -1,0 +1,47 @@
+# Open synth engines on all three Trackers: plan
+
+> Status: **stage 1** (the engine layer and ACID) on branch `feat/open-synth-host`, stacked on the TORO branch (`feat/toro-synth`).
+
+## Why
+
+Polyend's synth library (`synth/lib/libPolySynth.a`) is built for the Cortex-M7 with an FPv5 FPU, and its licence names Tracker+ and Tracker Mini. So the Original Tracker has no synths at all in CE, and every engine added through the SDK (Chiptune, TORO) inherits that limit.
+
+OpenTracker ([sandlbn/polyend-tracker-re](https://github.com/sandlbn/polyend-tracker-re), Apache-2.0) is a separate firmware for the Original Tracker. It has five synth engines written in plain C++ for exactly the Original's Cortex-M4, with all state in fixed-size blocks and nothing allocated on the audio path. Those engines can run on all three devices.
+
+## What we take, and what we don't
+
+**Only the sound engines.** From OpenTracker I take the engine interface the engines are written against, the engines themselves, and their parameter ranges. Nothing else: not its framework (voice pool, macros, mixing), patch codec, sequencer, UI or tests.
+
+Everything that hosts the engines in CE gets written for CE: voice allocation, macros, the audio node, patches and screens. That keeps the CE side shaped like CE, and keeps OpenTracker's own design decisions out of it.
+
+| OpenTracker | CE name | What it is |
+| :--- | :--- | :--- |
+| ACD | **ACID** | Acid bass and lead: saw / pulse / sub, three filters (12 dB, 24 dB SVF, ladder), glide |
+| FAT | **SWARM** | A stack of detuned saws |
+| VAP | **PRISM** | Virtual-analog poly: morphing oscillators, sync, 15 filter types, a modulation matrix |
+| WTFM | **GLINT** | Two-operator wavetable FM |
+| PERC | **KIT** | A drum kit (its voices share one kit's state, so it comes last) |
+
+They're renamed because Polyend's own ACD, FAT, VAP, WTFM and PERC are different engines. Reusing the names would make "ACD" mean two different sounds depending on the firmware.
+
+## How a port is checked
+
+- **The source diff.** Each ported file differs from OpenTracker's only by names, include paths and the fast-RAM marker, and its header says so. The diff is the proof that the DSP is unchanged. Re-run it when updating from upstream.
+- **Host tests** (`tests/opensynth/`, plain `g++` with ASan, UBSan and `-Werror`). These don't run OpenTracker's code; they test the port.
+  - **Regression goldens:** 66 render scenarios hashed bit for bit, so any change to the sound fails. A planted 2 % gain change failed all 66.
+  - **Engine contract:** every parameter changes the sound except Volume, which the host applies. Host gain scales linearly. Output is finite, and every voice ends, including for random patches.
+- **Rung 1:** `make -C tests/opensynth syntax` compiles the engines through the firmware's real `config.h` with `-fno-builtin`, for MK66 and IMX.
+
+## Stages
+
+1. **Engine layer and ACID** (this branch): `core/synth/open/` with the interface, ACID, its parameter table and the registry, plus the tests. Nothing calls it yet, so firmware behaviour doesn't change.
+2. **CE host on Tracker+ and Mini.** A CE audio node that renders the open engines into the synth slots, with voice allocation, macros and gain written for CE's sequencer. Engine IDs appended to `InstrumentTypeId`, and the Model menu and badges. Open and Polyend engines share the three slots.
+3. **The Original Tracker.** First measure the audio headroom on hardware (rung 5) with all 8 tracks busy, then enable the host there. The synth screens currently depend on Polyend's `Patch` API, so they need an adapter or CE-owned screens.
+4. **SWARM, PRISM and GLINT**: each is one engine file, one table and one registry line, with its own goldens.
+5. **KIT**, with a shared per-slot kit in the host.
+
+## Risks I know about
+
+- **CPU on the Original.** OpenTracker measured 62 to 73 % of the audio block budget with 4 worst-case synth voices plus 8 stereo tracks, in an audio engine built for that. CE's Original engine is a different design, and nobody has measured its headroom. Stage 3 starts with that measurement.
+- **Fast code RAM on IMX.** The hot kernels go in ITCM (`AUDIO_CORE_RAM`), and the developer guide measured about 22 KB free. Stage 2's CI memory report has to confirm it fits.
+- **Provenance.** OpenTracker describes its engines as clean-room with their own sound design. That's their claim, and the reason this port takes their engines as they are, with attribution, rather than anything derived from Polyend's library.
