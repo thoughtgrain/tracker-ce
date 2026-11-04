@@ -14,6 +14,7 @@ from typing import Any
 from mcp.server.mcpserver import MCPServer
 
 from . import build as _build
+from . import display as _display
 from . import fx as _fx
 from . import memory as _memory
 from . import project_map as _project_map
@@ -90,6 +91,15 @@ def step_fx(query: str = "") -> dict[str, Any]:
     target where they differ. query: empty for all; one character = exact, case-sensitive FX letter
     (C = Chance, c = CC C); digits = id; otherwise a substring of the id or name."""
     return _fx.step_fx(_root(), query)
+
+
+@server.tool()
+def display_controls() -> dict[str, Any]:
+    """Display widgets and FT812 graphics memory: every cDisplayControl subclass (control id, render stages,
+    where it draws, every createControl site, which builds implement it), slot and display-list budgets,
+    free style bits, and the RAM_G layout per target - bitmap table (checked against the image arrays),
+    control slots, decoded-image regions - with overlaps computed."""
+    return _display.display_controls(_root())
 
 
 def main() -> None:

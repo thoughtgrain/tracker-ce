@@ -10,3 +10,7 @@ TARGET_DEFINES: dict[str, dict[str, str]] = {
 
 # The guards whose presence this table must match exactly (checked against build_config).
 TRACKED_GUARDS = ("PLATFORM_IMX", "FEATURE_SYNTH", "TRACKER_MINI", "KINETISK")
+
+# Macros known to be undefined in the release builds `make all` produces (debug builds add -DDEBUG). A value
+# test like `#if DEBUG` evaluates to 0 for these instead of raising. Checked against build_config.
+RELEASE_UNDEFINED: frozenset[str] = frozenset({"DEBUG"})

@@ -63,7 +63,8 @@ def strip_comments(text: str) -> str:
     return "".join(out)
 
 
-def preprocess(code: str, defines: dict[str, str], rel: str = "<source>") -> str:
+def preprocess(code: str, defines: dict[str, str], rel: str = "<source>",
+               undefined: frozenset[str] = frozenset()) -> str:
     """Blank out lines in inactive #if/#ifdef/#ifndef/#elif/#else branches (line count preserved).
 
     Follows C rules: #ifdef / defined() of an unknown name is false. A value test (`#if NAME`) on a name that
@@ -87,6 +88,8 @@ def preprocess(code: str, defines: dict[str, str], rel: str = "<source>") -> str
             if n in macros:
                 v = macros[n].strip() or "1"
                 return v if re.fullmatch(r"\d+", v) else "1"
+            if n in undefined:
+                return "0"
             raise ParseError(f"{rel}:{lineno}: #if uses {n!r}, whose value isn't known here")
         e = re.sub(r"[A-Za-z_]\w*", name, e.replace("&&", " and ").replace("||", " or ").replace("!", " not "))
         e = e.replace(" not =", "!=")
@@ -150,7 +153,8 @@ class Source:
     code: str
 
     @classmethod
-    def load(cls, root: Path, rel: str, defines: dict[str, str] | None = None) -> "Source":
+    def load(cls, root: Path, rel: str, defines: dict[str, str] | None = None,
+             undefined: frozenset[str] = frozenset()) -> "Source":
         """Load a file. With `defines` (a target's command-line macros), inactive #if branches are blanked
         out, keeping line numbers, so parsers see exactly what that target compiles."""
         path = root / rel
@@ -159,7 +163,7 @@ class Source:
         text = path.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
         code = strip_comments(text)
         if defines is not None:
-            code = preprocess(code, defines, rel)
+            code = preprocess(code, defines, rel, undefined)
         return cls(root, rel, text, code)
 
     def line(self, offset: int) -> int:
