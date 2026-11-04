@@ -149,6 +149,21 @@ std::vector<Case> allCases()
         k.events.push_back({ Event::kParam, 20, kResonance, 0.8f });
         cases.push_back(k);
     }
+    // APHX: the hold zone (above 80 %, every key holds samples at its own rate), past its range (a macro
+    // pushing it over 100 %), a glide through the key blending, and APHX moving during a note.
+    for (float a : { 0.82f, 0.9f, 1.0f, 1.5f })
+        cases.push_back({ "aphx", 0, { { kAphx, a }, { kFold, 0.6f } }, oneNote(57, 30) });
+    {
+        Case g{ "aphx glide", 0, { { kAphx, 0.95f }, { kGlideTime, 0.5f } }, {} };
+        g.events = { { Event::kOn, 0, 36, 0 }, { Event::kOn, 10, 72, 0 }, { Event::kOff, 15, 36, 0 },
+                     { Event::kOff, 60, 72, 0 } };
+        cases.push_back(g);
+        Case m{ "aphx moving", 1, { { kAphx, 0.2f }, { kNoise, 0.3f } }, oneNote(48, 50) };
+        m.events.push_back({ Event::kParam, 10, kAphx, 0.7f });
+        m.events.push_back({ Event::kParam, 20, kAphx, 1.4f });
+        m.events.push_back({ Event::kParam, 30, kAphx, 0.0f });
+        cases.push_back(m);
+    }
     // Pitch bend, up and down.
     {
         Case c{ "bend", 0, {}, oneNote(48, 40) };
