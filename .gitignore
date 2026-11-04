@@ -26,3 +26,6 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+
+# Host test builds
+tests/*/build/
