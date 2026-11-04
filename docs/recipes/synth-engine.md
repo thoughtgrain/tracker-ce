@@ -4,6 +4,7 @@ How I add an open-source synth engine to the Model menu, in the order that keeps
 
 ## Before you start
 
+- **Need it on the Original Tracker too?** Use the `open-synth-engine` recipe instead: SDK engines can't run there.
 - Read [`docs/custom_synth_sdk.md`](../custom_synth_sdk.md) (the voice lifecycle and parameter tables) and `core/synth/AGENTS.md`.
 - The closest worked example is the chiptune engine (`core/synth/engines/ChiptuneSynthVoice.cpp`). The TORO engine on the `feat/toro-synth` branch is a second one, with a host test suite. Grep `kChiptuneSynth` and `createChiptuneSynth`: every hit is a place your engine needs too.
 

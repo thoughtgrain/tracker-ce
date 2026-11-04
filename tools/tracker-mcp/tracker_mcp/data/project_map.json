@@ -75,7 +75,9 @@
       "purpose": "Synth glue for Tracker+ and Mini: engine registry, the Synth wrapper, open-source engines. Recipe: synth-engine.",
       "key_files": [
         { "path": "core/synth/registry.cpp", "symbol": "InstrumentTypeRegistry::registerInstrumentTypes", "why": "Where synth engines are registered." },
-        { "path": "core/synth/Synth.h", "symbol": "kSynthTypes", "why": "The Model menu order; indexes the UI name and badge tables." }
+        { "path": "core/synth/Synth.h", "symbol": "kSynthTypes", "why": "The Model menu order; indexes the UI name and badge tables." },
+        { "path": "core/synth/open/OpenSynthEngine.h", "symbol": "class ISynthEngine", "why": "The open engine contract (all three devices). Recipe: open-synth-engine." },
+        { "path": "core/synth/open/OpenSynthRegistry.cpp", "symbol": "openSynthEngine", "why": "Where open engines are registered." }
       ]
     },
     {
