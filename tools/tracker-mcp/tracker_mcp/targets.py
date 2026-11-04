@@ -1,0 +1,12 @@
+"""Command-line macros that select code per target, used to evaluate #if branches when a parser needs the
+view of one target. Kept small on purpose; tests/test_fx.py checks it against build_config's guard matrix
+(what make actually passes), so it can't silently drift from the makefiles."""
+
+TARGET_DEFINES: dict[str, dict[str, str]] = {
+    "original": {"KINETISK": "1"},
+    "plus": {"KINETISK": "1", "PLATFORM_IMX": "1", "FEATURE_SYNTH": "1"},
+    "mini": {"KINETISK": "1", "PLATFORM_IMX": "1", "FEATURE_SYNTH": "1", "TRACKER_MINI": "1"},
+}
+
+# The guards whose presence this table must match exactly (checked against build_config).
+TRACKED_GUARDS = ("PLATFORM_IMX", "FEATURE_SYNTH", "TRACKER_MINI", "KINETISK")

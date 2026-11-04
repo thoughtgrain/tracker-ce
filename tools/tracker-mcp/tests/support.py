@@ -27,7 +27,20 @@ CXX_INCLUDES = [
 ]
 
 
-def compile_and_run(source: str, defines: Iterable[str] = ("FEATURE_SYNTH",), root: Path = ROOT) -> list[str]:
+# Wider include set for probes that pull in firmware headers (mtSequencer.h, interfaceDefs.h, ...).
+FIRMWARE_INCLUDES = CXX_INCLUDES + [
+    "core/libs", "core/libs/ElapsedMillis", "core/libs/NewDisplay", "core/libs/FT812", "core/interface",
+    "core/AudioEngine", "core/AudioEngine/ConstantValues", "core/FileManager",
+]
+
+# Firmware headers static_assert struct sizes that only hold on the 32-bit ARM targets (e.g. strInstrument is
+# 372 bytes there, larger with 64-bit host pointers). Probes that only read constants, enums and pure
+# functions disable static_assert in the probe translation unit alone; nothing else is affected.
+FIRMWARE_PROBE_FLAGS = ["-includecstdint", "-Dstatic_assert(...)=", "-w"]
+
+
+def compile_and_run(source: str, defines: Iterable[str] = ("FEATURE_SYNTH",), root: Path = ROOT,
+                    includes: Iterable[str] = CXX_INCLUDES, extra_flags: Iterable[str] = ()) -> list[str]:
     """Compile a tiny C++ program against the real headers of `root` and return its stdout lines.
     This is ground truth: the compiler, not a regex, decides what the headers mean."""
     cxx = shutil.which("g++") or shutil.which("clang++")
@@ -39,11 +52,12 @@ def compile_and_run(source: str, defines: Iterable[str] = ("FEATURE_SYNTH",), ro
         src.write_text(source)
         cmd = [cxx, "-std=gnu++20", "-Werror=switch", "-o", str(exe), str(src)]
         cmd += [f"-D{d}" for d in defines]
-        cmd += [f"-I{root / inc}" for inc in CXX_INCLUDES]
+        cmd += list(extra_flags)
+        cmd += [f"-I{root / inc}" for inc in includes]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             raise AssertionError(f"compiler ground-truth probe failed to build:\n{result.stderr[:3000]}")
-        return subprocess.run([str(exe)], capture_output=True, text=True, check=True).stdout.split()
+        return subprocess.run([str(exe)], capture_output=True, text=True, check=True).stdout.splitlines()
 
 
 class Mirror:

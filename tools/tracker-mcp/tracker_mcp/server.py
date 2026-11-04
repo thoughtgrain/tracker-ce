@@ -14,6 +14,7 @@ from typing import Any
 from mcp.server.mcpserver import MCPServer
 
 from . import build as _build
+from . import fx as _fx
 from . import memory as _memory
 from . import project_map as _project_map
 from . import screens as _screens
@@ -80,6 +81,15 @@ def build_config() -> dict[str, Any]:
     are overridden, link inputs, the output .ptf, and which #if guards used in core/ are defined per target.
     Runs `make -n` with a dummy toolchain: nothing is built or written."""
     return _build.build_config(_root())
+
+
+@server.tool()
+def step_fx(query: str = "") -> dict[str, Any]:
+    """Pattern step FX: id (as stored in pattern files), aliases, FX-menu position, letter and name, and
+    the min / max / default the sequencer enforces (plus the narrower bounds used when randomizing), per
+    target where they differ. query: empty for all; one character = exact, case-sensitive FX letter
+    (C = Chance, c = CC C); digits = id; otherwise a substring of the id or name."""
+    return _fx.step_fx(_root(), query)
 
 
 def main() -> None:
