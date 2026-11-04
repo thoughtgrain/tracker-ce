@@ -8,8 +8,6 @@
 // host applies Volume.
 //
 // Not compared, by design:
-//  - Restarting a voice from silence with Noise above 0: the open engine seeds its noise from a per-slot
-//    counter (it has no voice index), so the noise differs. Those cases run with Noise at 0.
 //  - Pitch bend: the open host ramps it across a block, the SDK holds one value per block.
 //
 // Copyright (c) 2026 briannhinton. MIT.
@@ -201,13 +199,13 @@ int main()
     cases.push_back({ "decay to silence", { { kSustain, 0.0f }, { kDecay, 0.2f } }, oneNote(55, 200) });
     cases.push_back({ "long release", { { kRelease, 6.0f } }, oneNote(36, 20) });
     {
-        Case c{ "restart after end", { { kRelease, 0.05f } }, {} };
+        Case c{ "restart after end", { { kRelease, 0.05f }, { kNoise, 0.6f } }, {} };
         c.steps = { { 0, true, 45 }, { 10, false, 45 }, { 60, true, 57 }, { 80, false, 57 } };
         cases.push_back(c);
     }
     cases.push_back({ "volume", { { kVolume, 0.7f } }, oneNote(50, 30) });
 
-    // Seeded random patches (Noise only on the first start, see the header).
+    // Seeded random patches.
     std::mt19937 rng(20261104);
     std::uniform_real_distribution<float> u(0.0f, 1.0f);
     for (int k = 0; k < 40; k++)
