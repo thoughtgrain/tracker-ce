@@ -22,10 +22,26 @@ OPEN     := $(ROOT)/core/synth/open
 OPEN_SRC := $(OPEN)/engines/Toro.cpp $(OPEN)/engines/Acid.cpp $(OPEN)/OpenSynthRegistry.cpp $(OPEN)/OpenSynthParams.cpp \
             $(OPEN)/OpenSynthLayout.cpp
 
-test: $(BUILD)/core_test $(BUILD)/voice_test $(BUILD)/open_parity_test
+SDK_FLAGS := $(CXXFLAGS) -ffp-contract=off -DFEATURE_SYNTH -DFMT_HEADER_ONLY -DOPENSYNTH_HOST -DPLATFORM_IMX $(INCLUDES)
+SDK_SRC   := $(ROOT)/core/synth/engines/ToroSynthVoice.cpp $(OPEN_SRC)
+SDK_DEPS  := harness.h sdk_fixture.h $(SDK_SRC) $(wildcard $(OPEN)/*.h $(OPEN)/engines/*.h $(ROOT)/core/synth/engines/*.h)
+
+.PHONY: print-sdk-goldens
+test: $(BUILD)/core_test $(BUILD)/voice_test $(BUILD)/open_parity_test $(BUILD)/sdk_regression_test
 	./$(BUILD)/core_test
 	./$(BUILD)/voice_test
 	./$(BUILD)/open_parity_test
+	./$(BUILD)/sdk_regression_test
+
+# The SDK TORO's output, recorded before TORO moved to the open engine; see sdk_regression_test.cpp.
+$(BUILD)/sdk_regression_test: sdk_regression_test.cpp sdk_goldens.inc $(SDK_DEPS)
+	@mkdir -p $(BUILD)
+	$(CXX) $(SDK_FLAGS) -o $@ sdk_regression_test.cpp $(SDK_SRC)
+
+print-sdk-goldens: sdk_regression_test.cpp $(SDK_DEPS)
+	@mkdir -p $(BUILD)
+	@$(CXX) $(SDK_FLAGS) -DTORO_PRINT_GOLDENS -o $(BUILD)/print_sdk_goldens sdk_regression_test.cpp $(SDK_SRC)
+	@./$(BUILD)/print_sdk_goldens
 
 $(BUILD)/core_test: core_test.cpp harness.h $(ROOT)/core/synth/open/engines/ToroCore.h
 	@mkdir -p $(BUILD)
