@@ -19,7 +19,8 @@ INCLUDES := -I$(ROOT)/core/synth/engines -I$(ROOT)/core/synth -I$(ROOT)/core/con
 all: test
 
 OPEN     := $(ROOT)/core/synth/open
-OPEN_SRC := $(OPEN)/engines/Toro.cpp $(OPEN)/engines/Acid.cpp $(OPEN)/OpenSynthRegistry.cpp $(OPEN)/OpenSynthParams.cpp
+OPEN_SRC := $(OPEN)/engines/Toro.cpp $(OPEN)/engines/Acid.cpp $(OPEN)/OpenSynthRegistry.cpp $(OPEN)/OpenSynthParams.cpp \
+            $(OPEN)/OpenSynthLayout.cpp
 
 test: $(BUILD)/core_test $(BUILD)/voice_test $(BUILD)/open_parity_test
 	./$(BUILD)/core_test

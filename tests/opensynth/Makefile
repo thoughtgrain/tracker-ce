@@ -15,18 +15,25 @@ BUILD    := build
 CXX      ?= g++
 FLAGS    := -std=gnu++20 -O1 -g -Wall -Wextra -Werror -ffp-contract=off -fsanitize=address,undefined \
             -fno-sanitize-recover=undefined -DOPENSYNTH_HOST
-CE_SRCS  := $(OPEN)/engines/Acid.cpp $(OPEN)/engines/Toro.cpp $(OPEN)/OpenSynthRegistry.cpp $(OPEN)/OpenSynthParams.cpp
+CE_SRCS  := $(OPEN)/engines/Acid.cpp $(OPEN)/engines/Toro.cpp $(OPEN)/OpenSynthRegistry.cpp $(OPEN)/OpenSynthParams.cpp \
+            $(OPEN)/OpenSynthLayout.cpp
 DEPS     := $(CE_SRCS) $(wildcard $(OPEN)/*.h $(OPEN)/engines/*.h) scenarios.h goldens.inc
 
 .PHONY: all test syntax print-goldens clean
 all: test
 
-test: $(BUILD)/acid_test
+test: $(BUILD)/acid_test $(BUILD)/layout_test
 	./$(BUILD)/acid_test
+	./$(BUILD)/layout_test
 
 $(BUILD)/acid_test: acid_test.cpp $(DEPS)
 	@mkdir -p $(BUILD)
 	$(CXX) $(FLAGS) -I. -I$(ROOT)/core/synth acid_test.cpp $(CE_SRCS) -o $@
+
+# The layout test reads the patch editor's source to check sectionIcon() follows its rules.
+$(BUILD)/layout_test: layout_test.cpp $(DEPS) $(ROOT)/core/interface/instrumentEditor/SynthPatchEditor.cpp
+	@mkdir -p $(BUILD)
+	$(CXX) $(FLAGS) -DOPENSYNTH_ROOT='"$(abspath $(ROOT))"' -I. -I$(ROOT)/core/synth layout_test.cpp $(CE_SRCS) -o $@
 
 # Rung 1: the sources as the firmware sees them (core/makefile's -I./config, real config.h, -fno-builtin),
 # for both device families.
