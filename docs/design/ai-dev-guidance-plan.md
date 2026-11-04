@@ -1,6 +1,6 @@
 # AI Development Guidance & Project MCP: Plan
 
-> Status: **phases 1 and 2 done** on branch `ai/dev-guidance` (from `main` at `9cc7aae`, one commit behind upstream). Phase 3 next.
+> Status: **phases 1–3 done** on branch `ai/dev-guidance` (from `main` at `9cc7aae`, one commit behind upstream). Phase 4 next.
 
 Upstream has exactly one AI rule today: no AI `Co-authored-by:` trailers, enforced by CI. Nothing tells an agent *how to work safely* in this codebase or *where things are*, and agents guess both. In this codebase, wrong guesses turn into clicks, broken projects and blown memory budgets. This plan fixes both halves:
 
@@ -34,6 +34,14 @@ Most agent tools read the closest `AGENTS.md` to the file being edited. Short ar
 | `platforms/` | MK66 and IMX differences, the HAL boundary |
 
 Each one must be **short** (it gets read on every edit in that area), and every claim in it must pass the anchor check in Part C.
+
+**What shipped in phase 3.** Six files: `core/source/`, `core/libs/Audio/`, `core/FileManager/`, `core/libs/NewDisplay/`, `core/synth/` and `platforms/`. I folded `core/AudioEngine/` into the audio-nodes file and moved the synth file up to `core/synth/`, so it covers `registry.cpp` as well as the engines. Every token in them passes `tests/test_anchors.py`, and every factual claim has a check in `tests/test_area_guidance.py`.
+
+**What `interrupt_context` turned up while I wrote them.** Two interrupt-rule violations the optimization plan doesn't list yet. Both are recorded in `core/source/AGENTS.md` as "don't copy", and each should be fixed as its own change:
+- `Sequencer::loadNextPattern` (interrupt) → `cFileManager::loadWorkspacePattern` → `stopAutosave()` → `WorkspaceProjectSave::stop()`, which spins on `update()` until an in-progress autosave sample write finishes. That's an SD write inside the audio interrupt.
+- A MIDI note-off on the Sample Recorder screen → `cSampleRecorder::noteOffHandle` → `hidePreviewValue()` → `display.setControlText()`, a UI call from the interrupt.
+
+The tests pin both, so whoever fixes one gets a failing test telling them to update the guidance.
 
 ### A3. Protocols (repeatable checklists)
 - **Change protocol:** locate (via the MCP), scope (fence, blast radius, invariant), change, verify (ladder rung), PR. Kept as a short section in the root `AGENTS.md` that names the MCP tools to use at each step.
