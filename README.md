@@ -73,7 +73,7 @@ From bug fixes and workflow improvements to new open-source synth engines and `.
 AI coding agents (Claude Code, Codex, Cursor, Copilot and others) are welcome here, with the same bar as any contributor: a change has to be provably safe on all three devices. Three things help an agent clear that bar. None of them are needed to build the firmware.
 
 * **[`AGENTS.md`](AGENTS.md)** holds the rules. It covers how to scope a change, what must never run in the audio interrupt (and where interrupt code starts), the file-format and memory rules, the verification ladder, and the commit rules. Directories with their own pitfalls (`core/source`, `core/libs/Audio`, `core/FileManager`, `core/libs/NewDisplay`, `core/synth` and `platforms`) have a short `AGENTS.md` that adds to it. Most agents read these automatically, and Claude Code reads it through `CLAUDE.md`.
-* **[`docs/recipes/`](docs/recipes)** has step-by-step guides for building core parts: a synth engine, a UI screen, a step FX, a `.ptfx` effect and a host test. Each lists the files to touch in order, the pitfalls and how to verify the result. Each also says to grep the closest existing example, because the code is always the final word.
+* **[`docs/recipes/`](docs/recipes)** has step-by-step guides for building core parts: a synth engine (an SDK one for Tracker+ and Mini, or an open one that also runs on the Original Tracker), a UI screen, a step FX, a `.ptfx` effect and a host test. Each lists the files to touch in order, the pitfalls and how to verify the result. Each also says to grep the closest existing example, because the code is always the final word.
 * **[`tools/tracker-mcp`](tools/tracker-mcp/README.md)** is a small optional [MCP](https://modelcontextprotocol.io) server that hands those docs to an agent when it needs them. It has two tools:
   * `project_map`: what each area of the repo is for, and its key files with current line numbers;
   * `rules`: the `AGENTS.md` files that apply to the file you're editing, or a recipe with `recipe=<name>`.
@@ -167,7 +167,8 @@ Full user and developer documentation is available in [`docs/`](docs/Home.md) an
   * [Firmware Architecture, Hardware Limits & Developer Gotchas](docs/developer_guide.md)
   * [Custom Synth Engine SDK](docs/custom_synth_sdk.md)
   * [Modular Sample Editor Effects & `.ptfx` Developer SDK](docs/modular_effects_system.md)
-  * [Build Recipes](docs/recipes) (synth engine, UI screen, step FX, `.ptfx` effect, host test)
+  * [Build Recipes](docs/recipes) (SDK synth engine, open synth engine, UI screen, step FX, `.ptfx` effect, host test)
+  * [Open Synth Engines Plan](docs/design/open-synth-host.md) (synth engines for all three devices)
   * [Rules for AI Coding Agents](AGENTS.md)
 
 ---

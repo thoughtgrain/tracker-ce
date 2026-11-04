@@ -21,7 +21,8 @@ server = MCPServer(
     instructions=(
         "Orientation for the Polyend Tracker CE firmware. Start with project_map to find the area and its key "
         "files, then read the code. Before editing, call rules with the file's path; to build something new "
-        "(a synth engine, a UI screen, a step FX, a .ptfx effect, a host test), call rules with recipe=<name>."
+        "(a synth engine, an open synth engine for all three devices, a UI screen, a step FX, a .ptfx effect, "
+        "a host test), call rules with recipe=<name>."
     ),
 )
 

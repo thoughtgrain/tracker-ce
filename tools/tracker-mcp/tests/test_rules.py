@@ -36,7 +36,7 @@ class Rules(unittest.TestCase):
 
     def test_recipes_are_listed_and_served_losslessly(self):
         listed = {r["recipe"]: r for r in rules.rules(ROOT)["recipes"]}
-        self.assertTrue({"synth-engine", "ui-screen", "step-fx", "ptfx-effect", "host-test"} <= set(listed), listed)
+        self.assertTrue({"synth-engine", "open-synth-engine", "ui-screen", "step-fx", "ptfx-effect", "host-test"} <= set(listed), listed)
         for name, entry in listed.items():
             with self.subTest(recipe=name):
                 self.assertTrue(entry["summary"])

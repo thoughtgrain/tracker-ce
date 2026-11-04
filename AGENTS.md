@@ -15,7 +15,7 @@ These rules apply to any tool: Claude Code, Codex, Cursor, Copilot, Gemini or an
 | Step | Question | Use |
 | :--- | :--- | :--- |
 | 1. Locate | Where does this live? | `project_map` for the area and its key files, then read and grep the code |
-| 2. Build | Is there a known way to add this? | `rules` with `recipe=` (synth engine, UI screen, step FX, `.ptfx` effect, host test) |
+| 2. Build | Is there a known way to add this? | `rules` with `recipe=` (SDK synth engine, open synth engine for all three devices, UI screen, step FX, `.ptfx` effect, host test) |
 | 3. Scope | What may this change touch, and what depends on it? | Grep the callers, up to an interrupt entry point (section 2) or main-loop code. `#ifdef` guards (section 4) for which devices compile it. |
 | 4. Rules | What's specific to this area? | `rules` with the path you're editing: this file plus the area `AGENTS.md` files |
 | 5. Verify | Which check proves the invariant? | The ladder in section 6; the CI build's memory report answers "will it fit" |
@@ -138,5 +138,5 @@ These directories have their own `AGENTS.md`, with the pitfalls specific to that
 | `core/libs/Audio/AGENTS.md` | Audio node `update()` rules and the block pool |
 | `core/FileManager/AGENTS.md` | Synchronous `*Now()` functions, old-format loading, FatFs buffer alignment |
 | `core/libs/NewDisplay/AGENTS.md` | How the frame budget drops controls, interrupt-side setters, RAM_G layout, style bits |
-| `core/synth/AGENTS.md` | `FEATURE_SYNTH` scope, voice code in the interrupt, engine IDs, RAM per engine |
+| `core/synth/AGENTS.md` | SDK engines (`FEATURE_SYNTH`) vs open engines (all three devices), voice code in the interrupt, engine IDs, RAM per engine |
 | `platforms/AGENTS.md` | Two separately linked trees, the interrupt entry points, the `Platform` interface, vendored code |
