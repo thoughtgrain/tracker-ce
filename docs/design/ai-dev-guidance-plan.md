@@ -85,7 +85,12 @@ Each one must be **short** (it gets read on every edit in that area), and every 
 4. **Anchor checks** for every curated statement, in the MCP data file and in every `AGENTS.md`: each file path exists, each named symbol is defined in the named file, and each `file:line` still points at that symbol (within a few lines).
 5. **Protocol tests.** The official SDK client starts the server over stdio, lists tools, calls each one, and validates the result shapes. That's the same path a real editor takes.
 
-The suite runs with one command (`make -C tools/tracker-mcp test`) and, in phase 4, in the fork's CI, so a code change that makes the MCP or the guidance wrong fails a build instead of misleading the next agent.
+The suite runs with one command (`make -C tools/tracker-mcp test`).
+
+**What a failure blocks (decided):** these tests guard the MCP's accuracy, not the firmware. In the fork's CI (phase 4):
+- **They block PRs that change `tools/tracker-mcp/`.** A tooling change can't merge while it gives wrong answers.
+- **On every other PR they run as a non-blocking warning.** Firmware work is never held up by tooling, but a source change that confuses a parser shows up immediately, in the PR that caused it.
+- The firmware build (`make all`) never depends on them.
 
 ---
 

@@ -13,6 +13,7 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
+from . import memory as _memory
 from . import project_map as _project_map
 from . import screens as _screens
 from . import synth as _synth
@@ -61,6 +62,14 @@ def find_screen(query: str) -> dict[str, Any]:
     """Find screens by any name: menu name ("Sample Editor"), class (cMasterParams), instance, directory
     or button (interfaceButtonMaster). Case-insensitive substring match."""
     return _screens.find_screen(_root(), query)
+
+
+@server.tool()
+def memory_map() -> dict[str, Any]:
+    """Memory per target (original, plus, mini): linker regions with sizes, output sections, and where each
+    placement macro (AUDIO_CORE_RAM, AUDIO_CORE_FLASH, DMAMEM, __NOINIT(EXTERNAL_RAM), ...) and plain
+    code/data actually land. Use before adding static buffers or moving code into fast RAM."""
+    return _memory.memory_map(_root())
 
 
 def main() -> None:
