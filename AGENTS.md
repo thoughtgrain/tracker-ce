@@ -8,7 +8,7 @@ These rules apply to any tool: Claude Code, Codex, Cursor, Copilot, Gemini or an
 
 ## 0. Start here: look things up, don't guess
 
-[`tools/tracker-mcp`](tools/tracker-mcp/README.md) is a small MCP server with three tools: a map of where things live, the rules and build recipes for the code you're touching, and whether a function runs in the audio interrupt. It points you at the right files; the code itself is the answer, so read it. Set it up once with `make -C tools/tracker-mcp setup`. If your tool can't use MCP, read [`docs/recipes/`](docs/recipes) and the area `AGENTS.md` files directly.
+[`tools/tracker-mcp`](tools/tracker-mcp/README.md) is a small MCP server with two tools: a map of where things live, and the rules and build recipes for the code you're touching. It points you at the right files; the code itself is the answer, so read it. Set it up once with `make -C tools/tracker-mcp setup`. If your tool can't use MCP, read [`docs/recipes/`](docs/recipes) and the area `AGENTS.md` files directly.
 
 **Change protocol.** Each step, and the tool that answers it:
 
@@ -16,7 +16,7 @@ These rules apply to any tool: Claude Code, Codex, Cursor, Copilot, Gemini or an
 | :--- | :--- | :--- |
 | 1. Locate | Where does this live? | `project_map` for the area and its key files, then read and grep the code |
 | 2. Build | Is there a known way to add this? | `rules` with `recipe=` (synth engine, UI screen, step FX, `.ptfx` effect, host test) |
-| 3. Scope | What may this change touch, and what depends on it? | Grep the callers. `interrupt_context` for whether anything you touch runs in the audio interrupt. `#ifdef` guards (section 4) for which devices compile it. |
+| 3. Scope | What may this change touch, and what depends on it? | Grep the callers, up to an interrupt entry point (section 2) or main-loop code. `#ifdef` guards (section 4) for which devices compile it. |
 | 4. Rules | What's specific to this area? | `rules` with the path you're editing: this file plus the area `AGENTS.md` files |
 | 5. Verify | Which check proves the invariant? | The ladder in section 6; the CI build's memory report answers "will it fit" |
 
@@ -60,7 +60,14 @@ In anything reachable from those (audio `update()`, `renderVoiceAudio()`, sequen
 - **No `double`.** Both CPUs have **single-precision-only FPUs** (`-mfpu=fpv4-sp-d16` on MK66, `-mfpu=fpv5-sp-d16` on IMX). Every `double` operation, including an unsuffixed literal like `0.5` or `/ 50.0`, becomes a slow software library call. Use `0.5f`, `sinf` and `powf`. The one exception is the sequencer's tick accumulator, which is deliberately `double` for drift and must stay that way.
 - **No library calls you expect to be cheap.** `core/` builds with `-fno-builtin`, so `memset`, `memcpy`, `floorf` and `sqrtf` are real function calls.
 
-A function that's fine in the main loop can be wrong in the interrupt. When you change a function, check whether *any* caller is interrupt context (that's part of the blast radius). `interrupt_context` traces this from the interrupt entry points and shows the call path. It's a text-based search, so it can miss calls through function pointers: treat "not found" as "check the callers yourself", never as proof.
+A function that's fine in the main loop can be wrong in the interrupt. When you change a function, check whether *any* caller is interrupt context (that's part of the blast radius): grep its callers, then their callers, until you reach main-loop code or one of these entry points:
+- the platform audio callbacks `updateBuffers` and `updateInputBuffers` (`platforms/imx/source/PlatformTrackerIMX.cpp`, `platforms/mk66/source/TrackerMain.cpp`), which call `TrackerImpl::updateAudioBuffers` and `TrackerImpl::updateInputAudioBuffers`;
+- every MIDI handler registered in `midiInit` (`core/source/mtMidi.cpp`). The port drivers call them through function pointers when `midiUpdate()` reads the ports, so grep for where a handler is *registered*, not where it's called;
+- the callback passed to `scheduleMidiClockUs` (the MIDI clock timer interrupt);
+- hardware handlers named `*_IRQHandler` or `*_isr`, and functions passed to `attachInterrupt`;
+- open-source synth voices. The precompiled PolySynth library calls their `InstrumentVoice` overrides from inside `Synth::renderAudioBuffer`, which `PolySynth::update` runs every block.
+
+When a caller chain goes cold at a function pointer, find where the pointer is assigned and keep going. A chain that seems to end isn't proof by itself.
 
 ---
 

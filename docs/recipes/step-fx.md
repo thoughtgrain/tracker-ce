@@ -20,7 +20,7 @@ How I add a pattern step FX: a new entry in the FX menu that the sequencer store
 
 ## Pitfalls
 
-- **All of step 5 runs in the audio interrupt.** No SD, heap, `double` or UI. Ask `interrupt_context` about each function you change.
+- **All of step 5 runs in the audio interrupt.** No SD, heap, `double` or UI. Trace the callers of each function you change (root `AGENTS.md`, section 2).
 - **The FX tables are parallel arrays.** `fxIDs`, `fxNames`, `fxShortNames` and `fxDescriptions` must stay in the same order. One off-by-one shifts every name after yours.
 - **Devices can differ.** Some FX names and behaviour are under `FEATURE_SYNTH`; check the `#ifdef`s around the code you copy.
 

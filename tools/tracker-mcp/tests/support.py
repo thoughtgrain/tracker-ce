@@ -3,7 +3,6 @@ provenance checker that every tool answer must pass."""
 
 from __future__ import annotations
 
-import re
 import shutil
 import subprocess
 import tempfile
@@ -87,9 +86,6 @@ class Mirror:
         self._tmp.cleanup()
 
 
-_WHERE = re.compile(r"^([\w./+-]+):(\d+)$")
-
-
 def provenance_strings(obj: Any) -> list[str]:
     """Every 'file:line' value anywhere in a tool answer (keys named where/declared/position)."""
     found: list[str] = []
@@ -109,16 +105,16 @@ def check_provenance(answer: Any, root: Path = ROOT) -> list[str]:
     """Problems with an answer's provenance: unparseable, missing file, or line past the end of the file."""
     problems = []
     for p in provenance_strings(answer):
-        m = _WHERE.match(p)
-        if not m:
+        rel, sep, line = p.rpartition(":")
+        if not (sep and rel and line.isdigit() and " " not in rel):
             problems.append(f"not file:line: {p!r}")
             continue
-        path = root / m.group(1)
+        path = root / rel
         if not path.is_file():
             problems.append(f"missing file: {p}")
             continue
         lines = path.read_text(encoding="utf-8", errors="replace").count("\n") + 1
-        if not 1 <= int(m.group(2)) <= lines:
+        if not 1 <= int(line) <= lines:
             problems.append(f"line out of range: {p} (file has {lines})")
     return problems
 

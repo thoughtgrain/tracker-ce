@@ -18,7 +18,7 @@ How I add an open-source synth engine to the Model menu, in the order that keeps
 
 ## Pitfalls
 
-- **Everything in your voice runs in the audio interrupt.** The precompiled library calls `renderVoiceAudio()`, `onNoteOn()` and `onNoteOff()` from inside the render. No heap, no SD, no `double`, no UI. Ask `interrupt_context` about your render function to see the path.
+- **Everything in your voice runs in the audio interrupt.** The precompiled library calls `renderVoiceAudio()`, `onNoteOn()` and `onNoteOff()` from inside the render. No heap, no SD, no `double`, no UI.
 - **The Original Tracker never compiles this.** Anything outside `#ifdef FEATURE_SYNTH` that names your engine breaks the MK66 build.
 - **Parameter IDs are stored in patches too.** Once released, append new parameters; never reorder them.
 
