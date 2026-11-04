@@ -24,7 +24,7 @@ OPEN_SRC := $(OPEN)/engines/Toro.cpp $(OPEN)/engines/Acid.cpp $(OPEN)/OpenSynthR
 
 SDK_FLAGS := $(CXXFLAGS) -ffp-contract=off -DFEATURE_SYNTH -DFMT_HEADER_ONLY -DOPENSYNTH_HOST -DPLATFORM_IMX $(INCLUDES)
 SDK_SRC   := $(ROOT)/core/synth/engines/ToroSynthVoice.cpp $(OPEN_SRC)
-SDK_DEPS  := harness.h sdk_fixture.h $(SDK_SRC) $(wildcard $(OPEN)/*.h $(OPEN)/engines/*.h $(ROOT)/core/synth/engines/*.h)
+SDK_DEPS  := harness.h sdk_fixture.h stub_patch.h $(SDK_SRC) $(wildcard $(OPEN)/*.h $(OPEN)/engines/*.h $(ROOT)/core/synth/engines/*.h)
 
 .PHONY: print-sdk-goldens
 test: $(BUILD)/core_test $(BUILD)/voice_test $(BUILD)/open_parity_test $(BUILD)/sdk_regression_test

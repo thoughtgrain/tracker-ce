@@ -41,7 +41,8 @@ enum class InstrumentTypeId
     kShapingSynth,
     kChiptuneSynth,
     kToroSynth,
-    kLastSynth = kToroSynth,
+    kAcidSynth,
+    kLastSynth = kAcidSynth,
     kDelay = 1000,
     kReverb,
 };
