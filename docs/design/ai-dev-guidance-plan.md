@@ -1,6 +1,6 @@
 # AI Development Guidance & Project MCP: Plan
 
-> Status: **plan + phase 1 in progress** on branch `ai/dev-guidance` (from `main` at `9cc7aae`, one commit behind upstream).
+> Status: **phases 1 and 2 done** on branch `ai/dev-guidance` (from `main` at `9cc7aae`, one commit behind upstream). Phase 3 next.
 
 Upstream has exactly one AI rule today: no AI `Co-authored-by:` trailers, enforced by CI. Nothing tells an agent *how to work safely* in this codebase or *where things are*, and agents guess both. In this codebase, wrong guesses turn into clicks, broken projects and blown memory budgets. This plan fixes both halves:
 

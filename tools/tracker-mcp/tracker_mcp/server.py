@@ -19,6 +19,7 @@ from . import fx as _fx
 from . import memory as _memory
 from . import project_map as _project_map
 from . import screens as _screens
+from . import suites as _suites
 from . import synth as _synth
 from .source import find_repo_root
 
@@ -100,6 +101,14 @@ def display_controls() -> dict[str, Any]:
     free style bits, and the RAM_G layout per target - bitmap table (checked against the image arrays),
     control slots, decoded-image regions - with overlaps computed."""
     return _display.display_controls(_root())
+
+
+@server.tool()
+def test_suites() -> dict[str, Any]:
+    """Host test suites in this checkout: how to run each one and which firmware source files each compiles
+    (from make's own dry run of the suite's test target). Use it to find the test that covers code you're
+    changing, or to see that none does yet."""
+    return _suites.test_suites(_root())
 
 
 def main() -> None:

@@ -13,7 +13,8 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from support import ROOT, check_provenance
 
 PKG_DIR = Path(__file__).resolve().parents[1]
-EXPECTED_TOOLS = {"project_map", "list_synth_engines", "list_screens", "find_screen", "memory_map", "build_config", "step_fx", "display_controls"}
+EXPECTED_TOOLS = {"project_map", "list_synth_engines", "list_screens", "find_screen", "memory_map", "build_config", "step_fx", "display_controls",
+                  "test_suites"}
 
 
 async def _session_run(calls):
@@ -47,7 +48,7 @@ class Protocol(unittest.TestCase):
         calls = [("project_map", {}), ("list_synth_engines", {}), ("list_screens", {}),
                  ("find_screen", {"query": "master"}), ("memory_map", {}),
                  ("build_config", {}), ("step_fx", {"query": "T"}),
-                 ("display_controls", {})]
+                 ("display_controls", {}), ("test_suites", {})]
         cls.init, cls.tools, cls.results = asyncio.run(_session_run(calls))
 
     def _get(self, name, args=None):
