@@ -18,7 +18,7 @@
 
 #include "ToroSynthVoice.h"
 #include "PolySynth/sdk/SynthVoiceSDK.h"
-#include "ToroCore.h"
+#include "open/engines/ToroCore.h"
 
 #include <algorithm>
 #include <array>

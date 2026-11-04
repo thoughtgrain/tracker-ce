@@ -8,7 +8,7 @@
 //
 // Copyright (c) 2026 briannhinton. MIT.
 
-#include "ToroCore.h"
+#include "open/engines/ToroCore.h"
 #include "harness.h"
 
 #include <algorithm>

@@ -64,6 +64,7 @@ enum OpenEngineId : int32_t {
     kOpenEnginePrism = 3,  // OpenTracker's VAP
     kOpenEngineGlint = 4,  // OpenTracker's WTFM
     kOpenEngineKit = 5,    // OpenTracker's PERC
+    kOpenEngineToro = 6,   // TORO (CE's own; also an SDK engine on Tracker+ and Mini)
 };
 
 constexpr int kSynthSlots = 3;               // Synth 1..3

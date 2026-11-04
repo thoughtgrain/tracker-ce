@@ -1,6 +1,6 @@
 # Open synth engines on all three Trackers: plan
 
-> Status: **stage 1** (the engine layer and ACID) on branch `feat/open-synth-host`, stacked on the TORO branch (`feat/toro-synth`).
+> Status: **stage 1** (the engine layer, ACID and TORO) on branch `feat/open-synth-host`, stacked on the TORO branch (`feat/toro-synth`).
 
 ## Why
 
@@ -22,6 +22,8 @@ Everything that hosts the engines in CE gets written for CE: voice allocation, m
 | WTFM | **GLINT** | Two-operator wavetable FM |
 | PERC | **KIT** | A drum kit (its voices share one kit's state, so it comes last) |
 
+**TORO** joins them too. It's CE's own engine (`docs/toro_synth.md`), not from OpenTracker. Its DSP, `ToroCore.h`, already had no dependencies, so it moved into `core/synth/open/engines/`. Both builds use that one file: the SDK voice on Tracker+ and Mini, and the open engine `Toro.cpp`, which can run on all three. `tests/toro/open_parity_test.cpp` drives both with the same notes and requires identical samples. That's 94 cases: every parameter, all glide modes, envelope edges and random patches. A planted 0.1 % change to the attack failed 92 of them. The parity test also caught a real bug while I wrote it: envelope-stage names shadowed the Attack, Decay, Sustain and Release parameter IDs.
+
 They're renamed because Polyend's own ACD, FAT, VAP, WTFM and PERC are different engines. Reusing the names would make "ACD" mean two different sounds depending on the firmware.
 
 ## How a port is checked
@@ -34,7 +36,7 @@ They're renamed because Polyend's own ACD, FAT, VAP, WTFM and PERC are different
 
 ## Stages
 
-1. **Engine layer and ACID** (this branch): `core/synth/open/` with the interface, ACID, its parameter table and the registry, plus the tests. Nothing calls it yet, so firmware behaviour doesn't change.
+1. **Engine layer, ACID and TORO** (this branch): `core/synth/open/` with the interface, ACID, TORO, their parameter tables and the registry, plus the tests. Nothing calls it yet, so firmware behaviour doesn't change.
 2. **CE host on Tracker+ and Mini.** A CE audio node that renders the open engines into the synth slots, with voice allocation, macros and gain written for CE's sequencer. Engine IDs appended to `InstrumentTypeId`, and the Model menu and badges. Open and Polyend engines share the three slots.
 3. **The Original Tracker.** First measure the audio headroom on hardware (rung 5) with all 8 tracks busy, then enable the host there. The synth screens currently depend on Polyend's `Patch` API, so they need an adapter or CE-owned screens.
 4. **SWARM, PRISM and GLINT**: each is one engine file, one table and one registry line, with its own goldens.

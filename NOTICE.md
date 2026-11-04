@@ -50,7 +50,7 @@ Polyend Tracker Community Edition (CE) incorporates or links against the followi
 * **Copyright**: Copyright (c) 2023-2026 Polyend Sp. z o.o. All rights reserved.
 
 ## 10. OpenTracker synth engines
-* **Location**: `core/synth/open/` (engine interface `OpenSynthEngine.h`, parameter ranges in `OpenSynthParams.cpp`, and the engines under `engines/`; currently ACID, ported from OpenTracker's ACD)
+* **Location**: `core/synth/open/` (engine interface `OpenSynthEngine.h`, parameter ranges in `OpenSynthParams.cpp`, and the engines under `engines/`; currently ACID, ported from OpenTracker's ACD. TORO in the same directory is Tracker CE's own, under the repository licence)
 * **Source**: OpenTracker, https://github.com/sandlbn/polyend-tracker-re (commit `6c93bbb`). Only the sound engines are taken; each ported file's header lists what was changed (renames, include paths, the fast-RAM marker).
 * **License**: Apache License 2.0 (`core/synth/open/LICENSE-APACHE-2.0`)
 * **Copyright**: Copyright the OpenTracker contributors.
