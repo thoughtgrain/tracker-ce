@@ -14,7 +14,7 @@ from support import ROOT, check_provenance
 
 PKG_DIR = Path(__file__).resolve().parents[1]
 EXPECTED_TOOLS = {"project_map", "list_synth_engines", "list_screens", "find_screen", "memory_map", "build_config", "step_fx", "display_controls",
-                  "test_suites", "where_is"}
+                  "test_suites", "where_is", "interrupt_context"}
 
 
 async def _session_run(calls):
@@ -49,7 +49,8 @@ class Protocol(unittest.TestCase):
                  ("find_screen", {"query": "master"}), ("memory_map", {}),
                  ("build_config", {}), ("step_fx", {"query": "T"}),
                  ("display_controls", {}), ("test_suites", {}),
-                 ("where_is", {"symbol": "cDisplay::update"})]
+                 ("where_is", {"symbol": "cDisplay::update"}),
+                 ("interrupt_context", {"function": "Sequencer::stop"})]
         cls.init, cls.tools, cls.results = asyncio.run(_session_run(calls))
 
     def _get(self, name, args=None):
@@ -83,6 +84,9 @@ class Protocol(unittest.TestCase):
         from tracker_mcp import symbols
         self.assertEqual(_payload(self._get("where_is", {"symbol": "cDisplay::update"})),
                          symbols.where_is(ROOT, "cDisplay::update"))
+        from tracker_mcp import interrupts
+        self.assertEqual(_payload(self._get("interrupt_context", {"function": "Sequencer::stop"})),
+                         interrupts.interrupt_context(ROOT, "Sequencer::stop"))
 
 
 if __name__ == "__main__":

@@ -94,6 +94,11 @@ class Precision(unittest.TestCase):
                 self.assertEqual(h["line"], line_text(h["where"]).strip()[:200], h["where"])
                 self.assertIn(sym.split("::")[-1], h["line"], h["where"])
 
+    def test_extern_c_blocks_hold_definitions(self):
+        hits = where_is(ROOT, "GPIO2_Combined_16_31_IRQHandler")["hits"]
+        self.assertEqual([(h["kind"], h["where"]) for h in hits],
+                         [("function definition", "platforms/imx/source/Drivers/Keys.cpp:17")])
+
     def test_comments_and_strings_dont_count(self):
         m = Mirror(["core/source/Profiler.h"])
         try:

@@ -80,7 +80,7 @@ class _FileIndex:
             return "initializer"
         if "(" in h:
             return "function"
-        if re.search(r"\bextern\s+\"C\"", header):
+        if re.search(r'\bextern\s+"\s*"$', h):  # extern "C" { (string contents are blanked by now)
             return "namespace"
         return "block"
 
