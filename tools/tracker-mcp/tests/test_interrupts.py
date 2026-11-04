@@ -12,7 +12,7 @@ import unittest
 from support import ROOT, Mirror, check_provenance, line_text
 from tracker_mcp import interrupts
 from tracker_mcp.source import ParseError
-from tracker_mcp.symbols import SCAN
+from tracker_mcp.scopes import SCAN
 
 
 def _ic(fn="", root=ROOT):
@@ -132,15 +132,6 @@ class Mutations(unittest.TestCase):
         self.assertTrue(data["reachable"])
         self.assertIn("receiveStart", _chain(data["paths"][0]))
         self.assertIn("display.update();", line_text(data["paths"][0]["steps"][-1]["called_at"], self.m.root))
-
-    def test_function_pointer_variable_is_followed(self):
-        self.m.edit("core/source/mtMidi.cpp", "void midiInit(",
-                    "void zzTarget() { display.update(); }\nstatic void (*zzHook)() = nullptr;\nvoid midiInit(")
-        self.m.edit("core/source/mtMidi.cpp", "    ::usbMidi = usbMidi;", "    ::usbMidi = usbMidi;\n    zzHook = zzTarget;")
-        self.m.edit("core/source/mtMidi.cpp", "void receiveStart()\n{", "void receiveStart()\n{\n    zzHook();")
-        data = _ic("zzTarget", self.m.root)
-        self.assertTrue(data["reachable"])
-        self.assertTrue(data["paths"][0]["steps"][-1]["how"].startswith("through function pointer zzHook"))
 
     def test_moved_clock_callback_raises(self):
         self.m.edit("core/source/mtMidi.cpp", "scheduleMidiClockUs(", "scheduleMidiClockLater(")

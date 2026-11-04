@@ -34,6 +34,19 @@ class Rules(unittest.TestCase):
         finally:
             m.close()
 
+    def test_recipes_are_listed_and_served_losslessly(self):
+        listed = {r["recipe"]: r for r in rules.rules(ROOT)["recipes"]}
+        self.assertTrue({"synth-engine", "ui-screen", "step-fx", "ptfx-effect", "host-test"} <= set(listed), listed)
+        for name, entry in listed.items():
+            with self.subTest(recipe=name):
+                self.assertTrue(entry["summary"])
+                data = rules.rules(ROOT, recipe=name)
+                self.assertEqual(check_provenance(data), [])
+                text = (ROOT / entry["file"]).read_text()
+                self.assertEqual("".join(x["text"] for x in data["sections"]).replace("\n", ""), text.replace("\n", ""))
+        with self.assertRaises(ValueError):
+            rules.rules(ROOT, recipe="no-such-recipe")
+
     def test_bad_paths_raise(self):
         for bad in ("core/no/such/file.cpp", "../outside"):
             with self.subTest(path=bad), self.assertRaises(ValueError):
