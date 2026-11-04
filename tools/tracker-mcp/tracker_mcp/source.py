@@ -63,6 +63,83 @@ def strip_comments(text: str) -> str:
     return "".join(out)
 
 
+def preprocess(code: str, defines: dict[str, str], rel: str = "<source>") -> str:
+    """Blank out lines in inactive #if/#ifdef/#ifndef/#elif/#else branches (line count preserved).
+
+    Follows C rules: #ifdef / defined() of an unknown name is false. A value test (`#if NAME`) on a name that
+    is neither in `defines` nor #defined earlier in this file raises, since it may be defined in another
+    header and guessing could silently pick the wrong branch."""
+    macros = dict(defines)
+    out_lines = []
+    # stack of (this branch active, some branch already taken, parent active)
+    stack: list[list[bool]] = []
+
+    def active() -> bool:
+        return all(frame[0] for frame in stack)
+
+    def cond_value(expr: str, lineno: int) -> bool:
+        e = re.sub(r"\bdefined\s*\(\s*(\w+)\s*\)|\bdefined\s+(\w+)",
+                   lambda m: "1" if (m.group(1) or m.group(2)) in macros else "0", expr)
+        def name(m):
+            n = m.group(0)
+            if n in ("and", "or", "not"):
+                return n
+            if n in macros:
+                v = macros[n].strip() or "1"
+                return v if re.fullmatch(r"\d+", v) else "1"
+            raise ParseError(f"{rel}:{lineno}: #if uses {n!r}, whose value isn't known here")
+        e = re.sub(r"[A-Za-z_]\w*", name, e.replace("&&", " and ").replace("||", " or ").replace("!", " not "))
+        e = e.replace(" not =", "!=")
+        try:
+            return bool(eval(e, {"__builtins__": {}}, {}))  # only digits and boolean operators remain
+        except Exception as exc:
+            raise ParseError(f"{rel}:{lineno}: can't evaluate #if {expr.strip()!r}") from exc
+
+    for lineno, line in enumerate(code.split("\n"), 1):
+        m = re.match(r"\s*#\s*(ifdef|ifndef|if|elif|else|endif|define|undef)\b(.*)", line)
+        directive, rest = (m.group(1), m.group(2).strip()) if m else (None, "")
+        if directive in ("ifdef", "ifndef"):
+            parent = active()
+            name = rest.split()[0] if rest else ""
+            taken = (name in macros) == (directive == "ifdef")
+            stack.append([taken, taken, parent])
+            out_lines.append("")
+            continue
+        if directive == "if":
+            parent = active()
+            taken = cond_value(rest, lineno) if parent else False
+            stack.append([taken, taken, parent])
+            out_lines.append("")
+            continue
+        if directive in ("elif", "else", "endif"):
+            if not stack:
+                raise ParseError(f"{rel}:{lineno}: #{directive} without #if")
+            frame = stack[-1]
+            if directive == "endif":
+                stack.pop()
+            elif directive == "else":
+                frame[0] = not frame[1]
+                frame[1] = True
+            else:
+                frame[0] = (not frame[1]) and frame[2] and cond_value(rest, lineno)
+                frame[1] = frame[1] or frame[0]
+            out_lines.append("")
+            continue
+        if not active():
+            out_lines.append("")
+            continue
+        if directive == "define":
+            dm = re.match(r"(\w+)(?:\s+(.*))?$", rest)
+            if dm:
+                macros[dm.group(1)] = (dm.group(2) or "").strip()
+        elif directive == "undef":
+            macros.pop(rest.split()[0] if rest else "", None)
+        out_lines.append(line)
+    if stack:
+        raise ParseError(f"{rel}: unterminated #if")
+    return "\n".join(out_lines)
+
+
 @dataclass
 class Source:
     """One source file: original text, comment-free text, and offset -> line lookup."""
@@ -73,12 +150,17 @@ class Source:
     code: str
 
     @classmethod
-    def load(cls, root: Path, rel: str) -> "Source":
+    def load(cls, root: Path, rel: str, defines: dict[str, str] | None = None) -> "Source":
+        """Load a file. With `defines` (a target's command-line macros), inactive #if branches are blanked
+        out, keeping line numbers, so parsers see exactly what that target compiles."""
         path = root / rel
         if not path.is_file():
             raise ParseError(f"{rel}: file not found")
         text = path.read_text(encoding="utf-8", errors="replace").replace("\r\n", "\n")
-        return cls(root, rel, text, strip_comments(text))
+        code = strip_comments(text)
+        if defines is not None:
+            code = preprocess(code, defines, rel)
+        return cls(root, rel, text, code)
 
     def line(self, offset: int) -> int:
         return self.code.count("\n", 0, offset) + 1
@@ -141,9 +223,16 @@ def parse_enum(src: Source, enum_name: str) -> list[Enumerator]:
     """Enumerators of `enum [class] enum_name`, with C++ value rules: implicit +1, integer literals, and
     references to earlier enumerators. Any other initializer raises, rather than producing a wrong value."""
     m = src.find(rf"\benum\s+(?:class\s+|struct\s+)?{re.escape(enum_name)}\b[^{{;]*\{{", f"enum {enum_name}")
-    start, end = src.braces(m.end() - 1)
+    return parse_enum_at(src, m.end() - 1, enum_name)
+
+
+def parse_enum_at(src: Source, open_brace: int, label: str, known: dict[str, int] | None = None) -> list[Enumerator]:
+    """Enumerators of the enum whose '{' is at open_brace. `known` supplies values of enumerators from other
+    enums that initializers may reference (e.g. `kAlias = OTHER_ENUM_VALUE`)."""
+    enum_name = label
+    start, end = src.braces(open_brace)
     result: list[Enumerator] = []
-    values: dict[str, int] = {}
+    values: dict[str, int] = dict(known or {})
     nxt = 0
     for item, off in src.top_level_items(start, end):
         name, _, init = (part.strip() for part in item.partition("="))
@@ -156,7 +245,9 @@ def parse_enum(src: Source, enum_name: str) -> list[Enumerator]:
             elif init in values:
                 value, alias = values[init], init
             else:
-                raise ParseError(f"{src.at(off)}: can't evaluate '{name} = {init}' in {enum_name}")
+                value = _int_expr(init, values)
+                if value is None:
+                    raise ParseError(f"{src.at(off)}: can't evaluate '{name} = {init}' in {enum_name}")
         else:
             value = nxt
         values[name] = value
@@ -165,6 +256,39 @@ def parse_enum(src: Source, enum_name: str) -> list[Enumerator]:
     if not result:
         raise ParseError(f"{src.rel}: enum {enum_name} is empty")
     return result
+
+
+def _int_expr(expr: str, names: dict[str, int]) -> int | None:
+    """Integer arithmetic over literals and known names (+ - * << >> | & ~, parentheses), else None."""
+    import ast
+
+    text = re.sub(r"\b(0[xX][0-9a-fA-F]+|\d+)[uUlL]+\b", r"\1", expr.strip())
+    try:
+        tree = ast.parse(text, mode="eval")
+    except SyntaxError:
+        return None
+    ops = {ast.Add: lambda a, b: a + b, ast.Sub: lambda a, b: a - b, ast.Mult: lambda a, b: a * b,
+           ast.LShift: lambda a, b: a << b, ast.RShift: lambda a, b: a >> b, ast.BitOr: lambda a, b: a | b,
+           ast.BitAnd: lambda a, b: a & b}
+
+    def ev(node):
+        if isinstance(node, ast.Expression):
+            return ev(node.body)
+        if isinstance(node, ast.Constant) and type(node.value) is int:
+            return node.value
+        if isinstance(node, ast.Name) and node.id in names:
+            return names[node.id]
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.Invert)):
+            v = ev(node.operand)
+            return -v if isinstance(node.op, ast.USub) else ~v
+        if isinstance(node, ast.BinOp) and type(node.op) in ops:
+            return ops[type(node.op)](ev(node.left), ev(node.right))
+        raise ValueError
+
+    try:
+        return ev(tree)
+    except (ValueError, KeyError):
+        return None
 
 
 def parse_array(src: Source, anchor_regex: str, what: str) -> list[tuple[str, str]]:
