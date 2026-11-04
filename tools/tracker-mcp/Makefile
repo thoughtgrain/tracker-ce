@@ -1,7 +1,7 @@
 # tracker-ce project MCP server: setup, tests, run.
 #
 #   make -C tools/tracker-mcp setup   create .venv and install the MCP SDK (once)
-#   make -C tools/tracker-mcp test    tests (about 15 s; Python only, no compiler)
+#   make -C tools/tracker-mcp test    tests (a few seconds; Python only)
 #   make -C tools/tracker-mcp serve   run the server on stdio (what an editor does)
 
 PY      ?= python3

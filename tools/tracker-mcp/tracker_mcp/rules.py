@@ -11,7 +11,6 @@ order, and the pitfalls. Every answer lists them; pass recipe=<name> to get one.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +25,14 @@ def recipe_files(root: Path) -> list[str]:
     return sorted(str(p.relative_to(root)) for p in d.glob("*.md") if p.name != "README.md") if d.is_dir() else []
 
 
+def _is_heading(line: str) -> bool:
+    """A level-1 or level-2 markdown heading: `# x` or `## x`."""
+    for prefix in ("# ", "## "):
+        if line.startswith(prefix) and line[len(prefix) :].strip():
+            return True
+    return False
+
+
 def _sections(root: Path, rel: str) -> list[dict[str, Any]]:
     """Split a markdown file at its level-1 and level-2 headings (outside code fences)."""
     lines = (root / rel).read_text(encoding="utf-8").split("\n")
@@ -34,11 +41,11 @@ def _sections(root: Path, rel: str) -> list[dict[str, Any]]:
     for i, line in enumerate(lines):
         if line.lstrip().startswith("```"):
             fenced = not fenced
-        if not fenced and re.match(r"#{1,2} \S", line):
+        if not fenced and _is_heading(line):
             if i > start or heading is not None:
                 out.append({"heading": heading or "", "where": f"{rel}:{start + 1}",
                             "text": "\n".join(lines[start:i]).strip("\n")})
-            start, heading = i, re.sub(r"^#+\s*", "", line).strip()
+            start, heading = i, line.lstrip("#").strip()
     out.append({"heading": heading or "", "where": f"{rel}:{start + 1}", "text": "\n".join(lines[start:]).strip("\n")})
     return [s for s in out if s["text"]]
 

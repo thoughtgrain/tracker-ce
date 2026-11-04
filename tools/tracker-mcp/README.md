@@ -4,7 +4,7 @@ A small [MCP](https://modelcontextprotocol.io) server for AI coding tools (Claud
 
 ```bash
 make -C tools/tracker-mcp setup   # once: .venv + the official MCP Python SDK (Python 3.10+)
-make -C tools/tracker-mcp test    # about 15 s, Python only
+make -C tools/tracker-mcp test    # a few seconds, Python only
 ```
 
 The firmware build doesn't depend on any of this. It's opt-in tooling, and it lives outside the directories the firmware makefiles compile.
@@ -15,9 +15,8 @@ The firmware build doesn't depend on any of this. It's opt-in tooling, and it li
 | :--- | :--- | :--- |
 | `project_map` | What each area of the repo is for, key files with their current line numbers, which `core/` directories the firmware build compiles | Line numbers are found live, so they never go stale |
 | `rules(path, recipe)` | With `path`: the root `AGENTS.md` plus every area `AGENTS.md` above that file. With `recipe`: a build guide from [`docs/recipes/`](../../docs/recipes) (synth engine, UI screen, step FX, `.ptfx` effect, host test) | Agents don't reliably find nested guidance files on their own |
-| `interrupt_context(function)` | Whether a function runs in the audio interrupt, by which call path, and on which devices | The trace crosses about 600 files, MIDI handlers called through function pointers, and a precompiled synth library. Grep can't do that |
 
-`interrupt_context` is a heuristic over source text, and every answer says so. "Reachable" comes with a path you can check line by line; "not reachable" isn't proof, because calls through function pointers can hide a path. It found two interrupt-rule violations nobody had listed, both recorded in `core/source/AGENTS.md`.
+No code here parses C++, and nothing uses regular expressions. Finding a key file's line is a plain token scan. Whether something runs in the audio interrupt is answered by tracing callers by hand, from the entry points listed in section 2 of the root `AGENTS.md`.
 
 ## How to update things
 
@@ -27,7 +26,7 @@ Everything here is plain text, and only one check runs on it: **every path and n
 - **A new area file:** add `<dir>/AGENTS.md` and list it in section 8 of the root `AGENTS.md` (a test checks the listing). Keep it short; it gets read on every edit in that directory.
 - **A new recipe:** add `docs/recipes/<name>.md`. Its first paragraph is the summary `rules` shows, and the file name is the recipe name. Name the files and symbols to touch in backticks so the existence check covers them.
 - **The map:** `tracker_mcp/data/project_map.json` is the only hand-written data. Each key file names a symbol, and the tool finds its line live. If a symbol is renamed, the tool errors and names it.
-- **`interrupt_context` roots:** found in the source (the platform audio callbacks, `scheduleMidiClockUs` callbacks, IRQ handlers, the MIDI handler registrations in `midiInit`). If one moves, the tool raises an error naming the file instead of quietly returning less.
+- **Interrupt entry points:** they're prose in section 2 of the root `AGENTS.md`. If one moves, update the list; the existence check catches a renamed function.
 
 ## What the tests check
 
@@ -36,8 +35,7 @@ Everything here is plain text, and only one check runs on it: **every path and n
 | `test_anchors` | Every path, `file:line`, link and code name in every `AGENTS.md` and recipe exists. A self-test feeds it planted bad tokens |
 | `test_rules` | Guidance and recipes are served whole (split losslessly), area files apply only to their own subtree |
 | `test_project_map` | Every key file's line really contains its symbol; file counts match an independent walk |
-| `test_interrupts` | Every hop of every returned path is re-read from its cited line. The known interrupt SD-card paths are found, main-loop code isn't, and a planted call changes the answer |
-| `test_protocol` | The official SDK client starts the server over stdio, lists the three tools and calls them; wire answers equal direct calls |
+| `test_protocol` | The official SDK client starts the server over stdio, lists the two tools and calls them; wire answers equal direct calls |
 
 ## Using it from an editor or agent
 

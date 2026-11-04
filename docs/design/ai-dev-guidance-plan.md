@@ -7,10 +7,12 @@
 After building all of it, I cut it back. Thirteen tools catalogued things an agent can read from the code in a few minutes (screens, synth engines, step FX, display controls, test suites, symbol lookup). Two test files tied sentences in the guidance to regexes, so rewording a rule broke a test. Both made the project harder to keep up to date, and that cost more than they saved.
 
 What's left follows one rule: **the MCP says where to look and how things are built here; the agent reads the real code.**
-- **Three tools.** `project_map` (where things live), `rules` (the `AGENTS.md` files that apply to a path, plus the build recipes in `docs/recipes/`) and `interrupt_context` (a whole-tree trace grep can't do, which found two real bugs).
+- **Two tools.** `project_map` (where things live) and `rules` (the `AGENTS.md` files that apply to a path, plus the build recipes in `docs/recipes/`). An `interrupt_context` tracer existed briefly and found two real bugs; see below for why it went.
 - **Recipes instead of catalogues.** Synth engine, UI screen, step FX, `.ptfx` effect and host test: the files to touch in order, the pitfalls, and how to verify. Each says to grep the closest existing example, because that stays right when a list wouldn't.
 - **One check on the docs:** every path and name they mention exists. No claim tests, so prose edits never break anything.
 - **Tests:** 30, in about 15 seconds, Python only (it was 127 tests in 3.6 minutes, needing `g++`, `make` and `ld`).
+
+**Then no regex at all.** I also dropped `interrupt_context`: its text parsing was the regex. What it knew is now written down instead. Section 2 of the root `AGENTS.md` lists every interrupt entry point (audio callbacks, MIDI handler registrations, the clock timer, IRQ handlers, the synth library's voice callbacks), so a caller trace by grep knows where to stop. That leaves two tools, `project_map` and `rules`, plus a plain token scanner; 19 tests run in about 2 seconds.
 
 The findings the removed tools surfaced are kept in the docs: the graphics-memory overlaps in `core/libs/NewDisplay/AGENTS.md`, and the interrupt violations in `core/source/AGENTS.md`. Parts B and C below describe the original plan, kept for the record; where they disagree with this section, this section wins.
 

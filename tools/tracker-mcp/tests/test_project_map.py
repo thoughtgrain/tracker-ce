@@ -2,7 +2,6 @@
 independent walk, and a stale entry fails loudly."""
 
 import json
-import re
 import unittest
 from collections import Counter
 from unittest import mock
@@ -71,7 +70,8 @@ class StaleEntries(unittest.TestCase):
         data = json.loads(pm.DATA.read_text())
         for area in data["areas"]:
             self.assertTrue(area["purpose"].strip(), area["path"])
-            self.assertFalse(re.search(r":\d+\b", json.dumps(area)), "line numbers must not be stored")
+            stored = json.dumps(area).split(":")[1:]
+            self.assertFalse(any(part[:1].isdigit() for part in stored), "line numbers must not be stored")
 
 
 if __name__ == "__main__":

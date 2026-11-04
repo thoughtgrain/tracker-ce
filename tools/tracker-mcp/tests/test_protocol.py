@@ -13,7 +13,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from support import ROOT, check_provenance
 
 PKG_DIR = Path(__file__).resolve().parents[1]
-EXPECTED_TOOLS = {"project_map", "rules", "interrupt_context"}
+EXPECTED_TOOLS = {"project_map", "rules"}
 
 
 async def _session_run(calls):
@@ -45,7 +45,7 @@ class Protocol(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         calls = [("project_map", {}), ("rules", {"path": "core/source/Tracker.cpp"}),
-                 ("rules", {"recipe": "synth-engine"}), ("interrupt_context", {"function": "Sequencer::stop"})]
+                 ("rules", {"recipe": "synth-engine"})]
         cls.init, cls.tools, cls.results = asyncio.run(_session_run(calls))
 
     def _get(self, name, args=None):
@@ -71,12 +71,10 @@ class Protocol(unittest.TestCase):
             self.assertEqual(check_provenance(_payload(result)), [], name)
 
     def test_answers_over_the_wire_match_direct_calls(self):
-        from tracker_mcp import interrupts, project_map, rules
+        from tracker_mcp import project_map, rules
         self.assertEqual(_payload(self._get("project_map")), project_map.project_map(ROOT))
         self.assertEqual(_payload(self._get("rules", {"recipe": "synth-engine"})),
                          rules.rules(ROOT, "", "synth-engine"))
-        self.assertEqual(_payload(self._get("interrupt_context", {"function": "Sequencer::stop"})),
-                         interrupts.interrupt_context(ROOT, "Sequencer::stop"))
 
 
 if __name__ == "__main__":

@@ -9,12 +9,12 @@ returning something wrong.
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from .source import ParseError
+from .tokens import names
 
 DATA = Path(__file__).with_name("data") / "project_map.json"
 COUNTED = (".cpp", ".c", ".h", ".hpp", ".py", ".md", ".ld")
@@ -25,9 +25,13 @@ def locate_symbol(root: Path, rel: str, symbol: str) -> int:
     path = root / rel
     if not path.is_file():
         raise ParseError(f"project map: {rel} does not exist")
-    pattern = re.compile(r"(?<![\w:])" + r"\s+".join(map(re.escape, symbol.split())) + r"(?!\w)")
+    wanted = list(names(symbol))
     for i, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-        if pattern.search(line):
+        found = list(names(line))
+        # Same names in sequence (so `update` doesn't match `cDisplay::update`), and the literal text too
+        # (so `.audio_ram_functions` keeps its dot).
+        if all(w in line for w in symbol.split()) and any(
+                found[j : j + len(wanted)] == wanted for j in range(len(found))):
             return i
     raise ParseError(f"project map: symbol {symbol!r} not found in {rel}")
 
@@ -68,7 +72,11 @@ def project_map(root: Path) -> dict[str, Any]:
 def _compiled_core_dirs(root: Path) -> list[str]:
     """Directories whose every .cpp core/makefile compiles into the firmware (parsed from its find lines)."""
     text = (root / "core" / "makefile").read_text(encoding="utf-8", errors="replace")
-    dirs = re.findall(r"CPP_SRCS\s*\+=\s*\$\(shell find \./([\w/]+?)/? -name \*\.cpp\)", text)
+    dirs = []
+    for line in text.splitlines():
+        # CPP_SRCS += $(shell find ./<dir>/ -name *.cpp)
+        if line.startswith("CPP_SRCS") and "$(shell find ./" in line and "-name *.cpp" in line:
+            dirs.append(line.split("$(shell find ./", 1)[1].split()[0].strip("/"))
     if not dirs:
         raise ParseError("core/makefile: no `CPP_SRCS += $(shell find ./<dir>/ -name *.cpp)` lines found")
     return [f"core/{d}" for d in dirs]
