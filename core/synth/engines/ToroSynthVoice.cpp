@@ -1,15 +1,14 @@
-// TORO synth engine for Tracker+ and Tracker Mini.
+// TORO synth engine for Tracker+ and Tracker Mini: its PolySynth metadata.
 //
-// This file is the Tracker side of toro: parameters, envelope, glide and pitch. The sound itself is
-// ToroCore.h, the same integer DSP as the OP-1 and OP-XY builds, so a patch here sounds like it does there.
-//
-// What the Tracker adds on top of the original voice:
-// - an ADSR amp envelope (the OP-1 and OP-XY hosts supplied their own),
-// - glide with Always / Overlap / Legato modes, done per sample in the pitch domain so APHX's key blending
-//   slides smoothly the way it was designed to,
-// - values shown in real units where toro's knobs map to one (Hz, ratio, x gain).
+// The voice itself is the open engine (core/synth/open/engines/Toro.cpp, which can run on all three
+// Trackers), hosted through the SDK by OpenEngineVoice. This file supplies what the Tracker+ / Mini patch
+// editor needs on top: parameter names and ranges, values shown in real units where toro's knobs map to one
+// (Hz, ratio, x gain), MIDI CCs, the editor sections and the default macros. Each parameter handler hands
+// the value to the open engine through setParam().
 //
 // Velocity works like the factory engines and CHIP: the system Velocity macro scales Volume.
+//
+// tests/toro/sdk_regression_test.cpp checks this renders exactly what the original SDK TORO voice rendered.
 //
 // Copyright (c) 2026 briannhinton. MIT.
 
@@ -17,8 +16,10 @@
 #ifdef FEATURE_SYNTH
 
 #include "ToroSynthVoice.h"
+#include "OpenEngineVoice.h"
 #include "PolySynth/sdk/SynthVoiceSDK.h"
 #include "open/engines/ToroCore.h"
+#include "open/engines/Toro.h"
 
 #include <algorithm>
 #include <array>
@@ -83,195 +84,16 @@ std::string formatHz(float hz)
 
 constexpr std::array kGlideModeNames = { "Always", "Overlap", "Legato" };
 
-class ToroSynthVoice : public sdk::CustomSynthVoice<ToroSynthVoice, ToroParamId>
+// The open TORO engine, hosted through the SDK. Its parameter order is ToroParamId's.
+static_assert(static_cast<int>(ToroParamId::kVolume) == opensynth::toro_engine::kVolume,
+              "ToroParamId and the open engine's parameters must be the same list");
+
+class ToroSynthVoice : public sdk::OpenEngineVoice<ToroSynthVoice, ToroParamId, opensynth::kOpenEngineToro>
 {
   public:
-    explicit ToroSynthVoice(int voiceIdx)
-      : owner(static_cast<toro::u32>(voiceIdx) + 1u)
-    {
-    }
+    using OpenEngineVoice::OpenEngineVoice;
 
-    bool isActive() final { return envStage != EnvStage::kIdle; }
-
-    void onNoteOn(const InstrumentVoiceContext& /*ctx*/, note_t note, float /*velocity*/, bool isLegatoStep) final
-    {
-        const float target = static_cast<float>(note);
-        // Overlap: this voice is still holding a note (attack, decay or sustain). That covers a new note played
-        // over a held one and the fall-back to a still-held note when the top one is released.
-        const bool overlapping = envStage != EnvStage::kIdle && envStage != EnvStage::kRelease;
-        bool glide = hasPlayedNote && glideTimeSec > 0.001f;
-        if (playMode == PlayMode::kOverlap || playMode == PlayMode::kLegato)
-        {
-            glide = glide && overlapping;
-        }
-
-        if (glide)
-        {
-            glideSamplesLeft = std::max(1.0f, glideTimeSec * sdk::kSampleRate);
-            glideStep = (target - currentPitch) / glideSamplesLeft;
-        }
-        else
-        {
-            currentPitch = target;
-            glideSamplesLeft = 0.0f;
-        }
-        targetPitch = target;
-        hasPlayedNote = true;
-
-        // A voice coming out of silence starts toro fresh (phases, filter, no cutoff sweep). A voice that is
-        // still sounding keeps its state, so a retrigger or a steal doesn't click.
-        if (envStage == EnvStage::kIdle)
-        {
-            toro::reset(dsp, owner);
-            envLevel = 0.0f;
-        }
-        if (!isLegatoStep || envStage == EnvStage::kIdle || envStage == EnvStage::kRelease)
-        {
-            envStage = EnvStage::kAttack;
-        }
-    }
-
-    void onNoteOff(const InstrumentVoiceContext& /*ctx*/, note_t /*note*/) final
-    {
-        if (envStage != EnvStage::kIdle)
-        {
-            envStage = EnvStage::kRelease;
-        }
-    }
-
-    void renderVoiceAudio(const InstrumentVoiceContext& /*ctx*/,
-                          std::optional<AudioBufferStereoRef> /*inputBuffer*/,
-                          AudioBufferStereoRef outputBuffer,
-                          std::span<AudioBufferRef> /*auxOutBuffer*/) final
-    {
-        auto out = outputBuffer[0];
-        if (envStage == EnvStage::kIdle)
-        {
-            std::fill(out.begin(), out.end(), 0.0f);
-            return;
-        }
-
-        static_assert(kAudioBufferSize == (1 << kBlockShift), "toro renders exactly one Tracker block");
-
-        // Pitch: one phase increment per sample, so glides and bends move smoothly inside the block.
-        // The increment is exponential in pitch; across one 2.9 ms block a linear ramp between the two
-        // ends is within a fraction of a cent of the exact curve.
-        const float pitchStart = currentPitch;
-        advanceGlide(static_cast<float>(kAudioBufferSize));
-        const float incStart = pitchToInc(pitchStart + pitchBendSemitones);
-        const float incEnd = pitchToInc(currentPitch + pitchBendSemitones);
-        const float incStep = (incEnd - incStart) / static_cast<float>(kAudioBufferSize);
-        std::array<toro::u32, kAudioBufferSize> inc;
-        for (int n = 0; n < kAudioBufferSize; n++)
-        {
-            inc[n] = static_cast<toro::u32>(incStart + incStep * static_cast<float>(n));
-        }
-
-        std::array<toro::i32, kAudioBufferSize> raw;
-        toro::render<kBlockShift>(dsp, controls, inc.data(), raw.data());
-
-        // Envelope, per sample
-        const float sr = sdk::kSampleRate;
-        const float attackInc = attackSec > 0.001f ? 1.0f / (attackSec * sr) : 1.0f;
-        const float decayDec = decaySec > 0.002f ? (1.0f - sustainLevel) / (decaySec * sr) : 1.0f;
-        const float releaseDec = releaseSec > 0.002f ? 1.0f / (releaseSec * sr) : 1.0f;
-        constexpr float kQ15 = 1.0f / 32768.0f;
-
-        for (int n = 0; n < kAudioBufferSize; n++)
-        {
-            switch (envStage)
-            {
-                case EnvStage::kAttack:
-                    envLevel += attackInc;
-                    if (envLevel >= 1.0f)
-                    {
-                        envLevel = 1.0f;
-                        envStage = EnvStage::kDecay;
-                    }
-                    break;
-                case EnvStage::kDecay:
-                    envLevel -= decayDec;
-                    if (envLevel <= sustainLevel)
-                    {
-                        envLevel = sustainLevel;
-                        envStage = sustainLevel <= 0.0001f ? EnvStage::kIdle : EnvStage::kSustain;
-                    }
-                    break;
-                case EnvStage::kSustain:
-                    envLevel = sustainLevel;
-                    break;
-                case EnvStage::kRelease:
-                    envLevel -= releaseDec;
-                    if (envLevel <= 0.0001f)
-                    {
-                        envLevel = 0.0f;
-                        envStage = EnvStage::kIdle;
-                    }
-                    break;
-                case EnvStage::kIdle:
-                    envLevel = 0.0f;
-                    break;
-            }
-            out[n] = static_cast<float>(raw[n]) * kQ15 * envLevel * volume;
-        }
-    }
-
-    static void createMetadata(const Patch& /*patch*/, Patch::Metadata& metadata);
-
-  private:
-    static constexpr int kBlockShift = 7; // 128-sample Tracker blocks
-
-    enum class EnvStage : uint8_t
-    {
-        kIdle = 0,
-        kAttack,
-        kDecay,
-        kSustain,
-        kRelease,
-    };
-
-    static float pitchToInc(float midiPitch)
-    {
-        // 2^32 * f / fs, clamped so a wild bend can never wrap the increment
-        constexpr float kPhaseScale = 4294967296.0f / sdk::kSampleRate;
-        const float hz = sdk::kNoteA4Freq * std::exp2((midiPitch - static_cast<float>(kNoteA4)) / 12.0f);
-        return std::clamp(hz * kPhaseScale, 1.0f, 2147483648.0f);
-    }
-
-    void advanceGlide(float samples)
-    {
-        if (glideSamplesLeft <= 0.0f)
-        {
-            return;
-        }
-        const float step = std::min(samples, glideSamplesLeft);
-        currentPitch += glideStep * step;
-        glideSamplesLeft -= step;
-        if (glideSamplesLeft <= 0.0f)
-        {
-            currentPitch = targetPitch;
-        }
-    }
-
-    // Parameters
-    toro::Controls controls{};
-    float attackSec = 0.005f;
-    float decaySec = 0.6f;
-    float sustainLevel = 0.7f;
-    float releaseSec = 0.3f;
-    float glideTimeSec = 0.0f;
-    float volume = 1.0f;
-
-    // Voice state
-    toro::State dsp{};
-    const toro::u32 owner;
-    EnvStage envStage = EnvStage::kIdle;
-    float envLevel = 0.0f;
-    bool hasPlayedNote = false;
-    float currentPitch = 60.0f;
-    float targetPitch = 60.0f;
-    float glideStep = 0.0f;
-    float glideSamplesLeft = 0.0f;
+    static void createMetadata(const Patch& patch, Patch::Metadata& metadata);
 };
 
 void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& metadata)
@@ -303,7 +125,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .valueFormatter = [](const Patch&, Patch::paramvalue_t v)
                       { return fmt::format("{:.3f}x", 1.0f + 0.5f * std::clamp(v, 0.0f, 1.0f)); },
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.controls.spread = toKnob(*v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kSpread), *v); });
 
     helper.addParam(id(ToroParamId::kShape),
                     {
@@ -325,7 +147,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                           return fmt::format("{:.0f} % Tri", v * 100.0f);
                       },
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.controls.shape = toKnob(*v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kShape), *v); });
 
     helper.addParam(id(ToroParamId::kNoise),
                     {
@@ -336,7 +158,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .midiCC = cc(MidiCCs::kOscParam0, 2),
                       .valueFormatter = createPercentFormatter(),
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.controls.noise = toKnob(*v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kNoise), *v); });
 
     // ---- Shaper ------------------------------------------------------------------------------------------
 
@@ -350,7 +172,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .valueFormatter = [](const Patch&, Patch::paramvalue_t v)
                       { return fmt::format("{:.1f}x", 1.0f + 7.0f * std::clamp(v, 0.0f, 1.0f)); },
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.controls.fold = toKnob(*v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kFold), *v); });
 
     helper.addParam(id(ToroParamId::kDrive),
                     {
@@ -362,7 +184,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .valueFormatter = [](const Patch&, Patch::paramvalue_t v)
                       { return fmt::format("{:.2f}x", 1.0f + 3.0f * std::clamp(v, 0.0f, 1.0f)); },
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.controls.drive = toKnob(*v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kDrive), *v); });
 
     helper.addParam(id(ToroParamId::kAphx),
                     {
@@ -374,7 +196,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .valueFormatter = [](const Patch&, Patch::paramvalue_t v) -> std::string
                       { return v <= 0.0f ? std::string("Off") : fmt::format("{:.0f} %", v * 100.0f); },
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.controls.aphx = toKnob(*v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kAphx), *v); });
 
     // ---- Filter ------------------------------------------------------------------------------------------
 
@@ -391,7 +213,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                           return formatHz(cutoffHz(v, res ? *res : 0.24f));
                       },
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.controls.cutoff = toKnob(*v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kCutoff), *v); });
 
     helper.addParam(id(ToroParamId::kResonance),
                     {
@@ -402,7 +224,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .midiCC = cc(MidiCCs::kFilterResonance),
                       .valueFormatter = createPercentFormatter(),
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.controls.res = toKnob(*v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kResonance), *v); });
 
     // ---- Amplifier ---------------------------------------------------------------------------------------
 
@@ -416,7 +238,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .midiCC = cc(MidiCCs::kAmpEnvAttack),
                       .valueFormatter = createTimeFormatter(),
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.attackSec = *v; });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kAttack), *v); });
 
     helper.addParam(id(ToroParamId::kDecay),
                     {
@@ -428,7 +250,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .midiCC = cc(MidiCCs::kAmpEnvDecay),
                       .valueFormatter = createTimeFormatter(),
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.decaySec = *v; });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kDecay), *v); });
 
     helper.addParam(id(ToroParamId::kSustain),
                     {
@@ -439,7 +261,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .midiCC = cc(MidiCCs::kAmpEnvSustain),
                       .valueFormatter = createPercentFormatter(),
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.sustainLevel = std::clamp(*v, 0.0f, 1.0f); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kSustain), *v); });
 
     helper.addParam(id(ToroParamId::kRelease),
                     {
@@ -451,7 +273,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .midiCC = cc(MidiCCs::kAmpEnvRelease),
                       .valueFormatter = createTimeFormatter(),
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.releaseSec = *v; });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kRelease), *v); });
 
     // ---- Voice -------------------------------------------------------------------------------------------
 
@@ -469,11 +291,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                           return std::string(kGlideModeNames[idx]);
                       },
                     },
-                    [](ToroSynthVoice& voice, Value v)
-                    {
-                        voice.playMode = static_cast<PlayMode>(std::clamp<int>(
-                          static_cast<int>(std::lround(*v)), 0, static_cast<int>(kGlideModeNames.size()) - 1));
-                    });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kGlideMode), *v); });
 
     helper.addParam(id(ToroParamId::kGlideTime),
                     {
@@ -484,7 +302,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .editCurve = Curve::kExponential,
                       .valueFormatter = createTimeFormatter(),
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.glideTimeSec = std::max(0.0f, *v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kGlideTime), *v); });
 
     helper.addParam(id(ToroParamId::kVolume),
                     {
@@ -495,7 +313,7 @@ void ToroSynthVoice::createMetadata(const Patch& /*patch*/, Patch::Metadata& met
                       .macroOperation = MacroOp::kMult,
                       .valueFormatter = createPercentFormatter(),
                     },
-                    [](ToroSynthVoice& voice, Value v) { voice.volume = std::max(0.0f, *v); });
+                    [](ToroSynthVoice& voice, Value v) { voice.setParam(id(ToroParamId::kVolume), *v); });
 
     // ---- Patch editor layout -----------------------------------------------------------------------------
     // Section names carry the substrings the patch editor uses to pick tile icons (Oscillator, Shaper,

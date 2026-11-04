@@ -1,6 +1,8 @@
-// Open TORO vs SDK TORO: the open engine (core/synth/open/engines/Toro.cpp, for all three Trackers) must
-// render exactly the samples the SDK voice (core/synth/engines/ToroSynthVoice.cpp, Tracker+ and Mini)
-// renders, for the same notes and parameters, and end on the same block.
+// Open TORO as the Tracker+ / Mini plays it vs open TORO as a CE host drives it: TORO through the SDK
+// (ToroSynthVoice on the OpenEngineVoice adapter) must render exactly the samples the open engine
+// (core/synth/open/engines/Toro.cpp) renders when driven directly through the open contract, for the same
+// notes and parameters, and end on the same block. That ties the adapter to the contract every other host
+// (the Original Tracker's, stage 3) follows. sdk_regression_test.cpp ties both to the original SDK voice.
 //
 // How the two are driven: the SDK voice gets MIDI note events, the way PolySynth drives it; the open engine
 // gets noteOn / noteOff with the flags an open host sets (a note while one is held reuses the gated voice:

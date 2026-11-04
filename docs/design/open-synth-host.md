@@ -1,6 +1,6 @@
 # Open synth engines on all three Trackers: plan
 
-> Status: **stage 1** (the engine layer, ACID and TORO) on branch `feat/open-synth-host`, stacked on the TORO branch (`feat/toro-synth`).
+> Status: **stage 1** done (the engine layer, ACID and TORO); **stage 2** under way (2a done: open engines play on Tracker+ and Mini through the SDK, and TORO runs on its open engine). On branch `feat/open-synth-host`, stacked on the TORO branch (`feat/toro-synth`).
 
 ## Why
 
@@ -43,7 +43,10 @@ The icon images are still only compiled for Tracker+ and Mini (`FEATURE_SYNTH`).
 ## Stages
 
 1. **Engine layer, ACID and TORO** (this branch): `core/synth/open/` with the interface, ACID, TORO, their parameter tables and the registry, plus the tests. Nothing calls it yet, so firmware behaviour doesn't change.
-2. **CE host on Tracker+ and Mini.** A CE audio node that renders the open engines into the synth slots, with voice allocation, macros and gain written for CE's sequencer. Engine IDs appended to `InstrumentTypeId`, and the Model menu and badges. Open and Polyend engines share the three slots.
+2. **Tracker+ and Mini, through Polyend's SDK.** There, Polyend's library already does voice allocation, macros, patches, the Model menu and the patch editor, so an adapter (`core/synth/engines/OpenEngineVoice.h`) presents any open engine to it as an SDK voice. Writing a second host for these devices would duplicate all of that.
+   - **2a (done):** the adapter, and TORO switched to its open engine. The old SDK voice's sound and note logic is deleted; its file keeps only the Tracker+/Mini metadata. Before the switch I recorded the original SDK voice's output in 103 cases (`tests/toro/sdk_regression_test.cpp`): every parameter, glide and note fallback, envelope edges, voices with their own noise seeds, Volume and Cutoff moving mid-note, pitch bend and random patches. The switched build reproduces all 103. The one bit-level difference, in silence after a voice ends, is `-0.0` becoming `+0.0`, and the hash treats those as equal. A planted bug in the adapter (every voice the same noise seed) failed the voice cases.
+   - **2b:** ACID in the Model menu: its engine ID appended to `InstrumentTypeId`, menu name, badge icons and default macros.
+   - The Original Tracker still needs CE's own host (stage 3), because the SDK doesn't exist there.
 3. **The Original Tracker.** First measure the audio headroom on hardware (rung 5) with all 8 tracks busy, then enable the host there. The synth screens currently depend on Polyend's `Patch` API, so they need an adapter or CE-owned screens.
 4. **SWARM, PRISM and GLINT**: each is one engine file, one table and one registry line, with its own goldens.
 5. **KIT**, with a shared per-slot kit in the host.

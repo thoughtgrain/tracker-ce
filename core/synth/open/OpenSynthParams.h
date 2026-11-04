@@ -23,6 +23,9 @@ struct ParamInfo {
 // The table for an engine id (OpenEngineId), or nullptr. *count gets its length.
 const ParamInfo* paramTable(int32_t engine, int* count);
 
+// The engine's Volume parameter, which the host applies (the engine contract), or -1 if it has none.
+int volumeParam(int32_t engine);
+
 // A value clamped to parameter i's range; out-of-range or non-finite values take the default, as a
 // patch load does.
 float clampParam(const ParamInfo& p, float value);
