@@ -54,6 +54,14 @@ const ParamInfo* paramTable(int32_t engine, int* count) {
     }
 }
 
+int volumeParam(int32_t engine) {
+    switch (engine) {
+        case kOpenEngineAcid: return acid::kVolume;
+        case kOpenEngineToro: return toro_engine::kVolume;
+        default: return -1;
+    }
+}
+
 float clampParam(const ParamInfo& p, float value) {
     // NaN fails both comparisons, so it takes the default too.
     if (!(value >= p.min && value <= p.max)) return p.def;

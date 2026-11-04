@@ -7,7 +7,7 @@ How I add a sound engine under `core/synth/open/`, the engine layer that runs on
 - **Pick the right recipe.** This one is for engines that must run on all three devices. An engine that only needs Tracker+ and Mini, built on Polyend's SDK, follows the `synth-engine` recipe instead. Background: [`docs/design/open-synth-host.md`](../design/open-synth-host.md).
 - **Know where this stands.** Only the engine layer exists yet (stage 1 of that plan). An engine added here builds and is tested on the host, but nothing plays it until the CE host lands (stage 2). Don't wire it into `InstrumentTypeId` or the Model menu on your own; that's the host's job.
 - Read `core/synth/AGENTS.md` and the contract at the top of `core/synth/open/OpenSynthEngine.h`.
-- **An engine that also has an SDK build** (TORO is the example): share the DSP from `core/synth/open/engines/`, mirror the SDK voice's note, glide and envelope code in the open engine, and add a parity test like `tests/toro/open_parity_test.cpp` that requires identical samples from both.
+- **Playing it on Tracker+ and Mini** (TORO is the example): add an SDK file in `core/synth/engines/` whose voice class derives from `OpenEngineVoice` and whose metadata handlers call `setParam`, then register it like any SDK engine (the `synth-engine` recipe). If the engine replaces an existing SDK voice, record that voice's output first and require the new build to match it, as `tests/toro/sdk_regression_test.cpp` does.
 - The worked example is ACID: `core/synth/open/engines/Acid.cpp`, its table in `core/synth/open/OpenSynthParams.cpp` and its tests in `tests/opensynth/`. Grep `kOpenEngineAcid`: every hit is a place your engine needs too.
 
 ## Steps

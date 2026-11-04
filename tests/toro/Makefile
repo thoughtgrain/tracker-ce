@@ -47,10 +47,9 @@ $(BUILD)/core_test: core_test.cpp harness.h $(ROOT)/core/synth/open/engines/Toro
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ core_test.cpp
 
-$(BUILD)/voice_test: voice_test.cpp harness.h sdk_fixture.h $(ROOT)/core/synth/open/engines/ToroCore.h \
-                     $(ROOT)/core/synth/engines/ToroSynthVoice.cpp $(ROOT)/core/synth/engines/ToroSynthVoice.h
+$(BUILD)/voice_test: voice_test.cpp $(SDK_DEPS)
 	@mkdir -p $(BUILD)
-	$(CXX) $(CXXFLAGS) -DFEATURE_SYNTH -DFMT_HEADER_ONLY $(INCLUDES) -o $@ voice_test.cpp $(ROOT)/core/synth/engines/ToroSynthVoice.cpp
+	$(CXX) $(SDK_FLAGS) -o $@ voice_test.cpp $(SDK_SRC)
 
 $(BUILD)/open_parity_test: open_parity_test.cpp harness.h sdk_fixture.h $(OPEN_SRC) $(wildcard $(OPEN)/*.h) \
                            $(wildcard $(OPEN)/engines/*.h) $(ROOT)/core/synth/engines/ToroSynthVoice.cpp

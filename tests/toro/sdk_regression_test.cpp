@@ -89,6 +89,10 @@ uint64_t run(const Case& c)
         v->renderVoiceAudio(kCtx, std::nullopt, out, {});
         for (float x : l)
         {
+            // -0.0 and +0.0 hash the same: the open engine contract adds into a zeroed buffer, which turns
+            // the old voice's -0.0 (silence times a negative sample) into +0.0. The sign of zero isn't audible.
+            if (x == 0.0f)
+                x = 0.0f;
             int32_t bits;
             std::memcpy(&bits, &x, 4);
             h = toro_test::fnv1a(h, bits);
