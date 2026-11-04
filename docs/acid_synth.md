@@ -2,7 +2,7 @@
 
 ACID is an acid bass and lead voice: a saw and pulse oscillator with a sub, three resonant filters, a modulation envelope, an LFO and glide. It's built for squelchy 303-style lines and for plain fat basses.
 
-It's an open engine, ported from OpenTracker's ACD ([`sandlbn/polyend-tracker-re`](https://github.com/sandlbn/polyend-tracker-re), Apache-2.0). I renamed it ACID because Polyend's own ACD is a different engine; the two sound different, and the name shouldn't suggest otherwise. The sound code is OpenTracker's unchanged, and it's written for the Original Tracker's chip too. Today it plays on Tracker+ and Tracker Mini; the Original Tracker needs its own synth host first (see [`docs/design/open-synth-host.md`](design/open-synth-host.md)).
+Its sound engine is ported from OpenTracker's ACD ([`sandlbn/polyend-tracker-re`](https://github.com/sandlbn/polyend-tracker-re), Apache-2.0). I renamed it ACID because Polyend's own ACD is a different engine; the two sound different, and the name shouldn't suggest otherwise. Only the sound code comes from there, unchanged; the parameter names, editor layout, value display, macros and badges are written for Community Edition's own editor. The sound code is written for the Original Tracker's chip too. Today it plays on Tracker+ and Tracker Mini; the Original Tracker needs its own synth host first (see [`docs/design/open-synth-host.md`](design/open-synth-host.md)).
 
 ---
 
@@ -18,11 +18,11 @@ saw + pulse + sub + noise → filter (12 dB, 24 dB or ladder) → amp envelope �
 
 | Section | Parameters | Notes |
 | :--- | :--- | :--- |
-| Oscillator | Saw Mix, Square Mix, Sub Mix, Noise Mix, PW, Sub Mode, PW LFO, PW Env, Pitch LFO | Sub Mode picks one or two octaves down, as a square, a pulse or a triangle. Noise Mix above 0 goes through the filter ("Pre"); below 0 it's added after it ("Post"). |
-| Filter | Cutoff, Resonance, Filter Type, Filter Env, Note Track, Filter LFO | The ladder self-oscillates at high resonance. Filter Env and Filter LFO are signed: negative values sweep down. |
+| Oscillator | Saw, Pulse, Sub, Noise, Pulse Width, Sub Type, PWM LFO, PWM Env, Pitch Mod | Sub Type picks one or two octaves down, as a square, a pulse or a triangle. Noise above 0 goes through the filter ("Pre"); below 0 it's added after it ("Post"). Pitch Mod is the LFO's depth on pitch, in octaves. |
+| Filter | Cutoff, Resonance, Filter Type, Env Amt, Key Track, LFO Amt | The ladder self-oscillates at high resonance. Env Amt and LFO Amt are signed: negative values sweep down. |
 | Amp Envelope | Attack, Decay, Sustain, Release | Sustain at 0 gives the classic plucked acid note. |
-| Mod Envelope | Attack, Decay, Sustain, Release | Shapes the filter sweep and the pulse-width movement. |
-| LFO | Rate, Wave, Retrigger | Six waves. Free runs continuously; One Shot runs once per note; Note restarts with every note. |
+| Mod Envelope | Mod Attack, Mod Decay, Mod Sustain, Mod Release | Shapes the filter sweep and the pulse-width movement. |
+| LFO | LFO Rate, LFO Shape, LFO Mode | Six shapes. Free runs continuously; One Shot runs once per note; Note restarts with every note. |
 | Voice | Glide Mode, Glide Time, Volume | Always, Overlap, Legato and Legato Overlap. The Legato modes don't retrigger the envelopes when notes overlap, which is how acid slides are played. |
 
 ## Default macros

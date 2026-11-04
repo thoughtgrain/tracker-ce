@@ -1,9 +1,11 @@
 // Parameter tables of the open synth engines: name, default and stored range of each parameter, in the
 // engine's own index order.
 //
-// Ranges and defaults are ported from OpenTracker (https://github.com/sandlbn/polyend-tracker-re,
-// src/core/formats/patch_pb.cpp kAcd, and names from src/core/ui/screen_synth_tables.cpp, at 6c93bbb),
-// Copyright the OpenTracker contributors, Apache License 2.0 (core/synth/open/LICENSE-APACHE-2.0).
+// ACID's ranges and defaults are engine data, ported from OpenTracker's patch table
+// (https://github.com/sandlbn/polyend-tracker-re, src/core/formats/patch_pb.cpp kAcd, at 6c93bbb),
+// Copyright the OpenTracker contributors, Apache License 2.0 (core/synth/open/LICENSE-APACHE-2.0): they are
+// what the engine's DSP expects. The parameter names are Tracker CE's own, written for CE's patch editor in
+// its conventions (short names, the section gives the context); no OpenTracker UI is used.
 //
 // The framework clamps every value to [min, max] before an engine sees it (the engine contract in
 // OpenSynthEngine.h), and a patch that doesn't store a parameter gets `def`.
