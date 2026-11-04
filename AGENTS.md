@@ -81,7 +81,7 @@ Use the cheapest rung that proves your invariant, and say in the PR which one yo
 | Rung | What it proves | How |
 | :--- | :--- | :--- |
 | 1. Host syntax check | It compiles against the real headers | `g++ -std=gnu++20 -fsyntax-only` with the makefile's include paths |
-| 2. Host tests | Logic, bit-exact output, golden hashes | `make -C tests/<area>` (plain `g++`, AddressSanitizer + UBSan + `-Werror`). `tests/toro/` (in PR #2 until it merges) is the pattern: render on the host, compare with golden hashes from a reference implementation. |
+| 2. Host tests | Logic, bit-exact output, golden hashes | `make -C tests/<area>` (plain `g++`, AddressSanitizer + UBSan + `-Werror`). Existing suites: [`tests/audio/`](tests/audio/) (limiter, filter; real firmware sources plus a small shim) and `tests/toro/` (in PR #2 until it merges). Render on the host and compare with golden hashes. |
 | 3. ARM build | It builds for every device, and the memory report still fits | `make all` with the GNU Arm toolchain `10.3-2021.10`, or the PR's CI run. Read the `Memory region` lines in the summary. |
 | 4. Hardware smoke test | It boots and the touched screens and features work | Flash the CI `.ptf`. Note which device(s) in the PR's hardware table. |
 | 5. Hardware measurement | Performance and timing claims | `Profiler` audio load (wraps every audio block), DEBUG `lastMemoryUsed` / `droppedControlsCount` for the display, wall-clock for file operations, a MIDI monitor or logic analyser for clock jitter |

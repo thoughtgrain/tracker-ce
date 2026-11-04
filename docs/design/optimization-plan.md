@@ -33,7 +33,7 @@ Without numbers, half of these chunks are guesses. This phase adds no optimizati
 | **M1** | Record a baseline per platform: `Profiler` audio-block load (already wraps every block, `core/source/Tracker.cpp:178-199`) for three reference projects: sparse, dense, and dense with external clock at 300 BPM | No code change; results go in this doc | Every audio and sequencer chunk compares against this |
 | **M2** | Display baseline: `lastMemoryUsed` per screen and the `droppedControlsCount` added in PR #1, plus a main-loop iteration counter in a DEBUG build | DEBUG-only lines in `Tracker.cpp` | Display chunks need frame cost and loop rate, not a feel |
 | **M3** | File baseline: time project load, Save As, a 10 MB stereo export and a WAV import, on the same SD card | No code change | File chunks are judged on wall-clock time |
-| **M4** | Host harness for audio units, like `tests/toro`: extract the limiter, state-variable filter and envelope multiply loops behind a tiny test so "bit-exact" is checked by a test rather than assumed | New `tests/audio/` only | Gates A1–A3 and A5 |
+| **M4** | Host harness for audio units, like `tests/toro`: run the limiter, state-variable filter and envelope multiply loops through a test so "bit-exact" is checked rather than assumed | New `tests/audio/` only | Gates A1–A3 and A5. **Done for the limiter and filter:** [`tests/audio/`](../../tests/audio/), 80 golden hashes, mutation-tested. The envelope (A3) still needs adding. |
 | **M5** | Generate `.map` files for both IMX targets and record ITCM/DTCM free space and where hot functions actually land | Build artifact, no code | Gates A8 and S3, and confirms the ITCM headroom the developer guide quotes |
 
 ---
