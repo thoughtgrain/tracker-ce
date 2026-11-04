@@ -9,16 +9,22 @@ make -C tools/tracker-mcp test    # accuracy + protocol tests
 
 The firmware build doesn't depend on any of this. It's opt-in developer tooling, and it lives outside the directories the firmware makefiles compile.
 
-## Tools (phase 1)
+## Tools
 
-| Tool | What it answers |
-| :--- | :--- |
-| `project_map` | What each area of the repo is for, file counts, key files with their **current** line numbers, and which `core/` directories the firmware build compiles |
-| `list_synth_engines` | Every `InstrumentTypeId`: value, registered or not, open-source or precompiled, position in the Model menu, UI name, badges, plus consistency warnings |
-| `list_screens` | Every UI screen: `Interface::modules` slot, class, directory, draw (`g*`) and input (`f*`) files, the desktop button that opens it, its Tracker Mini menu name |
-| `find_screen(query)` | Screens matching a menu name, class, instance, directory or button |
+| Tool | What it answers | Checked against |
+| :--- | :--- | :--- |
+| `project_map` | What each area of the repo is for, file counts, key files with their **current** line numbers, which `core/` directories the firmware build compiles | Anchors re-read, independent file walk |
+| `list_synth_engines` | Every `InstrumentTypeId`: value, registered or not, open-source or precompiled, Model-menu position, UI name, badges, consistency warnings | Compiler (enum completeness, `kSynthTypes`) |
+| `list_screens`, `find_screen(query)` | Every UI screen: slot, class, draw (`g*`) / input (`f*`) files, desktop button, Tracker Mini menu name | Independent class scan, menu vs button tables |
+| `memory_map` | Per target: linker regions, output sections, and where each placement macro and plain code/data lands | GNU `ld` linking the real macros against the real scripts |
+| `build_config` | Per target: effective compile flags per unit with each `-D` traced to its makefile line, overridden flags, link inputs, output `.ptf`, guard matrix | `make -n` expansion, host GCC `-dM` |
+| `step_fx(query)` | Every step FX: stored id, menu letter/name, min / max / default (and randomized bounds), per target where they differ | The real `getFxMin`/`getFxMax`/`getFxDefault` compiled and run |
+| `display_controls` | Control classes, ids, stages, create sites, budgets, free style bits, RAM_G layout with computed overlaps | Compiler (ids, constants, style bits, image `sizeof`) |
+| `test_suites` | Host test suites, how to run them, which firmware sources each compiles | The real suites from their branches |
 
-The rest of the planned tools (step FX, build config, memory map, display controls, test suites, interrupt context, rules) are in [`docs/design/ai-dev-guidance-plan.md`](../../docs/design/ai-dev-guidance-plan.md).
+The remaining planned tools (interrupt context, `where_is`, rules) are in [`docs/design/ai-dev-guidance-plan.md`](../../docs/design/ai-dev-guidance-plan.md).
+
+Some tools need build tools on the machine running them: `build_config` and `test_suites` run `make -n` (nothing is built; the tests check the tree is untouched), and the accuracy tests need `g++` and GNU binutils (`ld`, `objdump`).
 
 ## Why you can trust an answer (and when you can't)
 
