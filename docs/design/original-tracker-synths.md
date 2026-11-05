@@ -1,6 +1,6 @@
 # Synths on the Original Tracker: stage 3 plan
 
-> Status: **planning, waiting on the hardware measurement.** Stage 3 of [`open-synth-host.md`](open-synth-host.md). Nothing here changes the firmware yet. Decided: open-engine patches on the Original use a CE patch format (below).
+> Status: **planning, waiting on the hardware measurement.** Stage 3 of [`open-synth-host.md`](open-synth-host.md). Nothing here changes the firmware yet. Decided: open-engine patches use a CE patch format on all three devices (below).
 
 Tracker+ and Mini get their synth slots from Polyend's precompiled library. The Original Tracker can't run that library (it's built for the Cortex-M7 and licensed for Tracker+ and Mini), so today the Original has no synths at all. The open engines (TORO, ACID, and the ones to come) run on its Cortex-M4, so what the Original is missing is a **host**: the code that plays engines in the synth slots, applies macros, mixes them, saves their settings and shows them in the editor. That host is CE's own, written for CE. Only the sound engines come from elsewhere, and none of OpenTracker's UI or framework.
 
@@ -58,10 +58,14 @@ CE's synth code talks to Polyend's library through a small number of seams. On t
 Synth patches are saved as `.patch` files. On Tracker+ and Mini, only Polyend's library reads and writes them, and the format isn't published. The Original's host needs to save open-engine patches somewhere. There are three ways:
 
 1. **Ask Polyend for the `.patch` format** (they maintain CE) and implement it in CE. Patches then move freely between all three devices. This is the best result, but it depends on them.
-2. **A CE patch format for open engines**, documented in this repo. The Original reads and writes it. Tracker+ and Mini keep saving through the library, so an open-engine patch made on a Tracker+ wouldn't load on the Original, and the reverse.
+2. **A CE patch format for open engines**, documented in this repo and used for them on all three devices. Open-engine patches move between any two Trackers; Polyend's engines keep `.patch`. **(Chosen.)**
 3. **No patch files on the Original at first.** A slot's settings live in the project (they already do on every device), so projects work and move between devices. Saving a patch to the library comes later, with option 1 or 2.
 
-**Decision: option 2, a CE patch format for open engines.** On the Original, open-engine patches are saved and loaded in a format defined and documented in this repo. The trade-off: an open-engine patch saved on a Tracker+ (through Polyend's library, as `.patch`) won't load on the Original, and the reverse. Projects still move between devices, because slot settings live in the project file. A later change can close the gap by letting Tracker+ and Mini export and import open-engine patches in the CE format as well.
+**Decision: a CE patch format for the open engines, on all three devices.** TORO, ACID and every later open engine save and load their patches in a format defined and documented in this repo, `.cepatch`, on the Original, Tracker+ and Mini alike. So an open-engine patch, or a project using one, moves between any two Trackers. Polyend's own engines (ACD, FAT, VAP…) keep their `.patch` files on Tracker+ and Mini, unchanged.
+
+**How it works on Tracker+ and Mini:** every patch save and load already goes through CE's `Synth` wrapper (`core/synth/Synth.cpp`), which uses two of Polyend's patch stores, the patch library and each project's workspace copy. For an open engine, the wrapper uses a CE store instead, for both. It copies values and macros between Polyend's `Patch` and the CE format through the `Patch` API CE already uses (parameter get / set, macro editing). On the Original, the same CE store reads and writes the host's values directly. The format code itself, encoding and decoding, is plain data with no Polyend or UI code, so it's shared by all three devices and tested on the host.
+
+**Existing patches:** TORO patches saved as `.patch` (only on the unreleased TORO branch so far) still load. If a slot's `.cepatch` isn't there but a `.patch` is, the wrapper loads that once through Polyend's store, and the next save writes `.cepatch`. Copying a project copies both kinds of workspace patch.
 
 **Format sketch** (a proposal to review before anyone writes a reader):
 - **File:** `Patches/<ENGINE>/<name>.cepatch`, for example `Patches/ACID/Squelch.cepatch`. A distinct extension, so neither firmware mistakes one format for the other.
@@ -79,11 +83,12 @@ Synth patches are saved as `.patch` files. On Tracker+ and Mini, only Polyend's 
 Each step is its own PR.
 
 1. **Measurement** (hardware, above). It decides whether the rest goes ahead and with how many voices.
-2. **Split `FEATURE_SYNTH`** into "library" and "synth slots", with no behaviour change on any device. The proof is that the IMX build is byte-identical where possible, plus the PR's CI build for all three devices.
-3. **Patch-view interface** on Tracker+ and Mini, wrapping Polyend's `Patch`, with the editor moved onto it. No behaviour change, checked by a hardware smoke test on Tracker+ or Mini.
-4. **The host core** (voice pool, macros, MIDI port, FX entry, audio node), built and tested on the host first. The same sound-parity approach as TORO and ACID: through the host vs the engine driven directly.
-5. **Turn it on for the Original:** the guard, the mixer inputs, the editor and icons, the Model menu. Rungs 3 and 4 on an Original, then a listening test.
-6. **Patches:** the CE format above, its reader and writer as host-tested code shared by all devices, then the Original's patch browser and Save / Save As in the editor.
+2. **The CE patch format, on Tracker+ and Mini first.** The format code (host-tested), and the `Synth` wrapper routing TORO's and ACID's patches through it. This doesn't depend on the measurement, so it can go first. Checked on the host (round trip, old and damaged files) and on a Tracker+ or Mini (save, reload, and a TORO `.patch` from before still loading).
+3. **Split `FEATURE_SYNTH`** into "library" and "synth slots", with no behaviour change on any device. The proof is that the IMX build is byte-identical where possible, plus the PR's CI build for all three devices.
+4. **Patch-view interface** on Tracker+ and Mini, wrapping Polyend's `Patch`, with the editor moved onto it. No behaviour change, checked by a hardware smoke test on Tracker+ or Mini.
+5. **The host core** (voice pool, macros, MIDI port, FX entry, audio node), built and tested on the host first. The same sound-parity approach as TORO and ACID: through the host vs the engine driven directly.
+6. **Turn it on for the Original:** the guard, the mixer inputs, the editor and icons, the Model menu. Rungs 3 and 4 on an Original, then a listening test.
+7. **Patches on the Original:** the patch browser and Save / Save As in its editor, on the shared CE format.
 
 ---
 
