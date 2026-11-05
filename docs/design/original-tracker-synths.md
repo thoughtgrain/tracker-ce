@@ -1,6 +1,6 @@
 # Synths on the Original Tracker: stage 3 plan
 
-> Status: **planning.** Stage 3 of [`open-synth-host.md`](open-synth-host.md). Nothing here changes the firmware yet.
+> Status: **planning, waiting on the hardware measurement.** Stage 3 of [`open-synth-host.md`](open-synth-host.md). Nothing here changes the firmware yet. Decided: open-engine patches on the Original use a CE patch format (below).
 
 Tracker+ and Mini get their synth slots from Polyend's precompiled library. The Original Tracker can't run that library (it's built for the Cortex-M7 and licensed for Tracker+ and Mini), so today the Original has no synths at all. The open engines (TORO, ACID, and the ones to come) run on its Cortex-M4, so what the Original is missing is a **host**: the code that plays engines in the synth slots, applies macros, mixes them, saves their settings and shows them in the editor. That host is CE's own, written for CE. Only the sound engines come from elsewhere, and none of OpenTracker's UI or framework.
 
@@ -53,7 +53,7 @@ CE's synth code talks to Polyend's library through a small number of seams. On t
 
 ---
 
-## Decision needed: patch files
+## Patch files (decided: a CE format)
 
 Synth patches are saved as `.patch` files. On Tracker+ and Mini, only Polyend's library reads and writes them, and the format isn't published. The Original's host needs to save open-engine patches somewhere. There are three ways:
 
@@ -61,7 +61,16 @@ Synth patches are saved as `.patch` files. On Tracker+ and Mini, only Polyend's 
 2. **A CE patch format for open engines**, documented in this repo. The Original reads and writes it. Tracker+ and Mini keep saving through the library, so an open-engine patch made on a Tracker+ wouldn't load on the Original, and the reverse.
 3. **No patch files on the Original at first.** A slot's settings live in the project (they already do on every device), so projects work and move between devices. Saving a patch to the library comes later, with option 1 or 2.
 
-My recommendation is to start with 3, so nothing is blocked, and ask Polyend about 1 at the same time.
+**Decision: option 2, a CE patch format for open engines.** On the Original, open-engine patches are saved and loaded in a format defined and documented in this repo. The trade-off: an open-engine patch saved on a Tracker+ (through Polyend's library, as `.patch`) won't load on the Original, and the reverse. Projects still move between devices, because slot settings live in the project file. A later change can close the gap by letting Tracker+ and Mini export and import open-engine patches in the CE format as well.
+
+**Format sketch** (a proposal to review before anyone writes a reader):
+- **File:** `Patches/<ENGINE>/<name>.cepatch`, for example `Patches/ACID/Squelch.cepatch`. A distinct extension, so neither firmware mistakes one format for the other.
+- **Header:** the magic `CEPT`, a format version (`uint16`), the engine as its `InstrumentTypeId` (`uint16`), and the parameter count (`uint16`). Little-endian throughout.
+- **Parameters:** one `float32` per parameter, in the engine's parameter order. A file with fewer parameters than the engine has (an older patch) gets the defaults for the rest; extra values are ignored. That's the same append-only rule the parameter IDs already follow.
+- **Macros:** for each of the 6 macros, a name (up to 20 bytes, the editor's limit), a bipolar flag, and up to 6 modifiers of (parameter `uint16`, amount `float32`).
+- **Name:** the patch's display name.
+- **Forward compatibility:** sections after these are tagged with a type and a length, so a newer file loads in older firmware with the unknown parts skipped.
+- **Tests:** round trip byte for byte, old files with fewer parameters, damaged files rejected without crashing, all as host tests.
 
 ---
 
@@ -74,7 +83,7 @@ Each step is its own PR.
 3. **Patch-view interface** on Tracker+ and Mini, wrapping Polyend's `Patch`, with the editor moved onto it. No behaviour change, checked by a hardware smoke test on Tracker+ or Mini.
 4. **The host core** (voice pool, macros, MIDI port, FX entry, audio node), built and tested on the host first. The same sound-parity approach as TORO and ACID: through the host vs the engine driven directly.
 5. **Turn it on for the Original:** the guard, the mixer inputs, the editor and icons, the Model menu. Rungs 3 and 4 on an Original, then a listening test.
-6. **Patches**, per the decision above.
+6. **Patches:** the CE format above, its reader and writer as host-tested code shared by all devices, then the Original's patch browser and Save / Save As in the editor.
 
 ---
 
