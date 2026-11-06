@@ -1,0 +1,120 @@
+{
+  "_comment": "Curated purposes only. Paths must exist and every key file's symbol must be found in that file, or project_map raises and the tests fail. Line numbers are looked up live, never stored here.",
+  "areas": [
+    {
+      "path": "core/source",
+      "purpose": "Application core: main loop, sequencer, MIDI, project structs, themes, profiler.",
+      "key_files": [
+        { "path": "core/source/Tracker.cpp", "symbol": "TrackerImpl::updateAudioBuffers", "why": "Audio interrupt entry: runs midiUpdate(), sequencer.tick() and the audio engine every block." },
+        { "path": "core/source/Tracker.cpp", "symbol": "TrackerImpl::update", "why": "Main loop: display, file manager and UI updates." },
+        { "path": "core/source/mtSequencer.cpp", "symbol": "Sequencer::tick", "why": "Sequencer clock, called from the audio interrupt." },
+        { "path": "core/source/mtMidi.cpp", "symbol": "midiUpdate", "why": "MIDI input handling, called from the audio interrupt." },
+        { "path": "core/source/mtStructs.h", "symbol": "struct strInstrument", "why": "Serialized instrument struct; its size is a static_assert'ed contract." },
+        { "path": "core/source/Profiler.h", "symbol": "startMeasuringAudio", "why": "Audio block load measurement for performance work." }
+      ]
+    },
+    {
+      "path": "core/AudioEngine",
+      "purpose": "Per-voice playback engine, audio sequencer FX, SD streaming of long samples, master FX.",
+      "key_files": [
+        { "path": "core/AudioEngine/mtAudioEngine.cpp", "symbol": "audioEngine::update", "why": "Engine update called each audio block." },
+        { "path": "core/AudioEngine/VoiceStreamManager.cpp", "symbol": "VoiceStreamManager::setupInstrumentStream", "why": "Hybrid SD streaming of samples >= 256 KB." }
+      ]
+    },
+    {
+      "path": "core/libs/Audio",
+      "purpose": "Teensy-derived audio graph (AudioStream blocks): sample players, filters, envelopes, mixers, limiter, reverb.",
+      "key_files": [
+        { "path": "core/libs/Audio/AudioStream.h", "symbol": "class AudioStream", "why": "Block allocation and routing every audio class builds on." },
+        { "path": "core/libs/Audio/play_memory.cpp", "symbol": "AudioPlayMemory::update", "why": "Sample playback, dispatched per play mode." },
+        { "path": "core/libs/Audio/effect_limiter.cpp", "symbol": "AudioEffectLimiter::update", "why": "Master limiter; covered by tests/audio golden hashes." },
+        { "path": "core/libs/Audio/filter_variable.cpp", "symbol": "AudioFilterStateVariable::update", "why": "Per-voice state-variable filter; covered by tests/audio golden hashes." }
+      ]
+    },
+    {
+      "path": "core/libs/NewDisplay",
+      "purpose": "Display widget library on the FT812 graphics chip: controls, refresh queue, 8,172-byte frame budget.",
+      "key_files": [
+        { "path": "core/libs/NewDisplay/display.cpp", "symbol": "cDisplay::update", "why": "Display state machine run from the main loop." },
+        { "path": "core/libs/NewDisplay/displayControls.h", "symbol": "class cDisplayControl", "why": "Base class of every on-screen control." },
+        { "path": "core/libs/NewDisplay/displayStructs.h", "symbol": "enum controlsStyle", "why": "Style bits shared by all controls (nearly exhausted)." }
+      ]
+    },
+    {
+      "path": "core/libs/FT812",
+      "purpose": "FT812 command wrappers (API_* functions) shared by both platforms.",
+      "key_files": [
+        { "path": "core/libs/FT812/FT812.cpp", "symbol": "API_CMD_APPEND", "why": "How control display lists are stitched into each frame." }
+      ]
+    },
+    {
+      "path": "core/interface",
+      "purpose": "UI screens (modules): one directory per screen, g*.cpp draws, f*.cpp handles input. Recipe: ui-screen.",
+      "key_files": [
+        { "path": "core/interface/core/interface.cpp", "symbol": "Interface::modules", "why": "The table of screens; slot numbers used throughout the UI." },
+        { "path": "core/interface/core/interfaceMenuPopup.cpp", "symbol": "kModuleNamesList", "why": "Screen names in the Tracker Mini module menu and Fn key bindings." }
+      ]
+    },
+    {
+      "path": "core/FileManager",
+      "purpose": "Projects, patterns, instruments and samples on the SD card: load, save, copy-on-write workspace, import, export.",
+      "key_files": [
+        { "path": "core/FileManager/fileTransfer.cpp", "symbol": "cFileTransfer::loadInstrumentRawSampleDataToMemory", "why": "Chunked sample loading; SD alignment matters here." },
+        { "path": "core/FileManager/WorkspaceProjectLoad.cpp", "symbol": "WorkspaceProjectLoad::update", "why": "Workspace project load state machine (one step per main-loop pass)." }
+      ]
+    },
+    {
+      "path": "core/effector",
+      "purpose": "Sample Editor effects, including the .ptfx plugin loader.",
+      "key_files": [
+        { "path": "core/effector/tracker_plugin.h", "symbol": "PtfxParamDef", "why": "Binary plugin parameter descriptor (32 bytes)." }
+      ]
+    },
+    {
+      "path": "core/synth",
+      "purpose": "Synth glue for Tracker+ and Mini: engine registry, the Synth wrapper, open-source engines. Recipe: synth-engine.",
+      "key_files": [
+        { "path": "core/synth/registry.cpp", "symbol": "InstrumentTypeRegistry::registerInstrumentTypes", "why": "Where synth engines are registered." },
+        { "path": "core/synth/Synth.h", "symbol": "kSynthTypes", "why": "The Model menu order; indexes the UI name and badge tables." }
+      ]
+    },
+    {
+      "path": "synth/include/PolySynth",
+      "purpose": "Public PolySynth headers and the Open Synth SDK; the engine implementations themselves are precompiled in synth/lib.",
+      "key_files": [
+        { "path": "synth/include/PolySynth/config.h", "symbol": "enum class InstrumentTypeId", "why": "Serialized engine ids: append only." },
+        { "path": "synth/include/PolySynth/sdk/SynthVoiceSDK.h", "symbol": "class CustomSynthVoice", "why": "Base class for open-source engines." },
+        { "path": "synth/include/PolySynth/Patch.h", "symbol": "struct Param", "why": "Parameter metadata (range, curve, formatter) the UI reads." }
+      ]
+    },
+    {
+      "path": "platforms/mk66",
+      "purpose": "Original Tracker (Kinetis MK66, Cortex-M4F 180 MHz): drivers, startup, linker script.",
+      "key_files": [
+        { "path": "platforms/mk66/source/DisplayDriverImpl.h", "symbol": "class DisplayDriverImpl", "why": "Display transport for MK66." }
+      ]
+    },
+    {
+      "path": "platforms/imx",
+      "purpose": "Tracker+ and Tracker Mini (i.MX RT, Cortex-M7 600 MHz): NXP SDK drivers, USB, SD, linker scripts.",
+      "key_files": [
+        { "path": "platforms/imx/source/DisplayDriverImpl.h", "symbol": "class DisplayDriverImpl", "why": "Display transport for IMX." },
+        { "path": "platforms/imx/linker/linkerScript.ld", "symbol": ".audio_ram_functions", "why": "Where AUDIO_CORE_RAM code is placed (ITCM)." }
+      ]
+    },
+    {
+      "path": "editor-fx-sdk",
+      "purpose": "MIT-licensed SDK and builder for .ptfx Sample Editor plugins, with reference effects.",
+      "key_files": [
+        { "path": "editor-fx-sdk/ptfx_builder.py", "symbol": "def main", "why": "Packs plugin sources into .ptfx files." }
+      ]
+    },
+    {
+      "path": "docs",
+      "purpose": "User guides and developer documentation (top-level *.md is synced to the GitHub wiki).",
+      "key_files": [
+        { "path": "docs/developer_guide.md", "symbol": "## 1. Memory Budget", "why": "Memory regions, budgets and platform guards." }
+      ]
+    }
+  ]
+}
