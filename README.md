@@ -4,13 +4,14 @@ Welcome to the **Polyend Tracker Community Edition** repository!
 
 Built directly from the original Polyend firmware source code, Tracker CE opens up the Polyend Tracker platform to musicians, sound designers, and developers around the world. Whether you are here to flash the latest Community Edition firmware, want to build your own idea on the Tracker, design custom themes and fonts, write Sample Editor plugins, or build new synthesizer engines, we are excited to have you here.
 
-This unified codebase powers all three hardware instruments in the Tracker family:
-* **Original Polyend Tracker** (`NXP Kinetis MK66FX1M0`, Cortex-M4F @ 180 MHz)
-* **Polyend Tracker+ & Tracker Mini** (`NXP i.MX RT1051/RT1064`, Cortex-M7 @ 600 MHz)
+### Download Firmware:
+
+See [Releases](https://github.com/polyend/tracker-ce/releases) for the latest downloads for all devices.
 
 ### What's New:
 See [`CHANGELOG.md`](CHANGELOG.md) for the full list of new features and improvements.
 
+---
 
 ## Notice: Official Support, Warranty & Hardware Disclaimer
 
@@ -26,12 +27,18 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full list of new features and improve
 
 ## Repository Structure
 
+This unified codebase powers all three hardware instruments in the Tracker family:
+* **Original Polyend Tracker** (`NXP Kinetis MK66FX1M0`, Cortex-M4F @ 180 MHz)
+* **Polyend Tracker+ & Tracker Mini** (`NXP i.MX RT1051/RT1064`, Cortex-M7 @ 600 MHz)
+
+
 ```text
 .
 ├── Makefile                # Unified top-level build & version management
 ├── version.mk              # Centralized version & build number configuration
 ├── CHANGELOG.md            # Release history & feature highlights
 ├── CONTRIBUTING.md         # Contribution rules & hardware testing workflow
+├── AGENTS.md               # Rules for AI coding agents (CLAUDE.md points here; area AGENTS.md files add to it)
 ├── LICENSE                 # MIT License (+ No Wholesale Commercial Clones & Precompiled Synth Terms)
 ├── NOTICE.md               # Third-party open-source attributions
 ├── core/                   # Shared Tracker application, audio engine, UI & open synth engines
@@ -43,7 +50,8 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full list of new features and improve
 │   └── lib/                # Precompiled libPolySynth.a & libPolyDSP.a + LICENSE-PROPRIETARY.txt
 ├── util/                   # Shared C++ utility headers & third-party header libraries (ETL, magic_enum)
 ├── editor-fx-sdk/          # .ptfx Sample Editor plugin SDK, builder & effects/ sources
-└── docs/                   # User guides, SDK tutorials & architecture documentation
+├── tools/tracker-mcp/      # Optional MCP server for AI coding tools (not part of the firmware build)
+└── docs/                   # User guides, SDK tutorials, build recipes (docs/recipes/) & architecture docs
 ```
 
 ---
@@ -63,6 +71,31 @@ For radical experiments or reimagined interfaces, we actively encourage communit
 We welcome community contributions! ❤️
 
 From bug fixes and workflow improvements to new open-source synth engines and `.ptfx` Sample Editor plugins. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for our project philosophy, pull request rules, hardware testing workflow, and technical checklist before opening a Pull Request.
+
+---
+
+## Working with AI Coding Tools
+
+AI coding agents (Claude Code, Codex, Cursor, Copilot and others) are welcome here, with the same bar as any contributor: a change has to be provably safe on all three devices. Three things help an agent clear that bar. None of them are needed to build the firmware.
+
+* **[`AGENTS.md`](AGENTS.md)** holds the rules. It covers how to scope a change, what must never run in the audio interrupt (and where interrupt code starts), the file-format and memory rules, the verification ladder, and the commit rules. Directories with their own pitfalls (`core/source`, `core/libs/Audio`, `core/FileManager`, `core/libs/NewDisplay`, `core/synth` and `platforms`) have a short `AGENTS.md` that adds to it. Most agents read these automatically, and Claude Code reads it through `CLAUDE.md`.
+* **[`docs/recipes/`](docs/recipes)** has step-by-step guides for building core parts: a synth engine, a UI screen, a step FX, a `.ptfx` effect and a host test. Each lists the files to touch in order, the pitfalls and how to verify the result. Each also says to grep the closest existing example, because the code is always the final word.
+* **[`tools/tracker-mcp`](tools/tracker-mcp/README.md)** is a small optional [MCP](https://modelcontextprotocol.io) server that hands those docs to an agent when it needs them. It has two tools:
+  * `project_map`: what each area of the repo is for, and its key files with current line numbers;
+  * `rules`: the `AGENTS.md` files that apply to the file you're editing, or a recipe with `recipe=<name>`.
+
+  It parses no C++ and stores no facts it can't check, so it never contradicts the code. Set it up with:
+
+  ```bash
+  make -C tools/tracker-mcp setup
+  claude mcp add tracker-ce --scope project \
+    --env PYTHONPATH=tools/tracker-mcp --env TRACKER_CE_ROOT=. \
+    -- tools/tracker-mcp/.venv/bin/python -m tracker_mcp.server
+  ```
+
+  Other MCP clients take the same command. `make -C tools/tracker-mcp test` takes a few seconds and checks that every path and name the docs mention still exists, so a renamed function or a moved file shows up immediately.
+
+Per `AGENTS.md`, commits must not carry AI `Co-authored-by:` trailers (CI rejects them). Saying in the PR that a tool helped is welcome.
 
 ---
 
@@ -140,6 +173,8 @@ Full user and developer documentation is available in [`docs/`](docs/Home.md) an
   * [Firmware Architecture, Hardware Limits & Developer Gotchas](docs/developer_guide.md)
   * [Custom Synth Engine SDK](docs/custom_synth_sdk.md)
   * [Modular Sample Editor Effects & `.ptfx` Developer SDK](docs/modular_effects_system.md)
+  * [Build Recipes](docs/recipes) (synth engine, UI screen, step FX, `.ptfx` effect, host test)
+  * [Rules for AI Coding Agents](AGENTS.md)
 
 ---
 
