@@ -5,6 +5,7 @@
 #include "Synth.h"
 #endif
 #include "fileManager.h"
+#include "log.h"
 #include "mtAudioEngine.h"
 #include "mtSequencer.h"
 #include "mtStructs.h"
@@ -251,7 +252,7 @@ AUDIO_CORE_RAM void Sequencer::tick_uStep(void)
     }
 }
 
-AUDIO_CORE_FLASH void Sequencer::play_microStep(int row)
+AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
 {
     assert(row < kAllTracks);
 
@@ -1308,6 +1309,8 @@ AUDIO_CORE_RAM void Sequencer::play(uint8_t fromPos)
 {
     fromPos = clamp<int>(fromPos, 0, MAXSTEP);
 
+    LOGF("sequencer play from step %d (%s mode)\n", fromPos, player.songMode ? "song" : "pattern");
+
     if (!(isRec() && isPreRollConfigOn()))
     {
         stopAllOpenNotes();
@@ -1542,6 +1545,8 @@ AUDIO_CORE_RAM void Sequencer::stopManualNotes(void)
 
 void Sequencer::stop(void)
 {
+    LOG("sequencer stop");
+
     songTimer.stop();
     stopAllOpenNotes();
     cancelFxes();
@@ -3707,19 +3712,11 @@ AUDIO_CORE_RAM void Sequencer::updateExternalClockTempo(seqtimesec_t deltaTime)
 
 bool Sequencer::copyBufferToBufferPattern(uint8_t* srcBuff)
 {
-    [[maybe_unused]] uint32_t checkCRC =
-      crcCalculator->calculate32bitCrc(srcBuff, sizeof(Sequencer::strPattern) - sizeof(uint32_t));
-
     uint8_t* destPattern = (uint8_t*)bufferPattern;
 
-    if (true)
-    {
-        memcpy(destPattern, srcBuff, sizeof(Sequencer::strPattern));
-        newFileManager.checkVersionAndTranslate((Sequencer::strPattern*)destPattern);
-        return true;
-    }
-
-    return false;
+    memcpy(destPattern, srcBuff, sizeof(Sequencer::strPattern));
+    newFileManager.checkVersionAndTranslate((Sequencer::strPattern*)destPattern);
+    return true;
 }
 
 bool Sequencer::copyCurrentPatternToBuff(uint8_t* destBuff)
