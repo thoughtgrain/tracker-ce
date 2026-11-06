@@ -655,6 +655,11 @@ void cDisplay::step3()
             }
             else
             {
+#if DEBUG
+                // Everything below this control in the table is dropped from this frame.
+                // Count it so display-list budget overruns are visible instead of silent.
+                droppedControlsCount++;
+#endif
                 break;
             }
         }

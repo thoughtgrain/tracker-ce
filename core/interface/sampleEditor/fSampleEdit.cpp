@@ -11,6 +11,7 @@
 #include "ptfx_manager.h"
 #include "util_math.h"
 
+#include <cmath>
 #include <cr_section_macros.h>
 
 __NOINIT(EXTERNAL_RAM) strTrackerSpectrum cSampleEditor::spectrumData[2];
@@ -1029,19 +1030,34 @@ void cSampleEditor::reloadParameterValueText(uint8_t idx)
     float displayedValue = effectDisplayParamsToAdjust[currentEffectIdx].parameter[idx] *
                            params.displayMult[idx];
 
+    // The label buffer is 16 bytes (parameterValueLabel). Built-in ranges always fit, but a
+    // .ptfx plugin declares its own min/max, so every write here has to be bounded.
+    char* label = parameterValueLabelPtr[idx];
+    constexpr size_t kLabelLen = sizeof(parameterValueLabel[0]);
+    int written = 0;
+
     if (params.displayType[idx] == 'd')
     {
-        sprintf(parameterValueLabelPtr[idx], "%d", (int)displayedValue);
+        // Clamp before the float->int cast: converting an out-of-range or NaN float is
+        // undefined. NaN compares false against everything, so clamp() alone won't catch it.
+        float clamped = std::isnan(displayedValue)
+                          ? 0.0f
+                          : clamp<float>(displayedValue, -99999999.0f, 99999999.0f);
+        written = snprintf(label, kLabelLen, "%d", (int)clamped);
     }
     else if (params.displayType[idx] == 'f')
     {
-        sprintf(parameterValueLabelPtr[idx], "%.2f", displayedValue);
+        written = snprintf(label, kLabelLen, "%.2f", displayedValue);
+    }
+
+    if (written < 0 || (size_t)written >= kLabelLen)
+    {
+        written = (int)kLabelLen - 1;
     }
 
     if (params.afterValueText[idx] != nullptr)
     {
-        strcat(parameterValueLabelPtr[idx],
-               params.afterValueText[idx]);
+        strncat(label, params.afterValueText[idx], kLabelLen - 1 - (size_t)written);
     }
 }
 
@@ -1058,10 +1074,13 @@ void cSampleEditor::reloadParameterBarValue(uint8_t n)
         return;
     }
 
-    paramsBarValue[n] = (((effectDisplayParamsToAdjust[currentEffectIdx].parameter[n] -
-                           params.downConstrain[n]) *
-                          100) /
-                         range);
+    // Clamp before storing into uint8_t: Timestretch Beat/Note use a 0 default as "auto",
+    // which sits below their minimum and would otherwise convert a negative float to unsigned.
+    float barValue = ((effectDisplayParamsToAdjust[currentEffectIdx].parameter[n] -
+                       params.downConstrain[n]) *
+                      100) /
+                     range;
+    paramsBarValue[n] = (uint8_t)clamp<float>(barValue, 0.0f, 100.0f);
 }
 
 //******************* REFRESH - RELOAD + DISPLAY

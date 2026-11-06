@@ -155,7 +155,8 @@ class cSampleImporter : public ModuleBase
     void calculateCopyingProgress();
     uint8_t memoryUsage;
     strBarData memoryUsageAdd;
-    const strBarData memoryUsageAddOnMemoryFull = { 100 };
+    // Field order is { changingColor, value }; the compare bar reads .value.
+    const strBarData memoryUsageAddOnMemoryFull = { 0, 100 };
     int32_t currentSelectMemorySize;
     uint8_t fullMemoryFlag = 0;
     uint8_t loadProgress = 0;

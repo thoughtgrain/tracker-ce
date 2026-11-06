@@ -1919,8 +1919,9 @@ static void changePlayModeSelection(int16_t value)
 
     newFileManager.setInstrumentStructChanged(mtProject.values.lastUsedInstrument);
 
-    display.setControlValue(SP->playModeListControl,
-                            SP->editorInstrument->playMode + SP->editorInstrument->sample.type);
+    // playModeWavetable is already its own entry in playModeFunctLabels; adding sample.type
+    // on top of it highlighted the Granular row whenever a wavetable instrument was shown.
+    display.setControlValue(SP->playModeListControl, SP->editorInstrument->playMode);
     display.refreshControl(SP->playModeListControl);
 
     SP->showDefaultScreen();
