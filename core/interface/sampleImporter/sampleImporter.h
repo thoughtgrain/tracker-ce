@@ -111,7 +111,7 @@ class cSampleImporter : public ModuleBase
 
     // void setInstrumentsListPos(uint8_t pos);
 
-    void showAddOrEnter();
+    void showAddOrEnter(bool isShiftPressed);
     void showRename();
 
     void addNextColorControl();
@@ -134,6 +134,10 @@ class cSampleImporter : public ModuleBase
     uint16_t locationExplorerCount = 0;
     char** explorerNames;
     uint8_t selectedFile = 0;
+    // Null for a row the list does not have: the list is empty, or it is being read again.
+    const char* explorerRowName(uint16_t row) const;
+    bool isFolderRow(uint16_t row) const;
+    bool isFileRow(uint16_t row) const;
     char copyingInfo[20];
     uint32_t* currentFolderMemoryFileUsage;
 
@@ -141,6 +145,7 @@ class cSampleImporter : public ModuleBase
 
     // instrumenty
     void listInstrumentSlots();
+    std::optional<uint8_t> getFirstEmptyInstrumentSlot();
     uint8_t selectedSlot = 0;
 
     uint8_t instrUseMap[kSampleInstrumentsCount + 1];
@@ -193,7 +198,7 @@ class cSampleImporter : public ModuleBase
     void rewindListToBeggining();
     void moveInstrListToEnd();
 
-    static const uint8_t maxListLength = 100;
+    static const uint8_t maxListLength = 101; // 100 files and the parent folder
     uint8_t selectionActive[2] = { 0, 0 };
     uint32_t explorerHeaderColors[4];
     uint32_t instrumentHeaderColors[4];
@@ -219,6 +224,19 @@ class cSampleImporter : public ModuleBase
     uint32_t importSampleSamplesCount = 0;
     uint32_t importMemoryFree = 0;
     uint8_t importIsLoFi = 0;
+    uint8_t importForceStream = 0;
+
+    enum class enSampleLoadMode : uint8_t
+    {
+        kRam = 0,
+        kAuto = 1,
+        kStream = 2,
+    };
+    enSampleLoadMode sampleLoadMode = enSampleLoadMode::kRam;
+
+    void updateMemoryButtonLabel();
+    void handleMemoryModeOrToggle();
+    bool calcImportIsEnoughMemoryStream();
 
     uint16_t playProgressValue = 0;
     uint16_t playProgressInSpectrum = 0; // 0 - 600
@@ -233,15 +251,16 @@ class cSampleImporter : public ModuleBase
     uint8_t playInProgressFlag = 0;
     uint8_t importApplyNormalButtonLastStyle = 255;
     uint8_t importApplyLoFiButtonLastStyle = 255;
+    uint8_t importApplyStreamButtonLastStyle = 255;
 
     strZoomParams zoom;
     strSpectrumParams params;
 
     uint8_t selectedImportPlace;
 
-    char startPointValueText[8];
-    char endPointValueText[8];
-    char playTimeValueText[8];
+    char startPointValueText[12];
+    char endPointValueText[12];
+    char playTimeValueText[12];
     char previewVolumeText[12];
 
     void calcPlayProgressValue();

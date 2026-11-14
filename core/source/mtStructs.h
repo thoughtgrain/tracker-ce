@@ -67,7 +67,9 @@ const uint32_t SAMPLE_MEMORY_SIZE = (45 * 256 * 1024);     // 11,25 MB = 133.746
 // Tmini / Tplus
 const uint32_t EXTERAL_MEMORY_ADDRESS = 0x80000000;
 const uint32_t TOTAL_EXTERNAL_MEMORY = (64 * 1024 * 1024); // 64 MB
-const uint32_t SAMPLE_MEMORY_SIZE = ((60 * 1024 - 64) * 1024); // ~60 MB minus 64 KB for pattern buffers
+const uint32_t PSYN_RAM_POOL_SIZE = (6 * 1024 * 1024);      // 6 MB for .psyn plugins & synth SamplePool
+// ~54 MB: 60 MB minus 64 KB for pattern buffers, 96 KB for the display lists kept in the MCU and the pool above
+const uint32_t SAMPLE_MEMORY_SIZE = ((60 * 1024 - 64 - 96) * 1024) - PSYN_RAM_POOL_SIZE;
 #endif
 
 const uint32_t DELAY_MEMORY_SIZE = (3 * 512 * 1024);               // 1,5 MB
@@ -612,6 +614,10 @@ struct strInstrument
     } sample;
 
     char name[4];
+
+    static constexpr char kStreamPrefMagic = 'S';
+    bool isStreamPreferred() const { return name[3] == kStreamPrefMagic; }
+    void setStreamPreferred(bool streamed) { name[3] = streamed ? kStreamPrefMagic : 0; }
 
     uint8_t playMode;
     uint16_t startPoint;

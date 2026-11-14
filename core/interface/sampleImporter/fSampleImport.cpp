@@ -1,4 +1,5 @@
 #include "fileManager.h"
+#include "fileManagerDefs.h"
 #include "sampleImporter/sampleImporter.h"
 
 #include "core/interfaceMenuPopup.h"
@@ -47,6 +48,8 @@ static void functImportAndReplaceInstrumentConfirm();
 static void functImportCancel();
 static void functImportLoFiApply();
 static void functImportApply();
+static void functImportStreamApply();
+static void functMemoryModeOrToggle();
 static void functImportPreview(uint8_t state);
 static void functImportStart();
 static void functImportEnd();
@@ -360,6 +363,7 @@ void cSampleImporter::setDefaultScreenFunct()
     ip->setButtonObj(interfaceButton4, buttonPress, functInstrumentImport);
     ip->setButtonObj(interfaceButton5, buttonPress, functDeleteUnused);
     ip->setButtonObj(interfaceButton6, functSelectPreviewVolume);
+    ip->setButtonObj(interfaceButton7, buttonPress, functMemoryModeOrToggle);
 
     // ip->setButtonObj(interfaceButton4, buttonPress, functChangeInstrument);
     // ip->setButtonObj(interfaceButton5, buttonPress, functInstrumentDelete);
@@ -376,11 +380,7 @@ void cSampleImporter::setDefaultScreenFunct()
 
 static void instrumentAdd(bool addNext)
 {
-    if (SI->explorerNames == nullptr)
-    {
-        return;
-    }
-    if (*SI->explorerNames[SI->selectedFile] == '/')
+    if (!SI->isFileRow(SI->selectedFile))
     {
         return;
     }
@@ -423,7 +423,7 @@ static void instrumentAdd(bool addNext)
     }
     else
     {
-        if (SI->explorerNames != nullptr && *SI->explorerNames[SI->selectedFile] != '/')
+        if (SI->isFileRow(SI->selectedFile))
         {
             SI->sampleType = mtSampleTypeWaveFile;
             SI->addNextFlag = addNext;
@@ -525,11 +525,7 @@ void cSampleImporter::processPoints()
 
 static void functInstrumentImport()
 {
-    if (SI->explorerNames == nullptr)
-    {
-        return;
-    }
-    if (*SI->explorerNames[SI->selectedFile] == '/')
+    if (!SI->isFileRow(SI->selectedFile))
     {
         return;
     }
@@ -540,8 +536,7 @@ static void functInstrumentImport()
 
     SI->playFromPads(INTERFACE_BUTTON_PREVIEW, buttonRelease, -1);
 
-    char* fileName = SI->explorerNames[SI->selectedFile];
-    if (hasFileExtension(fileName, "pti"))
+    if (hasFileExtension(SI->explorerRowName(SI->selectedFile), "pti"))
     {
         return;
     }
@@ -593,6 +588,7 @@ void cSampleImporter::setImportFuncts()
     ip->setButtonObj(interfaceButton1, buttonPress, functImportStart);
     ip->setButtonObj(interfaceButton2, buttonPress, functImportEnd);
 
+    ip->setButtonObj(interfaceButton4, buttonPress, functImportStreamApply);
     ip->setButtonObj(interfaceButton5, buttonPress, functImportCancel);
     ip->setButtonObj(interfaceButton6, buttonPress, functImportLoFiApply);
     ip->setButtonObj(interfaceButton7, buttonPress, functImportApply);
@@ -600,7 +596,6 @@ void cSampleImporter::setImportFuncts()
     ip->setButtonObj(interfaceButtonMiniMiddle, functImportPreview);
 
     ip->clearButton(interfaceButton3);
-    ip->clearButton(interfaceButton4);
 
     // ip->clearButton(interfaceButtonPlay);
     ip->clearButton(interfaceButtonRec);
@@ -648,6 +643,7 @@ static void functImportLoFiApply()
     SI->importPartOfSampleWithDelay();
 
     SI->importIsLoFi = 1;
+    SI->importForceStream = 0;
 }
 
 static void functImportApply()
@@ -664,14 +660,36 @@ static void functImportApply()
     SI->importPartOfSampleWithDelay();
 
     SI->importIsLoFi = 0;
+    SI->importForceStream = 0;
+}
+
+static void functImportStreamApply()
+{
+    if (!SI->calcImportIsEnoughMemoryStream())
+    {
+        return;
+    }
+
+    functImportCancel();
+
+    SI->ip->blockAllInputs();
+
+    SI->importPartOfSampleWithDelay();
+
+    SI->importIsLoFi = 0;
+    SI->importForceStream = 1;
 }
 
 void cSampleImporter::importPartOfSample()
 {
     uint8_t selStart = getSelectionStart(listFiles);
 
+    FileManagerOperation::SampleLoadMode loadMode =
+      importForceStream ? FileManagerOperation::SampleLoadMode::kStream
+                        : static_cast<FileManagerOperation::SampleLoadMode>(sampleLoadMode);
+
     bool result = newFileManager.importSamplesToProject(
-      selStart, selStart, selectedSlot, importStartPoint, importEndPoint, importIsLoFi == 1);
+      selStart, selStart, selectedSlot, importStartPoint, importEndPoint, importIsLoFi == 1, loadMode);
 
     if (result)
     {
@@ -821,10 +839,13 @@ void cSampleImporter::calcImportFreeMem()
 
     if (mtProject.instrument[selectedSlot].isActive)
     {
-        importMemoryFree = 2 * mtProject.instrument[selectedSlot].sample.length;
+        importMemoryFree = newFileManager.getSampleMemorySize(selectedSlot, selectedSlot);
     }
 
-    importMemoryFree += mtProject.max_memory - mtProject.used_memory;
+    if (mtProject.max_memory > mtProject.used_memory)
+    {
+        importMemoryFree += mtProject.max_memory - mtProject.used_memory;
+    }
 }
 
 bool cSampleImporter::calcImportIsEnoughMemoryNormal()
@@ -843,6 +864,21 @@ bool cSampleImporter::calcImportIsEnoughMemoryLoFi()
 
     return (sampleEndPoint - sampleStartPoint) <
            (importMemoryFree - 10000); // 10000B mniej dla bezpieczenstwa
+}
+
+bool cSampleImporter::calcImportIsEnoughMemoryStream()
+{
+    float sampleStartPoint = ((float)importSampleSamplesCount / MAX_16BIT) * importStartPoint;
+    float sampleEndPoint = ((float)importSampleSamplesCount / MAX_16BIT) * importEndPoint;
+    float frames = sampleEndPoint - sampleStartPoint;
+    if (frames <= (float)kStreamPreCacheFrames)
+    {
+        return false;
+    }
+    uint32_t preCacheBytes =
+      kStreamPreCacheFrames *
+      ((newFileManager.getSampleMode() == FileManagerOperation::kLeftAndRight) ? 4 : 2);
+    return (preCacheBytes + 10000) < importMemoryFree;
 }
 //==============================================================================================================
 //==============================================================================================================
@@ -943,7 +979,7 @@ static void functConfirmRename()
             // SI->displayDelete(SI->selectedPlace);
 
             //	fileManager.setInstrumentChangeFlag(mtProject.values.lastUsedInstrument);
-            newFileManager.setInstrumentStructChanged(mtProject.values.lastUsedInstrument);
+            newFileManager.setInstrumentStructChanged(SI->selectedSlot);
 
             SI->keyboardManager.deactivateKeyboard();
         }
@@ -1082,6 +1118,7 @@ static void functShift(uint8_t state)
         // cancelAnotherSelect();
 
         SI->selectionActive[SI->selectedPlace] = 1;
+        SI->showAddOrEnter(true);
 
         //		if(SI->currSelectPlace != SI->selectedPlace)
         //		{
@@ -1116,6 +1153,7 @@ static void functShift(uint8_t state)
     else if (state == buttonRelease)
     {
         SI->selectionActive[SI->selectedPlace] = 0;
+        SI->showAddOrEnter(false);
     }
 }
 
@@ -1260,6 +1298,12 @@ static void functSwitchModule(uint8_t button)
 
 uint8_t cSampleImporter::changeFileSelection(int16_t value)
 {
+    // An empty list has no entry to move to; the clamp below would wrap around to entry 255.
+    if (locationExplorerCount == 0)
+    {
+        return 1;
+    }
+
     value = clamp<int>(value, -5, 5);
 
     if (selectionActive[selectedPlace])
@@ -1271,6 +1315,7 @@ uint8_t cSampleImporter::changeFileSelection(int16_t value)
         }
         selectedFile = handleSelecting(selectedFile, locationExplorerCount, value, 1);
         updateSelection();
+        showAddOrEnter(buttons->isButtonPressed(interfaceButtonShift));
     }
     else
     {
@@ -1355,21 +1400,19 @@ void cSampleImporter::refreshGuiAfterDelay()
 
 void cSampleImporter::refreshActionButtons()
 {
-    showAddOrEnter();
+    showAddOrEnter(buttons->isButtonPressed(interfaceButtonShift));
 
     renameColorControl();
     addNextColorControl();
     previewColorControl();
     importColorControl();
     deleteUnusedColorControl();
+    updateMemoryButtonLabel();
 }
 
 void cSampleImporter::BrowseOrAdd()
 {
-    if (SI->explorerNames == nullptr)
-        return;
-
-    if (*explorerNames[selectedFile] == '/')
+    if (isFolderRow(selectedFile))
     {
         if (selectedPlace == 0)
         {
@@ -1377,12 +1420,30 @@ void cSampleImporter::BrowseOrAdd()
 
             if (newFileManager.browseSdCard(&selectedFile))
             {
-                SI->ip->blockAllInputs();
+                SI->ip->blockAllInputsExcept(interfaceButtonShift);
             }
         }
     }
-    else
+    else if (isFileRow(selectedFile))
     {
+        if (SI->buttons->isButtonPressed(interfaceButtonShift) &&
+            SI->selectionLength[listFiles] == 0)
+        {
+            auto firstEmptyInstrumentSlot = SI->getFirstEmptyInstrumentSlot();
+
+            if (!firstEmptyInstrumentSlot)
+            {
+                mtPopups.show(0, "No empty instrument slots");
+                return;
+            }
+
+            SI->cancelSelect(listInstruments);
+            SI->selectedSlot = *firstEmptyInstrumentSlot;
+            mtProject.values.lastUsedInstrument = SI->selectedSlot;
+            SI->refreshInstrumentsList();
+            SI->handleMemoryBar();
+        }
+
         functInstrumentAdd();
     }
 }
@@ -1395,13 +1456,23 @@ void cSampleImporter::importSamples()
         uint8_t selEnd = getSelectionEnd(listFiles);
 
         bool result = newFileManager.importSamplesToProject(
-          selStart, selEnd, selectedSlot, 0, MAX_16BIT, false);
+          selStart,
+          selEnd,
+          selectedSlot,
+          0,
+          MAX_16BIT,
+          false,
+          static_cast<FileManagerOperation::SampleLoadMode>(sampleLoadMode));
         addNextOffset = (selEnd - selStart) + 1;
 
         if (result)
         {
-            SI->ip->blockAllInputs();
+            SI->ip->blockAllInputsExcept(interfaceButtonShift);
         }
+    }
+    else
+    {
+        mtPopups.show(0, "Not enough sample memory");
     }
 }
 
@@ -1411,17 +1482,48 @@ void cSampleImporter::listInstrumentSlots()
 {
     for (uint8_t i = 0; i < kSampleInstrumentsCount; i++)
     {
-        sprintf(&interfaceGlobals.intrumentsNames[i][0], "%d.", i + 1);
-
         if (mtProject.instrument[i].isActive)
         {
-            strncat(&interfaceGlobals.intrumentsNames[i][0],
-                    mtProject.instrument[i].sample.file_name,
-                    SAMPLE_NAME_SIZE);
+            if (mtProject.sampleMemory[i].isStreamed)
+            {
+                snprintf(&interfaceGlobals.intrumentsNames[i][0],
+                         sizeof(interfaceGlobals.intrumentsNames[i]),
+                         "%d.[S] %s",
+                         i + 1,
+                         mtProject.instrument[i].sample.file_name);
+            }
+            else
+            {
+                snprintf(&interfaceGlobals.intrumentsNames[i][0],
+                         sizeof(interfaceGlobals.intrumentsNames[i]),
+                         "%d.%s",
+                         i + 1,
+                         mtProject.instrument[i].sample.file_name);
+            }
+        }
+        else
+        {
+            snprintf(&interfaceGlobals.intrumentsNames[i][0],
+                     sizeof(interfaceGlobals.intrumentsNames[i]),
+                     "%d.",
+                     i + 1);
         }
 
         interfaceGlobals.ptrIntrumentsNames[i] = &interfaceGlobals.intrumentsNames[i][0];
     }
+}
+
+std::optional<uint8_t> cSampleImporter::getFirstEmptyInstrumentSlot()
+{
+    for (uint8_t i = 0; i < kSampleInstrumentsCount; i++)
+    {
+        if (mtProject.instrument[i].isActive == 0)
+        {
+            return i;
+        }
+    }
+
+    return std::nullopt;
 }
 
 void cSampleImporter::handleMemoryBar()
@@ -1447,6 +1549,23 @@ void cSampleImporter::calculateFileMemUsage()
     uint32_t tempInstrumentMemorySize = 0;
     uint8_t tempSelectionLength;
 
+    auto estimateFileRamUsage = [this](uint32_t rawBytes) -> uint32_t {
+        uint32_t minStreamableBytes = kStreamPreCacheFrames * sizeof(int16_t);
+        uint32_t maxPreCacheBytes =
+          kStreamPreCacheFrames *
+          ((newFileManager.getSampleMode() == FileManagerOperation::kLeftAndRight) ? 4 : 2);
+        if (sampleLoadMode == enSampleLoadMode::kStream && rawBytes > minStreamableBytes)
+        {
+            return std::min<uint32_t>(rawBytes, maxPreCacheBytes);
+        }
+        if (sampleLoadMode == enSampleLoadMode::kAuto && rawBytes >= kStreamThresholdBytes &&
+            rawBytes > minStreamableBytes)
+        {
+            return std::min<uint32_t>(rawBytes, maxPreCacheBytes);
+        }
+        return rawBytes;
+    };
+
     if (selectionLength[listFiles] && selectedPlace == 0)
     {
         uint8_t selectionStart = getSelectionStart(listFiles);
@@ -1464,7 +1583,7 @@ void cSampleImporter::calculateFileMemUsage()
         // get file selection size
         for (int i = selectionStart; i < (selectionStart + tempSelectionLength); i++)
         {
-            tempSelectMemorySize += currentFolderMemoryFileUsage[i];
+            tempSelectMemorySize += estimateFileRamUsage(currentFolderMemoryFileUsage[i]);
         }
 
         // get size when pasted on current isntrument slot
@@ -1472,8 +1591,7 @@ void cSampleImporter::calculateFileMemUsage()
         {
             if (mtProject.instrument[i].isActive)
             {
-                tempInstrumentMemorySize += mtProject.instrument[i].sample.length *
-                                            (newFileManager.isInstrumentStereo(i) ? 4 : 2);
+                tempInstrumentMemorySize += newFileManager.getSampleMemorySize(i, i);
             }
         }
 
@@ -1481,11 +1599,12 @@ void cSampleImporter::calculateFileMemUsage()
     }
     else
     {
-        currentSelectMemorySize = currentFolderMemoryFileUsage[selectedFile];
+        currentSelectMemorySize = estimateFileRamUsage(currentFolderMemoryFileUsage[selectedFile]);
 
         if (mtProject.instrument[selectedSlot].isActive)
         {
-            currentSelectMemorySize -= 2 * mtProject.instrument[selectedSlot].sample.length;
+            currentSelectMemorySize -=
+              newFileManager.getSampleMemorySize(selectedSlot, selectedSlot);
         }
     }
 }
@@ -1560,6 +1679,11 @@ void cSampleImporter::playSelectedSdFile(uint16_t from, uint16_t to)
     //	}
 
     stopPlayingAll();
+
+    if (explorerRowName(selectedFile) == nullptr)
+    {
+        return;
+    }
 
     if (newFileManager.previevSamplefromSD(selectedFile, from, to))
     {
@@ -1814,12 +1938,29 @@ int16_t cSampleImporter::getSelectionEnd(uint8_t whichSelect)
 
 bool cSampleImporter::checkIfValidSelection(uint8_t positionToCheck)
 {
-    if (explorerNames != nullptr && !(*explorerNames[positionToCheck] == '/'))
+    return isFileRow(positionToCheck);
+}
+
+const char* cSampleImporter::explorerRowName(uint16_t row) const
+{
+    if (explorerNames == nullptr || row >= locationExplorerCount)
     {
-        return true;
+        return nullptr;
     }
 
-    return false;
+    return explorerNames[row];
+}
+
+bool cSampleImporter::isFolderRow(uint16_t row) const
+{
+    const char* name = explorerRowName(row);
+    return name != nullptr && *name == '/';
+}
+
+bool cSampleImporter::isFileRow(uint16_t row) const
+{
+    const char* name = explorerRowName(row);
+    return name != nullptr && *name != '/';
 }
 
 char* cSampleImporter::parseNewName(uint8_t num)
@@ -1855,7 +1996,7 @@ uint8_t cSampleImporter::willCopyInstrFit(uint8_t length)
     {
         if (mtProject.instrument[i].isActive)
         {
-            memoryUsedBySelection += 2 * mtProject.instrument[i].sample.length;
+            memoryUsedBySelection += newFileManager.getSampleMemorySize(i, i);
         }
     }
 
@@ -1863,7 +2004,7 @@ uint8_t cSampleImporter::willCopyInstrFit(uint8_t length)
     {
         if (mtProject.instrument[i].isActive)
         {
-            pasteLocationMemUsage += 2 * mtProject.instrument[i].sample.length;
+            pasteLocationMemUsage += newFileManager.getSampleMemorySize(i, i);
         }
     }
 
@@ -1901,8 +2042,8 @@ void cSampleImporter::clearStopPatternFunction()
     ip->clearButton(interfaceButton6);
     ip->clearButton(interfaceButton7);
 
-    // ip->setButtonObj(interfaceButton6, buttonPress, functChangeInstrument);
-    // ip->setButtonObj(interfaceButton7, buttonPress, functChangeInstrument);
+    ip->setButtonObj(interfaceButton6, functSelectPreviewVolume);
+    ip->setButtonObj(interfaceButton7, buttonPress, functMemoryModeOrToggle);
 
     ip->unblockAllInputs();
 }
@@ -1953,9 +2094,95 @@ void cSampleImporter::clearInfoPopupHandlerFunctions()
     ip->clearButton(interfaceButton7);
 
     ip->setButtonObj(interfaceButton6, functSelectPreviewVolume);
-    // ip->setButtonObj(interfaceButton7, buttonPress, functChangeInstrument);
+    ip->setButtonObj(interfaceButton7, buttonPress, functMemoryModeOrToggle);
 
     ip->unblockAllInputs();
+}
+
+static void functMemoryModeOrToggle()
+{
+    SI->handleMemoryModeOrToggle();
+}
+
+void cSampleImporter::handleMemoryModeOrToggle()
+{
+    if (selectedPlace == 1 && selectedSlot < kSampleInstrumentsCount &&
+        mtProject.instrument[selectedSlot].isActive)
+    {
+        playFromPads(INTERFACE_BUTTON_PREVIEW, buttonRelease, -1);
+
+        uint8_t selStart = getSelectionStart(listInstruments);
+        uint8_t selEnd = getSelectionEnd(listInstruments);
+        if (selStart >= kSampleInstrumentsCount || selEnd >= kSampleInstrumentsCount ||
+            selEnd < selStart)
+        {
+            selStart = selectedSlot;
+            selEnd = selectedSlot;
+        }
+
+        bool targetStream = !mtProject.sampleMemory[selectedSlot].isStreamed;
+        bool anyChanged = false;
+
+        for (uint8_t idx = selStart; idx <= selEnd; idx++)
+        {
+            if (!mtProject.instrument[idx].isActive)
+            {
+                continue;
+            }
+
+            if (targetStream && !mtProject.sampleMemory[idx].isStreamed)
+            {
+                char instrPath[PATCH_SIZE];
+                snprintf(instrPath, sizeof(instrPath), cWorkspaceInstrumentFileFormatNew, idx + 1);
+                if (newFileManager.demoteRamInstrumentToStream(
+                      idx, instrPath, sizeof(strInstrumentFile), true))
+                {
+                    newFileManager.saveInstrumentStructToWorkspace(idx);
+                    anyChanged = true;
+                }
+            }
+            else if (!targetStream && mtProject.sampleMemory[idx].isStreamed)
+            {
+                if (newFileManager.promoteStreamedInstrumentToRam(idx))
+                {
+                    newFileManager.saveInstrumentStructToWorkspace(idx);
+                    anyChanged = true;
+                }
+                else
+                {
+                    mtPopups.show(0, "Not enough sample memory");
+                    break;
+                }
+            }
+        }
+
+        if (anyChanged)
+        {
+            listInstrumentSlots();
+            showInstrumentsList();
+            handleMemoryBar();
+        }
+        updateMemoryButtonLabel();
+        display.synchronizeRefresh();
+    }
+    else
+    {
+        if (sampleLoadMode == enSampleLoadMode::kRam)
+        {
+            sampleLoadMode = enSampleLoadMode::kAuto;
+        }
+        else if (sampleLoadMode == enSampleLoadMode::kAuto)
+        {
+            sampleLoadMode = enSampleLoadMode::kStream;
+        }
+        else
+        {
+            sampleLoadMode = enSampleLoadMode::kRam;
+        }
+        updateMemoryButtonLabel();
+        handleMemoryBar();
+        display.synchronizeRefresh();
+    }
 }
 
 static void functConfirmKey()
@@ -2073,7 +2300,11 @@ void cSampleImporter::initDeleteUnusedInstruments()
 {
     memset(instrUseMap, 0, sizeof(instrUseMap));
 
-    for (int patternIdx = PATTERN_INDEX_MIN; patternIdx < PATTERN_INDEX_MAX; patternIdx++)
+    // The scan reads the pattern files, and the pattern in memory can be newer than its file
+    // until the next autosave.
+    newFileManager.saveWorkspacePatternNow(mtProject.values.actualPattern);
+
+    for (int patternIdx = PATTERN_INDEX_MIN; patternIdx <= PATTERN_INDEX_MAX; patternIdx++)
     {
         const Sequencer::strPattern* pattern =
           newFileManager.loadWorkspacePatternToTempBuffer(patternIdx);
@@ -2085,12 +2316,15 @@ void cSampleImporter::initDeleteUnusedInstruments()
 
         for (int trackIdx = 0; trackIdx < kSampleTracks; trackIdx++)
         {
-            for (int stepIdx = 0; stepIdx < pattern->track[trackIdx].length; stepIdx++)
+            // The length of a track is the index of its last step.
+            for (int stepIdx = 0; stepIdx <= pattern->track[trackIdx].length; stepIdx++)
             {
                 const struct Sequencer::strPattern::strTrack::strStep& step =
                   pattern->track[trackIdx].step[stepIdx];
 
-                if (step.note > Sequencer::STEP_NOTE_EMPTY)
+                // Sample tracks can also hold MIDI and synth instruments, which have no slot.
+                if (step.note > Sequencer::STEP_NOTE_EMPTY &&
+                    step.instrument < kSampleInstrumentsCount)
                 {
                     instrUseMap[step.instrument] = 1;
                 }
@@ -2143,7 +2377,7 @@ static void functDeleteInstrumentDeny()
 
 static void functReplaceInstrumentConfirm()
 {
-    if (SI->explorerNames != nullptr && *SI->explorerNames[SI->selectedFile] != '/')
+    if (SI->isFileRow(SI->selectedFile))
     {
         SI->sampleType = mtSampleTypeWaveFile;
         SI->addNextFlag = SI->addNextOperationWantReplaceInstrument ? 1 : 0;

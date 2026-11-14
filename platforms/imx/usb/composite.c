@@ -251,11 +251,23 @@ usb_status_t USB_DeviceCallback(usb_device_handle handle, uint32_t event, void* 
             {
                 g_composite.attach = 1;
                 g_composite.currentConfiguration = *temp8;
-                USB_DeviceCdcVcomSetConfigure(g_composite.cdcVcom.cdcAcmHandle, *temp8);
-                USB_DeviceMidiSetConfigure(g_composite.midi.midiHandle, *temp8);
-                USB_DeviceMscDiskSetConfigure(g_composite.mscDisk.mscHandle, *temp8);
-                USB_DeviceAudioCompositeSetConfigure(g_composite.audioUnified.audioRecorderHandle,
-                                                     *temp8);
+                if (g_UsbState.isSerialEnabled)
+                {
+                    USB_DeviceCdcVcomSetConfigure(g_composite.cdcVcom.cdcAcmHandle, *temp8);
+                }
+                if (g_UsbState.isMidiEnabled)
+                {
+                    USB_DeviceMidiSetConfigure(g_composite.midi.midiHandle, *temp8);
+                }
+                if (g_UsbState.isStorageEnabled)
+                {
+                    USB_DeviceMscDiskSetConfigure(g_composite.mscDisk.mscHandle, *temp8);
+                }
+                if (g_UsbState.isAudioInEnabled || g_UsbState.isAudioOutEnabled)
+                {
+                    USB_DeviceAudioCompositeSetConfigure(
+                      g_composite.audioUnified.audioRecorderHandle, *temp8);
+                }
                 error = kStatus_USB_Success;
             }
             else
@@ -462,4 +474,18 @@ void USB_Task()
     USB_DeviceTaskFunction(g_composite.deviceHandle);
 #endif
     USB_DeviceCdcVcomTask();
+}
+
+/*!
+ * @brief Does the work of the USB interrupt and of USB_Task() in one call.
+ *
+ * For the hard fault report of the development console: after a fault no
+ * interrupt is taken and the main loop no longer runs.
+ *
+ * @return None.
+ */
+void USB_PollFromFault(void)
+{
+    USB_DeviceEhciIsrFunction(g_composite.deviceHandle);
+    USB_Task();
 }

@@ -20,7 +20,8 @@ from support import ROOT
 from tracker_mcp import rules
 from tracker_mcp.tokens import words
 
-SOURCE_DIRS = ("core", "platforms/imx/source", "platforms/mk66/source", "synth/include", "util/include", "editor-fx-sdk")
+SOURCE_DIRS = ("core", "platforms/imx/source", "platforms/mk66/source", "platforms/imx/3rdparty", "platforms/mk66/3rdparty",
+               "synth/include", "synth/source", "synth/config", "synth-plugin-sdk", "util/include", "editor-fx-sdk")
 SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cpp")
 EXTERNAL = {"double", "new", "delete", "malloc", "memset", "memcpy", "floorf", "sqrtf", "sinf", "powf", "delay",
             "std::vector::push_back", "std::string", "fmt::format", "std::unique_ptr", "std::function",

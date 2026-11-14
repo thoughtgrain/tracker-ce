@@ -59,6 +59,8 @@ void cFileManager::init(FileSystem* fileSystem, Synth* synth, bool stereoSampleM
 
 void cFileManager::update()
 {
+    startRequestedPatternLoad();
+
     if (currentOperation == fmNoOperation && !sequencer.isRenderMode())
     {
         autoSaveProjectToWorkspace();
@@ -157,8 +159,46 @@ uint8_t cFileManager::getProgress()
 // forceSaveAll - jak narazie nigdzie nie uzywane force=true
 bool cFileManager::saveProjectToWorkspace(bool forceSaveAll)
 {
+    if (workspaceSaveSuspended)
+    {
+        // The change flags stay set, so the save happens after the suspension.
+        return false;
+    }
+
     changesFlags.save_asap = 0;
     return workspaceProjectSave.saveProjectToWorkspace(forceSaveAll);
+}
+
+bool cFileManager::flushWorkspaceSave()
+{
+    bool autosaving =
+      currentOperation == fmSaveWorkspaceProject && status == fmSavingProjectToWorkspace;
+
+    if (currentOperation != fmNoOperation && !autosaving)
+    {
+        return false;
+    }
+
+    // An autosave already under way may have passed the newest changes, so
+    // it is followed by one more save.
+    for (int pass = 0; pass < 2; pass++)
+    {
+        if (currentOperation == fmNoOperation && !saveProjectToWorkspace())
+        {
+            break;
+        }
+        while (currentOperation == fmSaveWorkspaceProject)
+        {
+            update();
+        }
+    }
+
+    return true;
+}
+
+void cFileManager::setWorkspaceSaveSuspended(bool suspended)
+{
+    workspaceSaveSuspended = suspended;
 }
 
 bool cFileManager::openProjectFromWorkspace()
@@ -180,7 +220,8 @@ bool cFileManager::importSamplesToProject(uint8_t fileFrom,
                                           uint8_t instrumentSlot,
                                           uint16_t dataFrom,
                                           uint16_t dataTo,
-                                          bool isLofi)
+                                          bool isLofi,
+                                          FileManagerOperation::SampleLoadMode loadMode)
 {
     stopAutosave();
 
@@ -191,7 +232,8 @@ bool cFileManager::importSamplesToProject(uint8_t fileFrom,
       dataFrom,
       dataTo,
       isLofi,
-      stereoSampleMode ? FileManagerOperation::kLeftAndRight : FileManagerOperation::kLeft);
+      stereoSampleMode ? FileManagerOperation::kLeftAndRight : FileManagerOperation::kLeft,
+      loadMode);
 }
 
 bool cFileManager::importSampleToProject(char* filePath, char* fileName, uint8_t instrumentSlot)
@@ -208,9 +250,13 @@ bool cFileManager::importSampleToProject(char* filePath, char* fileName, uint8_t
 bool cFileManager::importModAfterLoadNewProject(char* path, char* name)
 {
     // pobranie nazwy otwieranego projektu tu
-    strcpy(impFileData.path, path);
-    strcat(impFileData.path, "/");
-    strcat(impFileData.path, name);
+    int pathLen = snprintf(impFileData.path, sizeof(impFileData.path), "%s/%s", path, name);
+
+    // A file whose path does not fit could not be opened, so there is nothing to import.
+    if (pathLen >= (int)sizeof(impFileData.path))
+    {
+        return false;
+    }
 
     strcpy(impFileData.filename, name);
 
@@ -274,19 +320,37 @@ bool cFileManager::deleteInstruments(uint8_t instrumentSlotFrom, uint8_t instrum
     return instrumentDelete.deleteInstruments(instrumentSlotFrom, instrumentSlotTo);
 }
 
-bool cFileManager::loadWorkspacePattern(uint8_t index)
+// Called from the sequencer tick, which runs in the audio callback and must not use the SD
+// card, so the load is only asked for here; update() starts it.
+void cFileManager::loadWorkspacePattern(uint8_t index)
 {
     assert(index > 0);
+
+    preloadedPattern = 0;
+    requestedPattern = index;
+}
+
+void cFileManager::startRequestedPatternLoad()
+{
+    if (requestedPattern == 0)
+    {
+        return;
+    }
+
+    DISABLE_GLOBAL_INTERRUPTS();
+    uint8_t index = requestedPattern;
+    requestedPattern = 0;
+    ENABLE_GLOBAL_INTERRUPTS();
 
     stopAutosave(); // TODO: sprawdzic czy nie opoznia ladowania patternu
 
     // to wyjatek który moze byc wywolywany podczas exportu songa
     if (status != fmIdle && status != fmExportingSoundSong && status != fmExportingSoundSongStems &&
         status != fmSavingProjectToWorkspace)
-        return false;
+        return;
     if (currentOperation != fmNoOperation && currentOperation != fmExportSound &&
         currentOperation != fmSaveWorkspaceProject)
-        return false;
+        return;
 
     currentPattern = index;
 
@@ -297,7 +361,6 @@ bool cFileManager::loadWorkspacePattern(uint8_t index)
 
     currentOperationStep = 0;
     currentOperation = fmLoadWorkspacePattern;
-    return true;
 }
 
 bool cFileManager::deleteProjectOrFolder(char* projectPath)
@@ -484,6 +547,13 @@ void cFileManager::setPatternStructChanged(uint8_t pattern)
 
 void cFileManager::setInstrumentStructChanged(uint8_t instrument)
 {
+    // Screens pass the current instrument, which can be a MIDI or synth instrument. Those have
+    // no slot here; their settings are saved with the project.
+    if (instrument >= kSampleInstrumentsCount)
+    {
+        return;
+    }
+
     changesFlags.instrument[instrument] = 1;
 }
 
@@ -573,10 +643,20 @@ void cFileManager::startAudioEngine()
 //-----------------------------------------------------------------------------------------------------
 //------------------------------------- -----------------------------------------------
 //-----------------------------------------------------------------------------------------------------
+bool cFileManager::isPatternPreloaded(uint8_t index)
+{
+    return index > 0 && preloadedPattern == index;
+}
+
+void cFileManager::forgetPreloadedPattern()
+{
+    preloadedPattern = 0;
+}
+
 bool cFileManager::isPatternLoading()
 {
     return (status == fmLoadingPatternFromWorkspace) ||
-           (currentOperation == fmLoadWorkspacePattern);
+           (currentOperation == fmLoadWorkspacePattern) || (requestedPattern != 0);
 }
 
 bool cFileManager::projectExist(char* path, char* name)
