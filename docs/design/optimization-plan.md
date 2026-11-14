@@ -1,6 +1,8 @@
 # Optimization Plan: Small, Fenced Chunks
 
 > Status: **plan only**. Nothing here is implemented yet. Each chunk below is sized to be one small PR.
+>
+> Re-checked on 2026-11-14 against the fork's `main` after merging upstream `ed51301`. Upstream fixed C1, C2 and C3 and rewrote the display pipeline, which fixes D1 and makes D2 moot. A second review added C6–C14, A9–A13, D5–D7 and F8–F11. Line numbers below are from that merged tree.
 
 I ran a read-only review of four areas: audio rendering, display and UI, sequencer and MIDI, and file I/O and memory. Then I re-read the source behind every finding that made it into this plan. This doc turns the results into a work queue.
 
@@ -9,6 +11,21 @@ The goal isn't "make it faster" in one sweep. It's a series of narrow changes, e
 - a list of the code that depends on it,
 - the behaviour it must not change,
 - and a way to prove it didn't.
+
+---
+
+## Re-check after the upstream merge (2026-11-14)
+
+| Item | Status | Why |
+| :--- | :--- | :--- |
+| C1 | **Fixed upstream** | `handleMidiInStart` sets the song position and plays instead of calling `playSongFromPosition()`, so no SD save from the interrupt (upstream 98468f0) |
+| C2 | **Fixed upstream** | Every interrupt-side caller now calls `stop(StopContext::audioCallback)`, which defers the pattern reload to the main loop (upstream PR #54) |
+| C3 | **Fixed upstream** | Both playlist loops in `findSlotWithPattern` are bounded by `SONG_MAX` (upstream 1e7ebbb) |
+| C4, C5 | Open | Code unchanged. C4 was found again independently by the second review |
+| D1 | **Fixed upstream** | Display lists are built in the MCU now; the coprocessor is only polled after it actually drew (`cDisplay::readyForFrame`) |
+| D2 | **Moot** | `synchronizeRefresh()` is empty: every queued control is built before a frame is composed |
+| D3a–c | Open | Display-list bytes still count against the 8,172-byte frame (`kFrameControlBytes`), and now also cost MCU build time |
+| Everything else in Phases 2–3 | Open | The cited files are unchanged by the merge, or changed elsewhere in the file |
 
 ---
 
@@ -31,7 +48,7 @@ Without numbers, half of these chunks are guesses. This phase adds no optimizati
 | ID | What | Fence | Why |
 | :--- | :--- | :--- | :--- |
 | **M1** | Record a baseline per platform: `Profiler` audio-block load (already wraps every block, `core/source/Tracker.cpp:178-199`) for three reference projects: sparse, dense, and dense with external clock at 300 BPM | No code change; results go in this doc | Every audio and sequencer chunk compares against this |
-| **M2** | Display baseline: `lastMemoryUsed` per screen and the `droppedControlsCount` added in PR #1, plus a main-loop iteration counter in a DEBUG build | DEBUG-only lines in `Tracker.cpp` | Display chunks need frame cost and loop rate, not a feel |
+| **M2** | Display baseline: frame words per screen from `cDisplay::composedFrame` and the controls left out in `displayList::overflows` (`lastMemoryUsed` is no longer set since the display rewrite), plus a main-loop iteration counter in a DEBUG build | DEBUG-only lines in `Tracker.cpp` | Display chunks need frame cost and loop rate, not a feel |
 | **M3** | File baseline: time project load, Save As, a 10 MB stereo export and a WAV import, on the same SD card | No code change | File chunks are judged on wall-clock time |
 | **M4** | Host harness for audio units, like `tests/toro`: run the limiter, state-variable filter and envelope multiply loops through a test so "bit-exact" is checked rather than assumed | New `tests/audio/` only | Gates A1–A3 and A5. **Done for the limiter and filter:** [`tests/audio/`](../../tests/audio/), 80 golden hashes, mutation-tested. The envelope (A3) still needs adding. |
 | **M5** | Generate `.map` files for both IMX targets and record ITCM/DTCM free space and where hot functions actually land | Build artifact, no code | Gates A8 and S3, and confirms the ITCM headroom the developer guide quotes |
@@ -42,7 +59,8 @@ Without numbers, half of these chunks are guesses. This phase adds no optimizati
 
 These come first because they're bugs, and some of them stall or corrupt things in ways that would also distort any performance measurement.
 
-### C1. MIDI Start in Song mode touches the SD card inside the audio interrupt
+### C1. MIDI Start in Song mode touches the SD card inside the audio interrupt (fixed upstream)
+- **Status:** fixed upstream in 98468f0; kept here for the record. The interrupt-side popup it mentions is still there (now C12).
 - **What I verified:**
   - `updateAudioBuffers` (`Tracker.cpp:171-198`) runs `midiUpdate()` and `sequencer.tick()` inside the audio interrupt.
   - A MIDI Start or Continue with the Song screen open goes `receiveStart` (`mtMidi.cpp:476`) → `handleMidiInStart(…, songMode)` → `playSongFromPosition()` (`mtSequencer.cpp:1429-1443`). That calls `saveWorkspacePatternNow()` and `loadWorkspacePatternNow()`, both synchronous SD writes and reads.
@@ -55,7 +73,8 @@ These come first because they're bugs, and some of them stall or corrupt things 
 - **Verify:** on hardware, have a DAW send Start while the Song screen is open, with an edited pattern and a song position on a different pattern. Listen for glitches, re-open the project to check SD integrity, and measure the interrupt duration with the profiler.
 - **Risk:** medium.
 
-### C2. `stop()` can load a pattern from SD inside the audio interrupt
+### C2. `stop()` can load a pattern from SD inside the audio interrupt (fixed upstream)
+- **Status:** fixed upstream (PR #54, `StopContext::audioCallback` and `Sequencer::reloadPatternAfterStop`); kept for the record.
 - **What I verified:** at `mtSequencer.cpp:1567-1574`, when performance mode is set to turn off at pattern end, `stop()` calls `loadWorkspacePatternNow()` and `switchRamPatternsNow()`. `stop()` is called from interrupt context at `:1719`, `:1748`, `:2287`, and `:3637` (a MIDI Stop from the DAW).
 - **Fence:** `mtSequencer.cpp`, `mtSequencer.h`.
 - **Change:** set a pending flag and perform the load in `Sequencer::update()`.
@@ -63,7 +82,8 @@ These come first because they're bugs, and some of them stall or corrupt things 
 - **Verify:** on hardware: in performance mode, leave the screen so it's armed to turn off at pattern end, then send MIDI Stop.
 - **Risk:** medium.
 
-### C3. `findSlotWithPattern` reads one byte past the playlist and can loop forever
+### C3. `findSlotWithPattern` reads one byte past the playlist and can loop forever (fixed upstream)
+- **Status:** fixed upstream in 1e7ebbb; kept for the record.
 - **What I verified:** `playlist` is `uint8_t[SONG_MAX]` with `SONG_MAX = 255` (`mtStructs.h:146, 971`). The loop index is `uint8_t` with no upper bound (`mtSequencer.cpp:3339-3373`), so it reads `playlist[255]`. With no 0 terminator and no match, the first loop never exits. This runs in the interrupt at every song-mode pattern switch.
 - **Fence:** `mtSequencer.cpp` (this function only).
 - **Change:** bound both loops by `SONG_MAX`.
@@ -71,6 +91,7 @@ These come first because they're bugs, and some of them stall or corrupt things 
 - **Risk:** low.
 
 ### C4. NewList keeps redrawing forever after one scrolled item
+- **Status (2026-11-14):** still open. Under the new display code it means the list is rebuilt for every frame, though identical frames are no longer sent.
 - **What I verified:** `newList.cpp:507` sets `autoRefresh = true` and nothing in NewList ever clears it. `cList` clears it (`list.cpp:221`), and `display.cpp:607-610` re-queues any control with `autoRefresh` after every render.
 - **Effect:** on the synth editor screens, after one long name scrolls, that list re-renders and the whole screen rebuilds every few loops, indefinitely. It's a bug and a performance drain.
 - **Fence:** `core/libs/NewDisplay/newList.cpp`.
@@ -83,6 +104,59 @@ These come first because they're bugs, and some of them stall or corrupt things 
 - `displayControls.cpp:62-63`: `string2Bitmaps` returns on a NUL after `SAVE_CONTEXT` and `BEGIN`, skipping `END`/`RESTORE`. No current caller triggers it.
 - `effect_limiter.cpp:16`: `memset(inputStorageBuffer, 0, 10)` never clears `outputStorageBuffer`. Use `sizeof` on both.
 - **Fence:** those two files. **Risk:** low. **Verify:** visual check; limiter output unchanged after init.
+
+### C6. Master WAV export truncates its file on every chunk
+- **What I verified:** `saveMasterBufferToSD()` (`mtAudioExport.cpp:325`) runs once per 70-block packet (called from `:607` and `:682`) and opens the file with `kWriteCreateNew` each time (`:331`), which is `FA_CREATE_ALWAYS` on both platforms (`FileSystemImpl.cpp`). It truncates the file, seeks past the end and writes. The file only comes out right because FatFs reuses the freed clusters and their old data is still on the card.
+- **Cost:** every packet frees and rebuilds the whole cluster chain, so a long song export does work that grows with the square of its length. The stems path opens once and is fine.
+- **Fence:** `core/Exporter/mtAudioExport.cpp`.
+- **Change:** open once in `start()`, keep the handle, write the header and close in `finishRender`.
+- **Invariant:** byte-identical WAV, header written last.
+- **Verify:** export the same song before and after, compare bytes; time a 5-minute export (M3).
+
+### C7. `saveMemoryToWav` keeps a stale stereo flag and overruns its buffer
+- **What I verified:** `conversionInPlace` is set to true for stereo (`fileTransfer.cpp:1304`) and never back to false; `copySample` (`:602`) can also leave it set. The next mono sample is then written as half-length stereo with a stereo header. The interleave loop runs `memStep / 2` frames of 4 bytes (`:1326`), writing 2 × `memStep` bytes into the 32,640-byte `externalRamFileManagerSrcBuff` and reading past the end of the sample on the last chunk.
+- **Fence:** `cFileTransfer::saveMemoryToWav`. **Blast radius:** caller `fileManagerExport.cpp:461`.
+- **Change:** set `conversionInPlace` explicitly in both branches; loop `memStep / 4` frames.
+- **Invariant:** output equals a correct mono or stereo export. This is a bug fix, so mono exports after a stereo one change (to correct).
+- **Verify:** export a stereo then a mono instrument in one run; check both files' headers, lengths and samples.
+
+### C8. External-clock pulses pile up during selection play
+- **What I verified:** `tick()` takes the internal-clock branch whenever `player.selectionMode` is set (`mtSequencer.cpp:96`), and only the external branch clears `externalClockPulses`. `updateExternalClockTempo` (`:3720`) replays every pulse so far, a 48-float `std::copy` each, on every block, and its tempo estimate drifts. A pad stop doesn't clear the backlog, so the external branch then plays all of it in one interrupt. `playSelection` (`:1352`) doesn't check the clock source.
+- **Fence:** `mtSequencer.cpp`.
+- **Change:** in selection mode with an external clock source, drop the pulses and reset the tempo state instead of recording them.
+- **Invariant:** outside selection mode, identical ticks and MIDI output. Inside it, a small behaviour change: the tempo estimate restarts after the selection.
+- **Verify:** sync to a DAW, play a selection for a minute, stop; profiler audio load and no dropout.
+
+### C9. Every MIDI note rebuilds the pattern view inside the interrupt
+- **What I verified:** in sequencer voice mode, the note-on and note-off handlers call `patternEditor.refreshPatternFromOutsideModule()` unconditionally (`mtMidi.cpp:119`, `:163`, `:209`, `:253`). With the pattern screen open that runs `refreshPattern()`: 16 tracks × 15 rows with `snprintf` per FX, then a display refresh, from the interrupt.
+- **Fence:** `mtMidi.cpp`, and `handleNoteOn`/`handleNoteOff` in `mtSequencer.cpp` if they need to report a change.
+- **Change:** refresh only when the pattern or cursor changed, via a flag the main loop handles.
+- **Invariant:** identical timing and MIDI; the screen shows the same thing.
+- **Verify:** play chords from a keyboard with the pattern screen open; profiler audio load before and after.
+
+### C10. The display refresh queue double-queues controls
+- **What I verified:** `cDisplay::refreshControl` (`display.cpp:1184`) skips the bottom queue slot when looking for duplicates. Since the display rewrite, `renderFrame` pops an entry *before* building it (`:766-770`), so the bottom slot is never the control being built: two refreshes of one control in one handler queue it twice (for example `gSongEdit.cpp` refreshes `label[7]` twice every 100 ms).
+- **Fence:** `cDisplay::refreshControl`.
+- **Change:** delete the bottom-slot special case and search the whole queue.
+- **Invariant:** visually identical; fewer control builds.
+- **Verify:** queue length after a double refresh is 1; song screen looks the same.
+
+### C11. The Revolver layout's playhead check is nearly always true
+- **What I verified:** `refreshPlayheadOnScreen` (`fPatternEdit.cpp:1186-1192`) tests `playheadPosition <= patternLength + 7 - middleVisibleStep`, which is at least 7 and usually far larger. It should mirror the other wrap test. So the heavy tracker control is rebuilt on most steps in edit mode even with the playhead off screen.
+- **Fence:** that function. **Invariant:** identical whenever the playhead is visible.
+- **Verify:** Revolver layout, playhead off screen: no rebuild per step.
+
+### C12. A popup shown from the interrupt on MIDI Start
+- **What I verified:** `handleMidiInStart` (interrupt) calls `mtPopups.show(0, "Load pattern from song first")` (`mtSequencer.cpp:3672`).
+- **Change:** latch a flag and show it from `Sequencer::update()`. **Fence:** `mtSequencer.cpp`. **Risk:** low.
+
+### C13. Every note-on while stopped resets all synth FX (IMX)
+- **What I verified:** the TRK-518 workaround `engine.endAllFx(true)` (`mtSequencer.cpp:2632`) runs on every note-on while stopped, not once at stop: map lookups for 3 synths × 10 FX × 2 slots, then a full resend of their macro CCs.
+- **Change:** call it once in `stop()`, or guard it with a flag cleared on play. **Invariant:** synth state at the first note after stop unchanged. Not yet checked: whether anything sets synth FX while stopped.
+
+### C14. A second MIDI NoteOff after notes that already ended
+- **What I verified:** a gate-length or roll note is ended (`noteOpen = 0`) while `stepOpen` stays set, so the next note start (`mtSequencer.cpp:818`) and an OFF step send `sendNoteOff` again.
+- **Change:** guard the MIDI and synth NoteOff with `noteOpen`; leave sample tracks alone. **Invariant:** MIDI output only loses the redundant NoteOffs. **Verify:** MIDI monitor.
 
 ---
 
@@ -135,6 +209,33 @@ Each one keeps output bit-exact, byte-identical, or visually identical.
 - **A6c, MonoToStereo (MK66 only)** (`monoToStereo.cpp:30-56`): with centred pan, both gains are unity, yet each voice copies twice. Pass the same block to both outputs. Land after A6a, or the downstream mixers just copy instead.
 - **Verify:** stem export renders identical bytes before and after; Profiler.
 
+
+**A9. Synced envelopes divide in double every block**
+- **Where:** `mtEnvelopeGenerator.cpp:581` (`currentSeqSpeed / 15.0`), and `/ 1000.0` at `:279`, `:315`, `:643` on the random path. Reached from `playerEngine::update` in the interrupt for every synced envelope while playing.
+- **Change:** `15.0f`, `1000.0f`. **Why it's bit-exact:** a float divided by an exact constant, done in double and rounded back, equals the float divide. **Verify:** host check over all `currentSeqSpeed` values used.
+
+**A10. MK66 runs a USB input graph that never gets data**
+- **Where:** `AudioInput.cpp:21-39` wires `usbStream` into two amplifiers, two RMS meters and two record queues on both platforms, but only IMX calls `setInBuffer` on it (`mtAudioEngine.cpp:331`). On MK66 every block allocates and zero-fills two blocks and pushes them through six nodes nobody reads.
+- **Change:** wrap those objects and connections in `#ifdef PLATFORM_IMX`. **Invariant:** bit-exact (nothing on MK66 reads them). **Verify:** MK66 build and profiler.
+
+**A11. Polyverb copies its input block every update**
+- **Where:** `effect_polyverb.cpp:40-46`. Both inputs are the same mono block from the send mixer, so `receiveWritable(0)` always copies 256 bytes.
+- **Change:** take input 1 read-only and release it first, so input 0 needs no copy; read the dry sample before writing either output. **Invariant:** bit-exact. **Verify:** host test.
+
+**A12. PolySynth mono parts copy a block they could share (IMX)**
+- **Where:** `synth_PolySynth.cpp:183-188`: with `reuseUnmodifiedMono`, the post-fader block is a memcpy of the send block.
+- **Change:** transmit the same block to both, relying on reference counting (downstream nodes use `receiveWritable`). **Invariant:** bit-exact.
+
+**A13. Skip delay and reverb blocks at an exact silent fixed point**
+- **Where:** `effect_shortDelay.cpp` `process()`, `Polyverb/reverb.h` `Process()`. Both run in full every block, even with no sends.
+- **Why not the existing detectors:** measured on the host with the real code, the reverb's `IsActive()` goes false 200–650 ms before the last non-zero output, and the delay's `isSilent()` ignores the lines that aren't heard. Cutting at either changes the sound.
+- **Change:** skip only when the state is an exact fixed point:
+  - Delay: zero input, zero filter state, and zero reads, filter outputs and writes on all three lines for at least the delay time (time 0 reads the oldest slot, so it needs the whole line). A skipped block outputs zeros, still writes zeros into the slots it would overwrite, and advances `headIdx`, `silentSamplesCount` and an idle counter, so `isSilent()` and export behaviour don't change.
+  - Reverb: a full 16,384-sample rotation of zero writes (tracked with an OR per write), lowpass states at most subnormal, zero input. A skipped block only moves both write pointers and steps the LFO exactly as `Start()` would; `Start()` and the skip should share one helper.
+- **Evidence:** a scratch prototype matched the original sample for sample over 2,000,000 random blocks, with parameter changes mid-silence. Six planted bugs; three caught at random, two (time 0, damping 1.0) only by targeted scenarios, one (filter reads not tracked) needs a white-box test.
+- **Tests to commit:** golden hashes recorded on the current code before the change; targeted edge cases; white-box predicate checks; engagement checks; the six planted bugs must fail. On hardware: a byte-identical song export before and after, and profiler load with no sends, sends but stopped, and sends while playing.
+- **Fence:** `effect_shortDelay.{h,cpp}`, `Polyverb/fx_engine.h`, `Polyverb/reverb.h` (MIT code from Mutable Instruments; name the edit in the PR). **Gain (estimate):** several % of MK66 audio time with no sends; not measured.
+
 ### Sequencer
 
 **S1. Round the MIDI-clock offset in float, keep the accumulator double**
@@ -149,6 +250,7 @@ Each one keeps output bit-exact, byte-identical, or visually identical.
 ### Display (after PR #1 merges, since it shares files)
 
 **D1. Skip the coprocessor poll when there's nothing to draw**
+- **Status:** fixed by the upstream display rewrite; kept for the record.
 - **Where:** `display.cpp:470` polls `isCoProEmpty()`, 2–3 SPI register reads, on every main loop *before* checking whether anything is queued.
 - **Change:** return early when `updateStep == 0`, the queue is empty and `!stopAppend`.
 - **Fence:** `cDisplay::update()`.
@@ -157,6 +259,7 @@ Each one keeps output bit-exact, byte-identical, or visually identical.
 - **Risk:** low.
 
 **D2. Batch refreshes in Master screen value handlers**
+- **Status:** moot since the display rewrite: `synchronizeRefresh()` does nothing, and all queued controls are built before a frame is composed.
 - **Where:** `gMasterParams.cpp:570-602, 729-771, 917-926, 1180-1186, 1200-1219, 1302-1346`. Each handler refreshes a bar and a label separately, so every encoder tick causes two full-screen rebuilds and swaps.
 - **Change:** add `display.synchronizeRefresh()` after each pair. 142 other call sites already use this pattern.
 - **Fence:** `gMasterParams.cpp` only. Other screens get their own chunk if M2 shows the same pattern.
@@ -168,6 +271,19 @@ Each one keeps output bit-exact, byte-identical, or visually identical.
 - **D3c, `cBar`:** drop the repeated `LINE_WIDTH(16)` after the first in each update (`bar.cpp`). Saves about 8–16 B per bar.
 - **Verify:** compare `ramSize` per control in a DEBUG build; screenshots unchanged.
 - **Why it matters:** these leave headroom in the 8,172-byte frame budget, which the parameter-visualization redesign will need.
+
+
+**D5. Pad LEDs are cleared and relit on every playback step**
+- **Where:** `fPatternEdit.cpp:302` calls `lightUpPadBoard()` every step, which starts with `clearGlobalPads(1, 1, 0)`. The off-then-on marks the LEDs changed, so the MK66 driver's change check (`platforms/mk66/3rdparty/Leds/mtLED.cpp`) still sends a full frame over I2C each step; the IMX driver has no check at all.
+- **Change:** compute the target state, then write only differences. **Invariant:** the same pads lit. **Fence:** `fPatternEdit.cpp`, `mtPadsBacklight.cpp`.
+
+**D6. The song screen redraws every 100 ms when nothing changed**
+- **Where:** `fSongEdit.cpp:132-133` calls `refreshSongPlayer()` and `refreshTempoField()` on a timer, which re-runs `sprintf` and refreshes the player, `label[7]` and the bar even while stopped.
+- **Change:** keep the last values and refresh only on a difference. **Invariant:** visually identical; tap-tempo text still updates.
+
+**D7. The performance screen refreshes 8 labels 4× too often**
+- **Where:** `fPerformance.cpp:760-798`: `blinkState` flips every 4th call, but all eight track labels are refreshed on every 100 ms call.
+- **Change:** refresh a label only when its colour changes. **Invariant:** visually identical, including shift and mute colours.
 
 ### File I/O (both platforms)
 
@@ -207,6 +323,24 @@ Each one keeps output bit-exact, byte-identical, or visually identical.
 - **Change:** a local `kCopyChunk = 32256` in the plain copy and save loops only (`fileTransfer.cpp:334, 410, 755, 928, 1010`). Leave the conversion paths alone.
 - **Verify:** byte-identical output.
 
+
+**F8. Recording save writes 512 frames per main-loop pass, with `new` each time**
+- **Where:** `RecordingSave.cpp:87-120`: 1–2 KB per pass from file offset 44, so writes straddle sectors; stereo allocates and frees a buffer every pass (`:107`). The `writeFile` result is unchecked, so a full card goes unnoticed (a bug).
+- **Change:** large chunks through an existing static buffer; check the result. **Invariant:** byte-identical file.
+
+**F9. IT and MOD import read sample data by reopening the file per chunk**
+- **Where:** `fileManagerImportIt.cpp:562-574` (2 KB chunks) and `:620-635` (512 B), each a `loadFileToMemory` with an offset: an open, a seek from cluster 0 and a read. Writes go out 2 KB per pass (`:1076-1080`, `fileManagerImportMod.cpp:684-688`).
+- **Related bugs:** the offset variant of `loadFileToMemory` returns `fileTransferInProgress` on a short read even with `fileWholeOnce` (`fileTransfer.cpp:159-162`), leaving the file open at a stale position; `importModFile_ImportWave` has an empty `else` (`fileManagerImportMod.cpp:631-647`), so an open failure retries every pass forever.
+- **Change:** one open, sequential large reads. **Invariant:** identical sample memory and `.pti` files.
+
+**F10. IT export rewrites its offset table with two seeks per item**
+- **Where:** `fileManagerExportToMod.cpp:279-330`: per instrument, sample and pattern, seek back to the header, write 4 bytes, seek to the end (which walks the cluster chain from the start).
+- **Change:** keep offsets in RAM and write the table once at the end. **Invariant:** byte-identical file.
+
+**F11. Files checked and opened two to five times each**
+- **Where:** `fileManagerInstrument.cpp:83-85` then `isPtiFileValid` (`fileManager.cpp:805-810`) per instrument per load; `SampleImport.cpp:309-359`; `WorkspaceProjectLoad.cpp:285-287`; `ProjectSave.cpp`. `exists ? getFileSize : 0` is redundant because `getFileSize` returns 0 for a missing file; `exists` + `remove` before `kWriteCreateNew` is redundant because it truncates.
+- **Change:** one chunk per call site. **Invariant:** byte-identical files.
+
 ---
 
 ## Phase 3: Medium risk, needs hardware and careful review
@@ -230,7 +364,7 @@ These are real, but they change what you hear or see, or the gain is speculative
 - **Skip zero blocks from idle voices.** This is the biggest audio saving (an estimated 5–10 % of MK66 in sparse songs), but the filter state would no longer decay during silence, which risks clicks or resonant bursts at the next note-on. It needs a filter reset or an N-block grace period, plus a listening test. `synth_PolySynth.cpp:35-41` is a precedent.
 - **Granular per-sample integer divide** (`play_memory_granular.cpp`): bit-exact only with careful remainder stepping.
 - **Dropping `volatile` from `dspinst.h` asm:** it touches every DSP loop.
-- **Running step3 in the same pass as step2** (`display.cpp:617-618`): the original authors commented it out and the reason is unknown.
+- ~~**Running step3 in the same pass as step2**~~: moot, the display rewrite removed the step machine.
 - **Removing the 3 µs coprocessor delays:** the reason for them is unknown; needs a hardware soak.
 - **Tracker grid `VERTEX_TRANSLATE_X`:** relies on an FT81x behaviour I haven't confirmed.
 - **Several file chunks per main-loop pass during load:** possibly the biggest load-time win, but it changes UI responsiveness during load. Measure M3 first.
@@ -254,6 +388,20 @@ So nobody re-reviews these:
 - **`abs()` on a float probably resolves to the int version** in `reverb.h:139,156`, and likely in `mtAudioEngine.cpp:287,292`. The 0.5 BPM threshold would then effectively be ≥ 1. Confirm with the ARM toolchain.
 - **`list.cpp:336-338`:** the unsigned `size_t` comparison makes `textMaxWidth > 0` almost always true.
 
+Found by the second review (2026-11-14), each its own small fix:
+- **Stutter adds the MIDI tune again on every repeat** (`mtSequencer.cpp:1025-1031`): `stepToSend` is copied from `stepSent`, which already includes the tune.
+- **A looped selection resets the absolute position to 0, not its first step** (`mtSequencer.cpp:1792` is overwritten at `:1797`).
+- **`effect_bitDepth.cpp:35`** builds the mask from `val`, not the clamped `bitDepth`, so values outside 4–16 give a wrong mask.
+- **Copy-paste mode check** in `mtAudioUpdateHandle.cpp:112-120`: the amp LFO rate tests `performanceMode` twice and never `sequencerMode`.
+- **`setLP2` tests `loop1 > end`** where it means `loop2` (`play_memory.cpp:550`). Harmless today, because `loop2` is clamped below `end` just above it.
+- **`play_memory_single_shot.cpp:279`:** reported as `iPitchCounter - castPitchControl` having the wrong sign in reverse playback. Not confirmed from the code alone; needs a host test before anyone changes it.
+- **`NewList` headline font is never applied** (`newList.cpp:474-488`): the font pointer is passed by value.
+- **Stereo waveform preview seeks one frame short per step** (`fileManagerSampleWaveform.cpp:143-150`).
+- **Reverb LFO mask is `& 30`** (`Polyverb/fx_engine.h:407`), so the chorus LFO steps twice per 32 samples; the original engine likely used `& 31`. Fixing it changes the sound.
+- **Filter `connect()`/`disconnect()` overwrite `lastEnabled`** on every call (`filter_variable.h:98-107`), so two calls in one block lose the click-suppressing crossfade.
+- **Gain setters set `previous = multiplier`** (`AudioAmplifier`, `AudioMixer`, `MonoToStereo`), so two calls between updates make the ramp jump.
+- **Streaming fade-in may skip the right channel** (`VoiceStreamManager.cpp` around `:1063`): reported before the merge; the code moved, so it needs re-tracing before anyone acts on it.
+
 ---
 
 ## Suggested order
@@ -261,12 +409,13 @@ So nobody re-reviews these:
 ```text
 Phase 0  M1 M2 M3 M5 ─┬─ M4 ──────────────► A1 A2 A3 A4 A5
                       │
-Phase 1  C1 C2 C3 C4 C5  (independent, can go in any order)
+Phase 1  C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14  (independent; C1–C3 done upstream)
                       │
-Phase 2  S1 ─ F1 F2 F3 F4 F5 F6 ─ A6a → A6b → A6c
-         (after PR #1 merges) D1 → D2 → D3a D3b D3c
+Phase 2  S1 ─ F1 F2 F3 F4 F5 F6 F8 F9 F10 F11 ─ A6a → A6b → A6c
+         A9 A10 A11 A12 ─ A13 (needs its golden tests first)
+         D3a D3b D3c D5 D6 D7  (D1 done upstream, D2 moot)
                       │
 Phase 3  D4a → D4b,  S2,  F7,  A7 / A8 / S3 (gated on M5)
 ```
 
-Phase 1 comes first because those are bugs, and C1/C2 can produce glitches that would mess up Phase 2's measurements.
+Phase 1 comes first because those are bugs, and C8/C9 can produce interrupt overruns that would mess up Phase 2's measurements.
