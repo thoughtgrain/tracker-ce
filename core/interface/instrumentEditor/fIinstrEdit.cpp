@@ -80,6 +80,9 @@ void cInstrumentEditor::update()
 void cInstrumentEditor::start(uint32_t options)
 {
     moduleRefresh = 1;
+#if GUI_HANDLE_SYNTH
+    const uint8_t prevMode = mode;
+#endif
 
     if (mtProject.values.lastUsedInstrument >= SYNTH_INSTRUMENTS_START_IDX + kSynthParts)
     {
@@ -159,7 +162,8 @@ void cInstrumentEditor::start(uint32_t options)
 #if GUI_HANDLE_SYNTH
             if (mtProject.values.lastUsedInstrument >= SYNTH_INSTRUMENTS_START_IDX)
             {
-                if (mode != mtInstEditModeSynth && mode != mtInstEditModeSynthMacros)
+                if (mode != mtInstEditModeSynth && mode != mtInstEditModeSynthMacros &&
+                    mode != mtInstEditModeSynthPatchEdit)
                 {
                     mode = mtInstEditModeSynth;
                 }
@@ -197,6 +201,13 @@ void cInstrumentEditor::start(uint32_t options)
     lightUpPadBoard();
 
     setBaseScreenFunct();
+
+#if GUI_HANDLE_SYNTH
+    if (prevMode == mtInstEditModeSynthPatchEdit && mode != mtInstEditModeSynthPatchEdit)
+    {
+        cleanPatchEditorResources();
+    }
+#endif
 
     switch (mode)
     {
@@ -282,6 +293,9 @@ void cInstrumentEditor::stop()
 
     moduleRefresh = 0;
 #if GUI_HANDLE_SYNTH
+    // The "Init patch" popup blocks all inputs but its two buttons, and only those buttons
+    // unblock them. The module can be closed under the popup, e.g. when the card is removed.
+    ip->unblockAllInputs();
     exitSynthEditor();
     cleanPatchEditorResources();
     cleanMacrosResources();
@@ -1007,6 +1021,11 @@ static void functSwitchMode()
     }
     else if (IE->mode == mtInstEditModeSynthMacros)
     {
+        IE->mode = mtInstEditModeSynth;
+    }
+    else if (IE->mode == mtInstEditModeSynthPatchEdit)
+    {
+        IE->cleanPatchEditorResources();
         IE->mode = mtInstEditModeSynth;
     }
 #endif
@@ -2763,9 +2782,13 @@ void cInstrumentEditor::lightUpPadBoard()
         if (isSynthInstrument(mtProject.values.lastUsedInstrument))
         {
             int synthIdx = instrumentIdxToSynthIdx(mtProject.values.lastUsedInstrument);
+            const auto& synthTypes = getSynth()->getSynthTypes();
+            int synthType = std::clamp<int>(mtProject.values.synthPart[synthIdx].synthType,
+                                            0,
+                                            std::max<int>(0, static_cast<int>(synthTypes.size()) - 1));
 
-            if (Synth::kSynthTypes.at(mtProject.values.synthPart[synthIdx].synthType) ==
-                polysynth::InstrumentTypeId::kDrumSynth)
+            if (!synthTypes.empty() &&
+                synthTypes.at(synthType) == polysynth::InstrumentTypeId::kDrumSynth)
             {
                 for (int padIdx = 0; padIdx < 48; padIdx++)
                 {
@@ -2810,9 +2833,14 @@ void cInstrumentEditor::lightUpPadBoard()
                 if (isSynthInstrument(mtProject.values.lastUsedInstrument))
                 {
                     int synthIdx = instrumentIdxToSynthIdx(mtProject.values.lastUsedInstrument);
+                    const auto& synthTypes = getSynth()->getSynthTypes();
+                    int synthType = std::clamp<int>(
+                      mtProject.values.synthPart[synthIdx].synthType,
+                      0,
+                      std::max<int>(0, static_cast<int>(synthTypes.size()) - 1));
 
-                    if (Synth::kSynthTypes.at(mtProject.values.synthPart[synthIdx].synthType) ==
-                        polysynth::InstrumentTypeId::kDrumSynth)
+                    if (!synthTypes.empty() &&
+                        synthTypes.at(synthType) == polysynth::InstrumentTypeId::kDrumSynth)
                     {
 
                         int playedPad = clamp<int>(IE->convertPadForEditPatchScreen(pad), 0, 47);
@@ -2866,7 +2894,8 @@ static void functMiniMiddle(uint8_t state)
     // Hold is set to button function with Press state . We have to handle it by rejecting
     // repetitive states if we don't want hold.
 
-    if (mtProject.instrument[mtProject.values.lastUsedInstrument].playMode == playModeBeatSlice)
+    if (mtProject.values.lastUsedInstrument < kSampleInstrumentsCount &&
+        mtProject.instrument[mtProject.values.lastUsedInstrument].playMode == playModeBeatSlice)
     {
         int note = mtProject.instrument[mtProject.values.lastUsedInstrument].selectedSlice +
                    FIRST_BEAT_SLICE_NOTE;
@@ -2934,7 +2963,10 @@ static void functInstrument(uint8_t state)
 
     if (state == buttonRelease)
     {
-        IE->editorInstrument = &mtProject.instrument[mtProject.values.lastUsedInstrument];
+        if (mtProject.values.lastUsedInstrument < kSampleInstrumentsCount)
+        {
+            IE->editorInstrument = &mtProject.instrument[mtProject.values.lastUsedInstrument];
+        }
         IE->cancelPopups();
 
         IE->lightUpPadBoard();
