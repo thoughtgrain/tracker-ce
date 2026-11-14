@@ -65,7 +65,7 @@ A function that's fine in the main loop can be wrong in the interrupt. When you 
 - every MIDI handler registered in `midiInit` (`core/source/mtMidi.cpp`). The port drivers call them through function pointers when `midiUpdate()` reads the ports, so grep for where a handler is *registered*, not where it's called;
 - the callback passed to `scheduleMidiClockUs` (the MIDI clock timer interrupt);
 - hardware handlers named `*_IRQHandler` or `*_isr`, and functions passed to `attachInterrupt`;
-- open-source synth voices. The precompiled PolySynth library calls their `InstrumentVoice` overrides from inside `Synth::renderAudioBuffer`, which `PolySynth::update` runs every block.
+- synth engine plugins (`.psyn`, Tracker+ and Mini). `PolySynth::update` runs `Synth::renderAudioBuffer` every block, which calls each loaded plugin's `voice_render_audio`.
 
 When a caller chain goes cold at a function pointer, find where the pointer is assigned and keep going. A chain that seems to end isn't proof by itself.
 
@@ -82,9 +82,9 @@ When a caller chain goes cold at a function pointer, find where the pointer is a
 ## 4. Hardware facts that shape code
 
 - **Three devices, one `core/`.** Use the guards in [developer guide §7](docs/developer_guide.md#7-conditional-compilation-targeting-specific-platforms-or-devices): `PLATFORM_IMX` / `!PLATFORM_IMX`, `TRACKER_MINI`, `FEATURE_SYNTH` (IMX only), and `#if GUI_HANDLE_SYNTH` (always defined, so never use `#ifdef`). Never use `__MK66FX1M0__` in `core/`: it's defined on both platforms.
-- **Memory is tight on Tracker+ and Mini.** The developer guide (§1) measured about 21 KB of fast data RAM and about 22 KB of fast code RAM (ITCM) free. Those figures come from a build and shrink with every feature, so re-check the ARM build's memory report rather than trusting them. Big or cold buffers go in `EXTERNAL_RAM` (`__NOINIT`), which isn't zeroed at startup.
+- **Memory is tight on Tracker+ and Mini.** The developer guide (§1) measured about 21 KB of fast data RAM, about 22 KB of fast code RAM (ITCM) and about 8 KB of external RAM free. Those figures come from a build and shrink with every feature, so re-check the ARM build's memory report rather than trusting them. Big or cold buffers go in `EXTERNAL_RAM` (`__NOINIT`), which isn't zeroed at startup, but on IMX that region is now full: a new buffer there has to come out of `SAMPLE_MEMORY_SIZE` (`core/source/mtStructs.h`), which shrinks every user's sample memory, so say so in the PR.
 - **Hot code placement:** `AUDIO_CORE_RAM` puts code in ITCM on IMX. On MK66, both `AUDIO_CORE_RAM` and `AUDIO_CORE_FLASH` land in flash, so that choice only matters on IMX.
-- **The display budget is 8,172 bytes per frame**, shared by every visible control (`core/libs/NewDisplay/display.cpp`). Past it, the remaining controls are **silently not drawn**. Count the display-list bytes a new or changed control emits.
+- **The display budget is 8,172 bytes per frame**, shared by every visible control (`kFrameControlBytes`, `core/libs/NewDisplay/display.cpp`). A control that would go past it is **silently not drawn**. Count the display-list bytes a new or changed control emits; `core/libs/NewDisplay/AGENTS.md` has how frames are built now.
 - **SD reads and writes** are much faster when the buffer pointer is 4-byte aligned. The NXP driver drops to one 512-byte sector per command otherwise.
 - **`core/makefile` compiles every `.cpp` under `core/source`, `core/libs`, `core/interface`, `core/effector`, `core/FileManager`, `core/Exporter`, `core/AudioEngine` and `core/synth`.** Host tests, tools and experiments must live outside those directories (e.g. `tests/<area>/`, `tools/`), or they get compiled into the firmware.
 
@@ -109,7 +109,7 @@ Use the cheapest rung that proves your invariant, and say in the PR which one yo
 | 2. Host tests | Logic, bit-exact output, golden hashes | The `host-test` recipe ([`docs/recipes/host-test.md`](docs/recipes/host-test.md)). The pattern: render the real firmware code on the host (plain `g++`, AddressSanitizer + UBSan + `-Werror`) and compare with golden hashes from a reference. The audio DSP harness and the TORO suite follow it; both are on their branches until they merge. |
 | 3. ARM build | It builds for every device, and the memory report still fits | `make all` with the GNU Arm toolchain `10.3-2021.10`, or the PR's CI run. Read the `Memory region` lines in the summary. |
 | 4. Hardware smoke test | It boots and the touched screens and features work | Flash the CI `.ptf`. Note which device(s) in the PR's hardware table. |
-| 5. Hardware measurement | Performance and timing claims | `Profiler` audio load (wraps every audio block), the DEBUG-build `lastMemoryUsed` (display-list bytes the last frame used, against the 8,172 budget), wall-clock for file operations, a MIDI monitor or logic analyser for clock jitter |
+| 5. Hardware measurement | Performance and timing claims | `Profiler` audio load (wraps every audio block), the words of the last frame from `cDisplay::composedFrame` and the controls left out in `displayList::overflows` (against the 8,172-byte budget), wall-clock for file operations, a MIDI monitor or logic analyser for clock jitter |
 | 6. Listening or visual test | Behaviour changes | Before/after on the same project, written up step by step in the PR so others can repeat it |
 
 Rules for using the ladder:
@@ -137,6 +137,6 @@ These directories have their own `AGENTS.md`, with the pitfalls specific to that
 | `core/source/AGENTS.md` | Sequencer and MIDI in the interrupt, existing violations not to copy, struct-size and format-version contracts |
 | `core/libs/Audio/AGENTS.md` | Audio node `update()` rules and the block pool |
 | `core/FileManager/AGENTS.md` | Synchronous `*Now()` functions, old-format loading, FatFs buffer alignment |
-| `core/libs/NewDisplay/AGENTS.md` | How the frame budget drops controls, interrupt-side setters, RAM_G layout, style bits |
-| `core/synth/AGENTS.md` | `FEATURE_SYNTH` scope, voice code in the interrupt, engine IDs, RAM per engine |
+| `core/libs/NewDisplay/AGENTS.md` | Display lists built in the MCU, how the frame budget drops controls, interrupt-side setters, RAM_G layout, style bits |
+| `core/synth/AGENTS.md` | `.psyn` plugin engines, `FEATURE_SYNTH` scope, plugin code in the interrupt, SD reads on voice creation, engine IDs, the 6 MB pool |
 | `platforms/AGENTS.md` | Two separately linked trees, the interrupt entry points, the `Platform` interface, vendored code |

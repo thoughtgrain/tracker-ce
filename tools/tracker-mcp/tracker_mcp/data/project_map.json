@@ -33,18 +33,19 @@
     },
     {
       "path": "core/libs/NewDisplay",
-      "purpose": "Display widget library on the FT812 graphics chip: controls, refresh queue, 8,172-byte frame budget.",
+      "purpose": "Display widget library on the FT812: controls build their display lists in the MCU, frames are composed from them (8,172-byte budget) and only changed words are sent.",
       "key_files": [
         { "path": "core/libs/NewDisplay/display.cpp", "symbol": "cDisplay::update", "why": "Display state machine run from the main loop." },
+        { "path": "core/libs/NewDisplay/display.cpp", "symbol": "cDisplay::composeFrame", "why": "Frame composition: where controls over the 8,172-byte budget are left out." },
         { "path": "core/libs/NewDisplay/displayControls.h", "symbol": "class cDisplayControl", "why": "Base class of every on-screen control." },
         { "path": "core/libs/NewDisplay/displayStructs.h", "symbol": "enum controlsStyle", "why": "Style bits shared by all controls (nearly exhausted)." }
       ]
     },
     {
       "path": "core/libs/FT812",
-      "purpose": "FT812 command wrappers (API_* functions) shared by both platforms.",
+      "purpose": "FT812 API_* drawing calls, and the MCU-side capture that turns them into display-list words.",
       "key_files": [
-        { "path": "core/libs/FT812/FT812.cpp", "symbol": "API_CMD_APPEND", "why": "How control display lists are stitched into each frame." }
+        { "path": "core/libs/FT812/DisplayList.h", "symbol": "namespace displayList", "why": "Capture buffer the API_* calls write into; overflow and dropped-command counters." }
       ]
     },
     {
@@ -72,19 +73,29 @@
     },
     {
       "path": "core/synth",
-      "purpose": "Synth glue for Tracker+ and Mini: engine registry, the Synth wrapper, open-source engines. Recipe: synth-engine.",
+      "purpose": "Synth host glue for Tracker+ and Mini (FEATURE_SYNTH): the Synth wrapper and the file-system and MIDI adapters. Engines are .psyn plugins; recipe: synth-engine.",
       "key_files": [
-        { "path": "core/synth/registry.cpp", "symbol": "InstrumentTypeRegistry::registerInstrumentTypes", "why": "Where synth engines are registered." },
-        { "path": "core/synth/Synth.h", "symbol": "kSynthTypes", "why": "The Model menu order; indexes the UI name and badge tables." }
+        { "path": "core/synth/Synth.h", "symbol": "getSynthTypes", "why": "The engine list the Model menu is built from." },
+        { "path": "core/libs/Audio/synth_PolySynth.cpp", "symbol": "PolySynth::update", "why": "Audio-graph node that renders the synths every block (interrupt context)." }
       ]
     },
     {
-      "path": "synth/include/PolySynth",
-      "purpose": "Public PolySynth headers and the Open Synth SDK; the engine implementations themselves are precompiled in synth/lib.",
+      "path": "synth",
+      "purpose": "PolySynth library, built from synth/source into libPolySynth.a for IMX: instruments, patches, mixer, the .psyn plugin loader. synth/include holds the public headers and SDK; synth/prebuilt the proprietary factory .psyn plugins.",
       "key_files": [
+        { "path": "synth/source/synths/PsynLoader.cpp", "symbol": "PsynLoader::scanAndRegister", "why": "Boot-time scan of /Synths and engine ID assignment (fixed or dynamic from 100)." },
         { "path": "synth/include/PolySynth/config.h", "symbol": "enum class InstrumentTypeId", "why": "Serialized engine ids: append only." },
-        { "path": "synth/include/PolySynth/sdk/SynthVoiceSDK.h", "symbol": "class CustomSynthVoice", "why": "Base class for open-source engines." },
+        { "path": "synth/include/PolySynth/sdk/SynthVoiceSDK.h", "symbol": "class CustomSynthVoice", "why": "Base class for C++ engine voices." },
         { "path": "synth/include/PolySynth/Patch.h", "symbol": "struct Param", "why": "Parameter metadata (range, curve, formatter) the UI reads." }
+      ]
+    },
+    {
+      "path": "synth-plugin-sdk",
+      "purpose": "SDK and build for .psyn synth plugins (Cortex-M7 only), with the open-source CHIP engine and a pure C example.",
+      "key_files": [
+        { "path": "synth-plugin-sdk/include/psyn/psyn_plugin.h", "symbol": "PsynHeader", "why": "Plugin header: magic, API version, engine IDs, flags." },
+        { "path": "synth-plugin-sdk/engines/chip.cpp", "symbol": "class ChiptuneSynthVoice", "why": "Reference C++ engine exported with PSYN_REGISTER_CPP_VOICE." },
+        { "path": "synth-plugin-sdk/tools/psyn_builder.py", "symbol": "def main", "why": "Packs a relocatable ELF into a .psyn." }
       ]
     },
     {

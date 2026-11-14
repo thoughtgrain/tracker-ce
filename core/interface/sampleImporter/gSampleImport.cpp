@@ -173,7 +173,7 @@ void cSampleImporter::showDefaultScreen()
     display.setControlColors(label[4], display.getTheme().activeButtonLabelsColors);
     display.setControlColors(label[5], display.getTheme().activeButtonLabelsColors);
     display.setControlColors(label[6], display.getTheme().activeLabelsColors);
-    display.setControlColors(label[7], display.getTheme().activeLabelsColors);
+    display.setControlColors(label[7], display.getTheme().activeButtonLabelsColors);
 
     for (uint8_t i = 0; i < 8; i++)
     {
@@ -193,6 +193,8 @@ void cSampleImporter::showDefaultScreen()
     display.setControlValue(label[2], 0);
     display.setControlValue(label[3], 0);
     display.setControlValue(label[4], 0);
+
+    updateMemoryButtonLabel();
 
     display.setControlValue(bgLabel, 255); // 0b11111111
     display.refreshControl(bgLabel);
@@ -475,11 +477,12 @@ void cSampleImporter::showRename()
     }
 }
 
-void cSampleImporter::showAddOrEnter()
+void cSampleImporter::showAddOrEnter(bool isShiftPressed)
 {
-    if (explorerNames != nullptr && *explorerNames[selectedFile] == '/')
+    if (isFolderRow(selectedFile))
     {
         display.setControlText(label[0], "Enter");
+        display.setControlValue(label[0], 0);
 
         if (selectedPlace == 0)
         {
@@ -492,8 +495,24 @@ void cSampleImporter::showAddOrEnter()
     }
     else
     {
-        display.setControlText(label[0], "Add");
-        display.setControlColors(label[0], display.getTheme().activeButtonLabelsColors);
+        if (isShiftPressed && selectionLength[listFiles] == 0)
+        {
+            display.setControlText(label[0], "Add to");
+            display.setControlText2(label[0], "Empty Slot");
+            display.setControlValue(label[0], 1);
+            display.setControlStyle2(label[0],
+                                     controlStyleCenterX | controlStyleCenterY | controlStyleFont3);
+        }
+        else
+        {
+            display.setControlText(label[0], "Add");
+            display.setControlValue(label[0], 0);
+        }
+
+        display.setControlColors(label[0],
+                                 isFileRow(selectedFile)
+                                   ? display.getTheme().activeButtonLabelsColors
+                                   : display.getTheme().inactiveButtonLabelsColors);
     }
 
     display.refreshControl(label[0]);
@@ -501,7 +520,7 @@ void cSampleImporter::showAddOrEnter()
 
 void cSampleImporter::addNextColorControl()
 {
-    if (explorerNames != nullptr && *explorerNames[selectedFile] != '/')
+    if (isFileRow(selectedFile))
     {
         display.setControlColors(label[1], display.getTheme().activeButtonLabelsColors);
     }
@@ -519,7 +538,7 @@ void cSampleImporter::previewColorControl()
 
     if (selectedPlace == 0)
     {
-        if (explorerNames != nullptr && *explorerNames[selectedFile] == '/')
+        if (!isFileRow(selectedFile))
         {
             colors = display.getTheme().inactiveButtonLabelsColors;
         }
@@ -595,7 +614,7 @@ void cSampleImporter::importColorControl()
 {
     const uint32_t* colors = display.getTheme().activeButtonLabelsColors;
 
-    if (explorerNames != nullptr && *explorerNames[selectedFile] == '/')
+    if (!isFileRow(selectedFile))
     {
         colors = display.getTheme().inactiveButtonLabelsColors;
     }
@@ -603,13 +622,9 @@ void cSampleImporter::importColorControl()
     {
         colors = display.getTheme().inactiveButtonLabelsColors;
     }
-    else
+    else if (hasFileExtension(explorerRowName(selectedFile), "pti"))
     {
-        char* fileName = explorerNames[selectedFile];
-        if (hasFileExtension(fileName, "pti"))
-        {
-            colors = display.getTheme().inactiveButtonLabelsColors;
-        }
+        colors = display.getTheme().inactiveButtonLabelsColors;
     }
 
     display.setControlColors(label[4], colors);
@@ -829,6 +844,8 @@ void cSampleImporter::showImportScreen()
     display.setControlText(label[0], "Preview");
     display.setControlText(label[1], "Start");
     display.setControlText(label[2], "End");
+    display.setControlText(label[4], "Import");
+    display.setControlText2(label[4], "Stream");
     display.setControlText(label[5], "Cancel");
     display.setControlText(label[6], "Import");
     display.setControlText2(label[6], "Low quality");
@@ -857,6 +874,8 @@ void cSampleImporter::showImportScreen()
     // display.refreshControl(progressCursor);
 
     importApplyNormalButtonLastStyle = 255;
+    importApplyLoFiButtonLastStyle = 255;
+    importApplyStreamButtonLastStyle = 255;
     showImportApplyButtonStyle();
 
     hideImportPreview();
@@ -879,7 +898,7 @@ void cSampleImporter::showImportStartPointValue()
     float recTimeValue = importSampleSamplesCount / 44100.0;
     float localStartPoint = (recTimeValue * importStartPoint) / MAX_16BIT;
 
-    sprintf(startPointValueText, "%.3fs", localStartPoint);
+    snprintf(startPointValueText, sizeof(startPointValueText), "%.3fs", localStartPoint);
 
     display.setControlText2(label[1], startPointValueText);
     display.setControlShow(label[1]);
@@ -892,7 +911,7 @@ void cSampleImporter::showImportEndPointValue()
     float recTimeValue = importSampleSamplesCount / 44100.0;
     float localEndPoint = (recTimeValue * importEndPoint) / MAX_16BIT;
 
-    sprintf(endPointValueText, "%.3fs", localEndPoint);
+    snprintf(endPointValueText, sizeof(endPointValueText), "%.3fs", localEndPoint);
 
     display.setControlText2(label[2], endPointValueText);
     display.setControlShow(label[2]);
@@ -909,7 +928,7 @@ void cSampleImporter::showImportPreviewValue()
     if (playTimeValue >= (localEndPoint - 0.01))
         playTimeValue = localEndPoint;
 
-    sprintf(playTimeValueText, "%.3fs", playTimeValue);
+    snprintf(playTimeValueText, sizeof(playTimeValueText), "%.3fs", playTimeValue);
 
     display.setControlText2(label[0], playTimeValueText);
     display.setControlShow(label[0]);
@@ -965,4 +984,54 @@ void cSampleImporter::showImportApplyButtonStyle()
             importApplyLoFiButtonLastStyle = 0;
         }
     }
+
+    if (calcImportIsEnoughMemoryStream())
+    {
+        if (importApplyStreamButtonLastStyle != 1)
+        {
+            display.setControlColors(label[4], display.getTheme().activeButtonLabelsColors);
+            display.refreshControl(label[4]);
+            importApplyStreamButtonLastStyle = 1;
+        }
+    }
+    else
+    {
+        if (importApplyStreamButtonLastStyle != 0)
+        {
+            display.setControlColors(label[4], display.getTheme().inactiveButtonLabelsColors);
+            display.refreshControl(label[4]);
+            importApplyStreamButtonLastStyle = 0;
+        }
+    }
+}
+
+void cSampleImporter::updateMemoryButtonLabel()
+{
+    if (selectedPlace == 1 && selectedSlot < kSampleInstrumentsCount &&
+        mtProject.instrument[selectedSlot].isActive)
+    {
+        bool streamed = mtProject.sampleMemory[selectedSlot].isStreamed;
+        bool canStream = (mtProject.instrument[selectedSlot].sample.length > kStreamPreCacheFrames) &&
+                         isPlayModeStreamable(mtProject.instrument[selectedSlot].playMode);
+        display.setControlText(label[7], streamed ? "Mode: [S]" : "Mode: RAM");
+        display.setControlColors(
+          label[7],
+          (streamed || canStream) ? display.getTheme().activeButtonLabelsColors
+                                  : display.getTheme().inactiveButtonLabelsColors);
+    }
+    else
+    {
+        const char* modeText = "Mem: RAM";
+        if (sampleLoadMode == enSampleLoadMode::kAuto)
+        {
+            modeText = "Mem: Auto";
+        }
+        else if (sampleLoadMode == enSampleLoadMode::kStream)
+        {
+            modeText = "Mem: [S]";
+        }
+        display.setControlText(label[7], modeText);
+        display.setControlColors(label[7], display.getTheme().activeButtonLabelsColors);
+    }
+    display.refreshControl(label[7]);
 }
