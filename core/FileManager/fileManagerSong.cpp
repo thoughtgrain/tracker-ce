@@ -15,6 +15,11 @@ void setPatternBitmask(int patternIdx, int trackIdx, bool value);
 AUDIO_CORE_RAM uint8_t cFileManager::getNextSongPattern()
 {
     strSong* song = &mtProject.song;
+    // A song that fills the whole playlist has no empty slot after its last one.
+    if (song->playlistPos >= SONG_MAX - 1)
+    {
+        return song->playlist[0];
+    }
     return song->playlist[song->playlistPos + 1] > 0 ? song->playlist[song->playlistPos + 1]
                                                      : song->playlist[0];
 }
@@ -50,7 +55,8 @@ void cFileManager::setSongPos(uint8_t pos)
 bool cFileManager::switchNextPatternInSong()
 {
     strSong* song = &mtProject.song;
-    if (song->playlist[++(song->playlistPos)] != PLAYLIST_EMPTY_SLOT)
+    if (song->playlistPos < SONG_MAX - 1 &&
+        song->playlist[++(song->playlistPos)] != PLAYLIST_EMPTY_SLOT)
     {
         return 1;
     }
@@ -130,12 +136,19 @@ void cFileManager::copySongTracks(char* currentProjectPath,
         }
     }
 
-    destPattern->track[0].length =
-      std::max(srcPattern->track[0].length, destPattern->track[0].length);
+    uint8_t destBitmaskIdx = destPaternIdx - 1;
+    bool isDestPatternEmpty =
+      !status || (mtProject.values.allPatternsBitmask[destBitmaskIdx] == 0 &&
+                  mtProject.values.allPatternsBitmaskMidi[destBitmaskIdx] == 0);
 
-    if (tracksNum == kAllTracks)
+    if (tracksNum == kAllTracks || isDestPatternEmpty)
     {
         destPattern->track[0].length = srcPattern->track[0].length;
+    }
+    else
+    {
+        destPattern->track[0].length =
+          std::max(srcPattern->track[0].length, destPattern->track[0].length);
     }
 
     sequencer.updateTrackLengths(destPattern);

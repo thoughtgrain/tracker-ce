@@ -1,13 +1,16 @@
 #include "SampleImport.h"
 #include "AudioDataUtilities.h"
 #include "Platform.h"
+#include "VoiceStreamManager.h"
 #include "fileManager.h"
 #include "fileManagerDefs.h"
 #include "fileTransfer.h"
 #include "mtAudioEngine.h"
+#include "util_string.h"
 
 #include "log.h"
 
+#include <algorithm>
 #include <cstring>
 
 constexpr uint32_t lofiSampleRate = targetSampleRate / 2;
@@ -46,7 +49,10 @@ void SampleImport::update() // fmImportSamplesToWorkspace
         case SampleImportStep::loadSampleData:
         {
             bool result =
-              loadSampleDataToMemeory(currentInstrument, &sampleImportDataBuff[currentInstrument]);
+              mtProject.sampleMemory[currentInstrument].isStreamed
+                ? true
+                : loadSampleDataToMemeory(currentInstrument,
+                                          &sampleImportDataBuff[currentInstrument]);
             if (result)
             {
                 memoryToImportDone += fileTransfer.getBytesComplited();
@@ -64,7 +70,11 @@ void SampleImport::update() // fmImportSamplesToWorkspace
         }
         case SampleImportStep::saveInstrumentSampleToWorkspace:
         {
-            bool result = newFileManager.saveSampleDataToWorkspace(currentInstrument);
+            bool result =
+              mtProject.sampleMemory[currentInstrument].isStreamed
+                ? saveStreamedImportSampleToWorkspace(currentInstrument,
+                                                      &sampleImportDataBuff[currentInstrument])
+                : newFileManager.saveSampleDataToWorkspace(currentInstrument);
             if (result)
             {
                 engine.clearBlockedInstrument(currentInstrument);
@@ -159,13 +169,26 @@ void SampleImport::importSamplesToWorkspaceFinish()
         if (instrSlot >= 0 && instrSlot < kSampleInstrumentsCount &&
             mtProject.instrument[instrSlot].isActive)
         {
-            char instrPath[PATCH_SIZE];
-            snprintf(instrPath, sizeof(instrPath), cWorkspaceInstrumentFileFormatNew, instrSlot + 1);
-            newFileManager.demoteRamInstrumentToStream(
-              instrSlot, instrPath, sizeof(strInstrumentFile));
+            if (sampleImportDataBuff[instrSlot].shouldStream &&
+                !mtProject.sampleMemory[instrSlot].isStreamed)
+            {
+                char instrPath[PATCH_SIZE];
+                snprintf(
+                  instrPath, sizeof(instrPath), cWorkspaceInstrumentFileFormatNew, instrSlot + 1);
+                if (newFileManager.demoteRamInstrumentToStream(
+                      instrSlot, instrPath, sizeof(strInstrumentFile), true))
+                {
+                    newFileManager.saveInstrumentStructToWorkspace(instrSlot);
+                }
+            }
+            else if (!sampleImportDataBuff[instrSlot].shouldStream)
+            {
+                mtProject.instrument[instrSlot].setStreamPreferred(false);
+            }
         }
     }
 
+    mtProject.used_memory = newFileManager.getSampleMemorySize(0, kSampleInstrumentsCount - 1);
     newFileManager.setStatus(fmImportSamplesEnd);
     newFileManager.setCurrentOperation(fmNoOperation);
 }
@@ -178,7 +201,8 @@ bool SampleImport::importSamplesToProject(uint8_t fileFrom,
                                           uint16_t dataFrom,
                                           uint16_t dataTo,
                                           bool isLofi,
-                                          SampleChannelMode sampleMode)
+                                          SampleChannelMode sampleMode,
+                                          SampleLoadMode loadMode)
 {
     if (newFileManager.getStatus() != fmIdle)
         return false;
@@ -187,8 +211,18 @@ bool SampleImport::importSamplesToProject(uint8_t fileFrom,
     if (dataFrom >= dataTo || dataFrom > std::numeric_limits<uint16_t>::max() ||
         dataTo > std::numeric_limits<uint16_t>::max())
         return false;
+    if (instrumentSlot >= kSampleInstrumentsCount)
+        return false;
+
+    // the files that have no instrument slot left are not imported
+    const int slotsAfterFirst = kSampleInstrumentsCount - 1 - instrumentSlot;
+    if (fileTo - fileFrom > slotsAfterFirst)
+    {
+        fileTo = fileFrom + slotsAfterFirst;
+    }
 
     sampleChannelMode = sampleMode;
+    importLoadMode = loadMode;
     importCurrentFileIdx = fileFrom;
     importDataFrom = dataFrom;
     importDataTo = dataTo;
@@ -213,6 +247,8 @@ bool SampleImport::importSamplesToProject(uint8_t fileFrom,
     return true;
 }
 
+static bool importedSampleFits(int slot, int lastSlot, uint16_t channelCount, uint32_t framesInRam);
+
 // importowanie dowolnego wavaprzez podanie jego sciezki na dowolny slot instrumentu
 bool SampleImport::importSampleToProject(char* filePath,
                                          char* fileName,
@@ -225,12 +261,44 @@ bool SampleImport::importSampleToProject(char* filePath,
         return false;
 
     // sprawdz czy plik istnieje
-    char test_path[255];
-    sprintf(test_path, "%s/%s.wav", filePath, fileName);
+    char test_path[PATCH_SIZE];
+    snprintf(test_path, sizeof(test_path), "%s/%s.wav", filePath, fileName);
     if (!fileSystem->exists(test_path))
         return false;
 
     if (instrumentSlot >= kSampleInstrumentsCount)
+    {
+        return false;
+    }
+
+    strWavFileHeader sampleHead{};
+    uint32_t fileWaveDataSize = newFileManager.getWaveSizeAndHederIfValid(test_path, sampleHead);
+    if (fileWaveDataSize == 0 || sampleHead.bitsPerSample < 8 || sampleHead.numChannels == 0 ||
+        sampleHead.sampleRate == 0)
+    {
+        return false;
+    }
+
+    uint32_t sourceAllChannelBytesPerSample =
+      (sampleHead.bitsPerSample / 8) * sampleHead.numChannels;
+    if (sourceAllChannelBytesPerSample == 0)
+    {
+        return false;
+    }
+
+    uint32_t sourceSizeBytes = (fileWaveDataSize <= sampleHead.subchunk2Size)
+                                 ? fileWaveDataSize
+                                 : sampleHead.subchunk2Size;
+    uint32_t sourceTotalFrames = sourceSizeBytes / sourceAllChannelBytesPerSample;
+    uint64_t framesInRam = ((uint64_t)sourceTotalFrames * targetSampleRate) / sampleHead.sampleRate;
+    if (framesInRam == 0 || framesInRam > EDIT_BUFF_SIZE / 2)
+    {
+        return false;
+    }
+
+    uint16_t destChannels =
+      ((sampleMode == FileManagerOperation::kLeftAndRight) && (sampleHead.numChannels > 1)) ? 2 : 1;
+    if (!importedSampleFits(instrumentSlot, instrumentSlot, destChannels, (uint32_t)framesInRam))
     {
         return false;
     }
@@ -241,24 +309,24 @@ bool SampleImport::importSampleToProject(char* filePath,
     // i uruchamia import jak w sample laderze
     if (newFileManager.getExplorerList()[0] != nullptr)
     {
-        delete newFileManager.getExplorerList()[0];
+        delete[] newFileManager.getExplorerList()[0];
         newFileManager.getExplorerList()[0] = nullptr;
     }
 
     uint16_t len = strlen(fileName) + 5; // + .wav + \0
     newFileManager.getExplorerList()[0] = new char[len];
-    strcpy(newFileManager.getExplorerList()[0], fileName);
-    strcat(newFileManager.getExplorerList()[0], ".wav");
+    snprintf(newFileManager.getExplorerList()[0], len, "%s.wav", fileName);
 
     // wymagane tez ustawienie aktualnego path explorera
     // na lokalizajce wczytywanego pliku
-    strcpy(newFileManager.getExplorerPath(), filePath);
+    polystrncpy(newFileManager.getExplorerPath(), filePath, PATCH_SIZE);
 
     // liczy sie tlyko 0 index w tablicy
     importCurrentFileIdx = 0;
 
     // default parametry importu
     sampleChannelMode = sampleMode;
+    importLoadMode = SampleLoadMode::kRam;
     importDataFrom = 0;
     importDataTo = std::numeric_limits<uint16_t>::max();
     importIsLofi = false;
@@ -281,12 +349,31 @@ bool SampleImport::importSampleToProject(char* filePath,
 
 //=================================================================================================
 //=================================================================================================
+// The estimate that lets an import start can be too low, so the room is checked again where
+// each file is given its place in sample memory. The files of one import are placed one behind
+// the other, and the instruments behind the imported slots move up by the same amount: a file
+// has to fit between the instruments in front of it and those that follow the imported slots.
+static bool importedSampleFits(int slot, int lastSlot, uint16_t channelCount, uint32_t framesInRam)
+{
+    uint64_t usedBytes = newFileManager.getSampleMemorySize(0, slot - 1);
+    usedBytes += newFileManager.getSampleMemorySize(lastSlot + 1, kSampleInstrumentsCount - 1);
+
+    uint64_t sampleBytes = (uint64_t)framesInRam * channelCount * sizeof(int16_t);
+
+    return usedBytes + sampleBytes <= mtProject.max_memory;
+}
+
+//=================================================================================================
+//=================================================================================================
 void SampleImport::loadImportingSamplesData(FileManagerOperation::SampleLoadData* sampleImportData,
                                             char* sourceFilePath,
                                             char** sourceFileNameList)
 {
     char srcSamplePath[PATCH_SIZE];
     strWavFileHeader sampleHead;
+    uint32_t availableForStaging = (mtProject.max_memory > mtProject.used_memory)
+                                     ? (mtProject.max_memory - mtProject.used_memory)
+                                     : 0;
 
     for (int idx = 0; idx < (importExplorerSlotTo - importExplorerSlotFrom + 1); idx++)
     {
@@ -364,11 +451,57 @@ void SampleImport::loadImportingSamplesData(FileManagerOperation::SampleLoadData
                     isStereo = isStereo && newFileManager.getSampleMode() ==
                                              FileManagerOperation::kLeftAndRight;
 
-                    newFileManager.setInstrumentSampleAddress(
-                      instrIdx, isStereo ? 2 : 1, mtProject.instrument[instrIdx].sample.length);
+                    uint32_t fullFrames = mtProject.instrument[instrIdx].sample.length;
+                    uint32_t totalBytes = fullFrames * (isStereo ? 4 : 2);
+                    bool canStream = (fullFrames > kStreamPreCacheFrames) &&
+                                     isPlayModeStreamable(mtProject.instrument[instrIdx].playMode);
+                    sampleImportData[instrIdx].shouldStream =
+                      canStream && ((importLoadMode == SampleLoadMode::kStream) ||
+                                    (importLoadMode == SampleLoadMode::kAuto &&
+                                     totalBytes >= kStreamThresholdBytes) ||
+                                    mtProject.instrument[instrIdx].isStreamPreferred());
+                    mtProject.instrument[instrIdx].setStreamPreferred(
+                      sampleImportData[instrIdx].shouldStream);
 
-                    memoryToImportTotal +=
-                      mtProject.instrument[instrIdx].sample.length * (isStereo ? 4 : 2);
+                    bool onlyPreCache =
+                      sampleImportData[instrIdx].shouldStream && totalBytes > availableForStaging;
+                    if (!importedSampleFits(
+                          instrIdx,
+                          importEndSlot,
+                          isStereo ? 2 : 1,
+                          onlyPreCache ? std::min<uint32_t>(fullFrames, kStreamPreCacheFrames)
+                                       : fullFrames))
+                    {
+                        // Left empty, like a file that cannot be read.
+                        newFileManager.completeLoadedInstrumentStruct(instrIdx, false);
+                        continue;
+                    }
+
+                    if (sampleImportData[instrIdx].shouldStream && totalBytes > availableForStaging)
+                    {
+                        uint32_t preCache = std::min<uint32_t>(fullFrames, kStreamPreCacheFrames);
+                        uint32_t preCacheBytes = preCache * (isStereo ? 4 : 2);
+                        availableForStaging = (availableForStaging > preCacheBytes)
+                                                ? (availableForStaging - preCacheBytes)
+                                                : 0;
+                        newFileManager.setInstrumentSampleAddress(
+                          instrIdx, isStereo ? 2 : 1, preCache);
+                        mtProject.instrument[instrIdx].sample.length = fullFrames;
+                        mtProject.sampleMemory[instrIdx].isStreamed = true;
+                        mtProject.sampleMemory[instrIdx].isStereo = isStereo;
+                        mtProject.sampleMemory[instrIdx].ramFrames = preCache;
+                        mtProject.sampleMemory[instrIdx].preCacheFrames = preCache;
+                    }
+                    else
+                    {
+                        availableForStaging = (availableForStaging > totalBytes)
+                                                ? (availableForStaging - totalBytes)
+                                                : 0;
+                        newFileManager.setInstrumentSampleAddress(
+                          instrIdx, isStereo ? 2 : 1, fullFrames);
+                    }
+
+                    memoryToImportTotal += totalBytes;
                     continue;
                 }
             }
@@ -404,8 +537,6 @@ void SampleImport::loadImportingSamplesData(FileManagerOperation::SampleLoadData
                     sampleImportData[instrIdx].fileOffset =
                       fileSystem->getFileSize(fileHandle) - fileAvailableBytes;
 
-                    memoryToImportTotal += fileAvailableBytes; // load to memory size (stage 1)
-
                     fillImportStruct(instrIdx,
                                      sampleImportData,
                                      &sampleHead,
@@ -414,10 +545,6 @@ void SampleImport::loadImportingSamplesData(FileManagerOperation::SampleLoadData
                                      importDataFrom,
                                      importDataTo);
 
-                    memoryToImportTotal += sampleImportData[instrIdx].destChannelCount *
-                                           sampleImportData[instrIdx].destSampleCountPerChannel *
-                                           2; // save memory to file size (stage 2)
-
                     fileSystem->closeFile(fileHandle);
 
                     newFileManager.copySampleNameWithoutExtension(
@@ -425,13 +552,67 @@ void SampleImport::loadImportingSamplesData(FileManagerOperation::SampleLoadData
                       sampleImportData[instrIdx].fileName,
                       SAMPLE_NAME_SIZE);
 
-                    newFileManager.completeLoadedInstrumentStruct(
-                      instrIdx, true, sampleImportData[instrIdx].destSampleCountPerChannel);
+                    uint32_t fullFrames = sampleImportData[instrIdx].destSampleCountPerChannel;
+                    newFileManager.completeLoadedInstrumentStruct(instrIdx, true, fullFrames);
 
-                    newFileManager.setInstrumentSampleAddress(
-                      instrIdx,
-                      sampleImportData[instrIdx].destChannelCount,
-                      sampleImportData[instrIdx].destSampleCountPerChannel);
+                    uint32_t totalBytes =
+                      sampleImportData[instrIdx].destChannelCount * fullFrames * 2;
+                    bool canStream = (fullFrames > kStreamPreCacheFrames) &&
+                                     isPlayModeStreamable(mtProject.instrument[instrIdx].playMode);
+                    sampleImportData[instrIdx].shouldStream =
+                      canStream && ((importLoadMode == SampleLoadMode::kStream) ||
+                                    (importLoadMode == SampleLoadMode::kAuto &&
+                                     totalBytes >= kStreamThresholdBytes));
+                    mtProject.instrument[instrIdx].setStreamPreferred(
+                      sampleImportData[instrIdx].shouldStream);
+
+                    bool onlyPreCache =
+                      sampleImportData[instrIdx].shouldStream && totalBytes > availableForStaging;
+                    if (!importedSampleFits(
+                          instrIdx,
+                          importEndSlot,
+                          sampleImportData[instrIdx].destChannelCount,
+                          onlyPreCache ? std::min<uint32_t>(fullFrames, kStreamPreCacheFrames)
+                                       : fullFrames))
+                    {
+                        // Left empty, like a file that cannot be read.
+                        newFileManager.completeLoadedInstrumentStruct(instrIdx, false);
+                        continue;
+                    }
+
+                    if (sampleImportData[instrIdx].shouldStream && totalBytes > availableForStaging)
+                    {
+                        uint32_t preCache = std::min<uint32_t>(fullFrames, kStreamPreCacheFrames);
+                        uint32_t preCacheBytes =
+                          preCache * sampleImportData[instrIdx].destChannelCount * 2;
+                        availableForStaging = (availableForStaging > preCacheBytes)
+                                                ? (availableForStaging - preCacheBytes)
+                                                : 0;
+                        newFileManager.setInstrumentSampleAddress(
+                          instrIdx, sampleImportData[instrIdx].destChannelCount, preCache);
+                        mtProject.instrument[instrIdx].sample.length = fullFrames;
+                        mtProject.sampleMemory[instrIdx].isStreamed = true;
+                        mtProject.sampleMemory[instrIdx].isStereo =
+                          (sampleImportData[instrIdx].destChannelCount == 2);
+                        mtProject.sampleMemory[instrIdx].ramFrames = preCache;
+                        mtProject.sampleMemory[instrIdx].preCacheFrames = preCache;
+
+                        uint32_t sourceReadBytes =
+                          sampleImportData[instrIdx].sourceTotalSamplesCountPerChannel *
+                          sampleImportData[instrIdx].sourceAllChannelBytesPerSample;
+                        memoryToImportTotal += sourceReadBytes + totalBytes;
+                    }
+                    else
+                    {
+                        availableForStaging = (availableForStaging > totalBytes)
+                                                ? (availableForStaging - totalBytes)
+                                                : 0;
+                        newFileManager.setInstrumentSampleAddress(
+                          instrIdx, sampleImportData[instrIdx].destChannelCount, fullFrames);
+
+                        memoryToImportTotal += fileAvailableBytes; // load to memory size (stage 1)
+                        memoryToImportTotal += totalBytes;         // save memory to file (stage 2)
+                    }
 
                     continue;
                 }
@@ -565,6 +746,68 @@ bool SampleImport::loadSampleDataToMemeory(int idx,
         return true;
     }
     else if (loadStatus >= fileTransferError)
+    {
+        newFileManager.completeLoadedInstrumentStruct(idx, false);
+        stopOperationWithError(fmImportSamplesError);
+    }
+
+    return false;
+}
+
+bool SampleImport::saveStreamedImportSampleToWorkspace(
+  int idx, FileManagerOperation::SampleLoadData* sampleImportData)
+{
+    if (mtProject.instrument[idx].isActive != 1)
+    {
+        return true;
+    }
+
+    char srcSamplePath[PATCH_SIZE];
+    snprintf(srcSamplePath,
+             sizeof(srcSamplePath),
+             "%s/%s",
+             sampleImportData->filePath,
+             sampleImportData->fileName);
+
+    char destPtiPath[PATCH_SIZE];
+    snprintf(destPtiPath, sizeof(destPtiPath), cWorkspaceInstrumentFileFormatNew, idx + 1);
+
+    uint8_t transferStatus = fileTransferIdle;
+    bool stereo = mtProject.sampleMemory[idx].isStereo;
+
+    if (sampleImportData->ptiFile)
+    {
+        uint32_t sizeBytes = mtProject.instrument[idx].sample.length * (stereo ? 4 : 2);
+        transferStatus = fileTransfer.copyRawDataBetweenFiles(srcSamplePath,
+                                                              sampleImportData->fileOffset,
+                                                              destPtiPath,
+                                                              sizeof(strInstrumentFile),
+                                                              sizeBytes);
+    }
+    else
+    {
+        transferStatus = fileTransfer.convertWaveToInstrumentFile(
+          sampleImportData, destPtiPath, sizeof(strInstrumentFile), targetSampleRate);
+    }
+
+    if (transferStatus == fileTransferEnd)
+    {
+        voiceStreamManager.setupInstrumentStream(idx,
+                                                 destPtiPath,
+                                                 sizeof(strInstrumentFile),
+                                                 mtProject.instrument[idx].sample.length,
+                                                 stereo);
+        mtProject.used_memory +=
+          mtProject.sampleMemory[idx].ramFrames * 2 * (stereo ? 2 : 1);
+        return true;
+    }
+    else if (transferStatus == fileTransferFileNoExist ||
+             transferStatus == fileTransferFileNoValid)
+    {
+        newFileManager.completeLoadedInstrumentStruct(idx, false);
+        return true;
+    }
+    else if (transferStatus >= fileTransferError)
     {
         newFileManager.completeLoadedInstrumentStruct(idx, false);
         stopOperationWithError(fmImportSamplesError);
