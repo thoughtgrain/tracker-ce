@@ -18,7 +18,7 @@ How I add a new screen: a module the hardware buttons (and the Tracker Mini's me
 
 ## Pitfalls
 
-- **Count your display-list bytes.** Every visible control shares the 8,172-byte frame budget, and past it the oldest controls silently disappear. Create controls in `initDisplayControls` and free them all in `destroyDisplayControls`; the control table is fixed-size (`controlsCount`).
+- **Count your display-list bytes.** Every visible control shares the 8,172-byte frame budget, and a control that would go past it is silently left out (older controls are added last, so they go first). Create controls in `initDisplayControls` and free them all in `destroyDisplayControls`; the control table is fixed-size (`controlsCount`).
 - **Don't draw from the interrupt.** If MIDI or the sequencer needs to change what the screen shows, set a flag and refresh in `update()`.
 - **Mini and desktop layouts differ.** Guard Mini-only layout with `TRACKER_MINI`.
 

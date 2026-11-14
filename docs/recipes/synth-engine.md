@@ -1,29 +1,28 @@
-# Recipe: add a synth engine (Tracker+ and Tracker Mini)
+# Recipe: add a synth engine (`.psyn` plugin for Tracker+ and Tracker Mini)
 
-How I add an open-source synth engine to the Model menu, in the order that keeps the tree building at every step.
+How I add a synth engine since engines became SD-card plugins: write a voice, build it into a `.psyn`, and copy it to `/Synths`. No firmware change, no menu table, no bitmaps.
 
 ## Before you start
 
-- Read [`docs/custom_synth_sdk.md`](../custom_synth_sdk.md) (the voice lifecycle and parameter tables) and `core/synth/AGENTS.md`.
-- The closest worked example is the chiptune engine (`core/synth/engines/ChiptuneSynthVoice.cpp`). The TORO engine on the `feat/toro-synth` branch is a second one, with a host test suite. Grep `kChiptuneSynth` and `createChiptuneSynth`: every hit is a place your engine needs too.
+- Read [`docs/custom_synth_sdk.md`](../custom_synth_sdk.md) (plugin ABI, voice lifecycle, parameter metadata) and `core/synth/AGENTS.md`.
+- The worked example is the CHIP engine, `synth-plugin-sdk/engines/chip.cpp`: a `ChiptuneSynthVoice` derived from `CustomSynthVoice` and exported with `PSYN_REGISTER_CPP_VOICE`. For a plain C engine, start from `synth-plugin-sdk/examples/simple_sine.c`.
 
 ## Steps
 
-1. **Engine ID.** In `synth/include/PolySynth/config.h`, add your entry to `InstrumentTypeId` right after the last engine, and point `kLastSynth` at it. Projects and patches store this integer, so never reorder or renumber what's already there.
-2. **Voice.** Create `core/synth/engines/<Name>SynthVoice.h` and `.cpp`, wrapped in `#ifdef FEATURE_SYNTH`. Derive the voice from `CustomSynthVoice`, whose static parameter tables keep inactive engines near zero RAM. Expose a factory like `createChiptuneSynth`.
-3. **Register it.** Call your factory in `InstrumentTypeRegistry::registerInstrumentTypes` (`core/synth/registry.cpp`).
-4. **Model menu.** Add your ID to `Synth::kSynthTypes` (`core/synth/Synth.h`). The menu order is this array's order, and the UI arrays below are sized from it.
-5. **Names and icons.** Add the name to `synthModelNames` and the mini icon to `synthModelListImages` in `core/interface/instrumentEditor/SynthEditor.cpp`. Add the medium icon to `synthModelListImages` in `core/interface/instrumentEditor/SynthPatchEditor.cpp`.
-6. **Bitmaps.** Add both icon IDs to `enDisplayBitmaps` (`core/libs/NewDisplay/displayStructs.h`) and the bitmaps to `bitmaps` in `core/libs/NewDisplay/display.cpp`. They live in graphics memory below `controlsRamStartAddress`, so check the space first (see `core/libs/NewDisplay/AGENTS.md`).
+1. **Voice.** Create `synth-plugin-sdk/engines/<name>.cpp`. Derive the voice from `CustomSynthVoice` (`synth/include/PolySynth/sdk/SynthVoiceSDK.h`), with a parameter ID enum and static parameter tables like `ChipParamId` in `chip.cpp`. End the file with `PSYN_REGISTER_CPP_VOICE(<YourVoice>)`.
+2. **Engine ID.** Pick a fixed ID and pass it to `psyn_builder.py` as `--type-id-play-tracker`. Don't leave it at 0: dynamic IDs are given out in file-name order, so they move when someone adds a plugin, and projects store the number. A built-in engine also gets an entry at the end of `InstrumentTypeId` (`synth/include/PolySynth/config.h`), never renumbering the ones before it.
+3. **Build.** In `synth-plugin-sdk/Makefile`, copy CHIP's two rules (`.elf`, then `.psyn` through `psyn_builder.py`) with your `--code-name`, `--display-name`, ID and polyphony, and add the `.psyn` to `all`. `make psyn` from the repo root builds the plugins and copies them, with the prebuilt factory ones, to build/Synths in the repo root.
+4. **Install.** Copy `<NAME>.psyn` to `/Synths` on the card. `PsynLoader::scanAndRegister` finds it at the next boot and the Model menu lists it.
 
 ## Pitfalls
 
-- **Everything in your voice runs in the audio interrupt.** The precompiled library calls `renderVoiceAudio()`, `onNoteOn()` and `onNoteOff()` from inside the render. No heap, no SD, no `double`, no UI.
-- **The Original Tracker never compiles this.** Anything outside `#ifdef FEATURE_SYNTH` that names your engine breaks the MK66 build.
-- **Parameter IDs are stored in patches too.** Once released, append new parameters; never reorder them.
+- **Your render code runs in the audio interrupt.** `voice_render_audio` is called from `Synth::renderAudioBuffer` every block. No heap, no SD (`PsynHostApi` file and WAV calls are for set-up only), no `double`, no UI.
+- **Plugins are Cortex-M7 only.** The Original Tracker can't load them. The plugin is built with `-ffast-math` and `-fsingle-precision-constant`, so float results can differ from a host build of the same code.
+- **The arena is shared.** All loaded engines share `PsynLoader::kArenaSize` (1,920 KB); an engine that doesn't fit evicts idle ones, and one bigger than the arena never loads. Keep tables `constexpr`.
+- **Parameter IDs are stored in patches.** Once released, append new parameters; never reorder them.
 
 ## Verify
 
-- Rung 2: a host test for the DSP core and the voice, the way the TORO suite on the `feat/toro-synth` branch does it (see the `host-test` recipe).
-- Rung 3: the ARM build for plus and mini. Check the ITCM and DTC lines in the memory report.
-- Rung 4: on a Tracker+ or Mini, select the engine, play notes, save and reload the project.
+- Rung 2: a host test for the DSP core and the voice (see the `host-test` recipe). Build the voice on the host without the bridge, the way the TORO suite on the `feat/toro-synth` branch tests its voice.
+- Rung 3: `make psyn` with the GNU Arm toolchain, plus `make plus` if you touched `synth/source` or `core/synth`.
+- Rung 4: on a Tracker+ or Mini, copy the `.psyn` to `/Synths`, reboot, select the engine, play notes, save and reload the project, then add another plugin and check the project still opens your engine.
