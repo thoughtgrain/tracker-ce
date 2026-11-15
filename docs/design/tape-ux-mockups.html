@@ -32,7 +32,7 @@ p { margin: 0; }
 .legend span { display: inline-flex; align-items: center; gap: 8px; }
 .sw { width: 26px; height: 10px; display: inline-block; }
 .sw.red { background: #cd1818; } .sw.lane { background: #ff9a3c; } .sw.mod { background: #ff5fa8; }
-.sw.note { background: #00e8be; } .sw.instr { background: #fef749; }
+.sw.note { background: #00e8be; } .sw.instr { background: #fef749; } .sw.fx1 { background: #bb58f1; } .sw.fx2 { background: #57f1ff; }
 .section { display: grid; gap: 22px; }
 .section > .intro { max-width: 74ch; display: grid; gap: 8px; color: var(--muted); }
 .section > .intro h2 { color: var(--fg); }
@@ -59,137 +59,106 @@ svg text { font-family: var(--f-screen); }
 </style>
 
 <div class="wrap">
+
+<div class="wrap">
   <header>
-    <div class="eyebrow">Tracker CE fork · tape projects · UI and UX mockups · 800 × 480</div>
+    <div class="eyebrow">Tracker CE fork · tape projects · UI and UX mockups v2 · 800 × 480</div>
     <h1>Tape Project Screens</h1>
-    <p class="lede">These are the screens a tape project adds or changes, drawn at the Tracker's size and in its visual language: black ground, grey screen-button labels along the bottom, the red selection frame and the pattern colours. The two new colours are orange for lanes and pink for modulation. Each screen has notes on its controls and what's different on the Mini. The written spec is <code>docs/design/tape-ux.md</code>; section numbers below point into it.</p>
+    <p class="lede">These are the screens a Tracker user already knows, with what a tape project adds to each. There's no new module. The tape is a play mode in Sample Playback, the chain lives in Params → More, modulation is Automation, lanes are extra FX columns, and recording happens in the Sample Recorder. Anything new is tagged <b>NEW</b> in orange; everything untagged is how the Tracker works today. The written spec is <code>docs/design/tape-ux.md</code>.</p>
     <div class="legend" aria-label="Colour key">
-      <span><i class="sw red"></i>selection frame, record, armed</span>
-      <span><i class="sw lane"></i>lanes (also marked <b>L</b>)</span>
-      <span><i class="sw mod"></i>modulation (also marked <b>~</b>)</span>
+      <span><i class="sw lane"></i>new in this design (tagged NEW)</span>
+      <span><i class="sw red"></i>selection frame, record</span>
       <span><i class="sw note"></i>note column</span>
       <span><i class="sw instr"></i>instrument column</span>
+      <span><i class="sw fx1"></i><i class="sw fx2"></i>FX columns</span>
     </div>
     <nav class="toc" aria-label="Screens">
-      <a href="#new">New project</a><a href="#pattern">Pattern + lanes</a><a href="#tape">Tape page</a><a href="#grain">Grain page</a><a href="#assign">Holding M1</a><a href="#ripple">Ripple page</a><a href="#mod">Mod page</a><a href="#rec">Tape Recorder</a><a href="#sends">Tape Sends</a><a href="#drum">Drum kit</a><a href="#scenes">Scenes</a><a href="#perf">Performance</a><a href="#padmap">Pad map</a>
+      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Params · More</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">Sample Playback · Drum</a><a href="#perf">Performance</a>
     </nav>
   </header>
 
   <section class="section" id="new">
-    <div class="intro"><h2>Making a tape project</h2><p>File → New Project, after the stop and save prompts that exist today. Spec §3.</p></div>
+    <div class="intro"><h2>File → New Project → type</h2><p>One of the two new pieces of UI. Spec §2.</p></div>
     <div class="fig"><div class="bezel" data-screen="newproject"></div>
-      <div class="notes"><span class="ref">fProjEdit.cpp · createNewProject()</span>
-        <p>Laid out like the Export choices: a page of screen-button options with a picture above them. The picture shows what the selected type gives you: reels for the tape tracks, plain columns for the ordinary ones.</p>
-        <ul><li><b>Default</b> is selected when the page opens, so <kbd>Create</kbd> makes today's project in one extra press.</li><li>A project's type can't be changed after it's made. <kbd>Save As</kbd> into a new tape project is the safe way across.</li></ul>
-        <p class="mini"><b>Mini:</b> ±1 moves between the four types; button 8 creates.</p></div></div>
+      <div class="notes"><span class="ref">fProjEdit.cpp · laid out like Export's choices</span>
+        <ul><li><b>Default</b> is preselected, so <kbd>Create</kbd> makes today's 16-track project with one extra press.</li><li>Create writes <kbd>C-4 TA</kbd> on step 1 of pattern 1 for each tape. It's an ordinary note that starts the tape, the way a looping break starts in any project.</li></ul>
+        <p class="mini"><b>Mini:</b> ±1 moves between the types and button 8 creates.</p></div></div>
   </section>
 
   <section class="section" id="pattern">
-    <div class="intro"><h2>The pattern editor, with lanes on Tape A</h2><p>Tape 4. Tape A shows lane bank A in place of its two FX columns; Tape B still shows its FX columns. Spec §4.</p></div>
+    <div class="intro"><h2>Pattern editor: lanes are FX columns</h2><p>Tape 4. Tape A shows its FX3·4 pair; tracks 3 and 4 are ordinary. Spec §5.</p></div>
     <div class="fig"><div class="bezel" data-screen="pattern"></div>
-      <div class="notes"><span class="ref">fPatternEdit.cpp · patternViewMode</span>
-        <p>A lane is an FX column whose FX type is fixed for the whole pattern. Entering values works the way FX values do now: encoder, pads, Delete, Copy and Fill.</p>
-        <dl><dt>Fx again</dt><dd>Steps FX → A → B → C → D → FX. Four 2-character lanes take exactly the width of the two FX columns.</dd>
-          <dt>Hold Fx</dt><dd>The lane-target list on the right. Buttons 5–7 set the mode: Step, Hold or Glide.</dd>
-          <dt>Title bar</dt><dd>The lane under the cursor, in real units: <kbd>A2 Rpt 1/16 Step</kbd>.</dd>
-          <dt>Dim digits</dt><dd>Values still in force from an earlier step: Hold repeats them, Glide shows the in-between values.</dd>
-          <dt>→A</dt><dd>The header of an ordinary track that sends into Tape A's chain.</dd></dl>
-        <p class="mini"><b>Mini:</b> ±1/±10 set a value, Middle writes the last value, and the Fx button does the same as above.</p></div></div>
+      <div class="notes"><span class="ref">fPatternEdit.cpp · Fx pressed again</span>
+        <p>A tape track has six FX columns where an ordinary track has two. Pressing <kbd>Fx</kbd> again pages the visible pair, FX1·2 → 3·4 → 5·6, the way <kbd>Note</kbd> pressed again swaps in Micro-move and Volume. The header shows which pair is up.</p>
+        <ul><li>They're the same FX list, entry, Fill, Copy and Undo you already use. The new tape FX are new entries in that list.</li><li>Here, FX3 holds a <b>Fill</b> of Speed from 100 down to −100 over steps 9–14, and FX4 holds a <b>Roll</b>, an existing FX.</li><li>Ending a stutter works as it does today: write the FX again with 0.</li></ul>
+        <p class="mini"><b>Mini:</b> the same, with the Fx button and ±1/±10.</p></div></div>
   </section>
 
   <section class="section" id="tape">
-    <div class="intro"><h2>Tape screen · Tape page</h2><p><kbd>Params</kbd> on a tape track, or <kbd>Shift</kbd>+<kbd>Params</kbd> from anywhere. Spec §5.</p></div>
+    <div class="intro"><h2>Sample Playback, play mode Tape</h2><p>Tape A as the instrument, then <kbd>SamplePlay</kbd>. The screen you know, with one new play mode. Spec §3.</p></div>
     <div class="fig"><div class="bezel" data-screen="tape"></div>
-      <div class="notes"><span class="ref">new module · core/interface/tapeMode/</span>
-        <p>The picture is the tape: the loop window lit, the rest dimmed, 16 slice ticks, the play head, and a bar ruler. The line above it says what feeds this track's chain.</p>
-        <ul><li><b>L</b> under Speed and Rpt: a lane in this pattern moves them.</li><li><kbd>Shift</kbd> held on Start or Length zooms the waveform around that edge and switches the encoder to fine steps.</li><li><kbd>Params</kbd> pressed again goes on to the instrument editor, then automation, then back here.</li></ul>
-        <p class="mini"><b>Mini:</b> Menu → Tape. <kbd>Shift</kbd>+Left/Right changes the page.</p></div></div>
+      <div class="notes"><span class="ref">gSamplePlay.cpp · Play Mode on 7–8</span>
+        <ul><li>Loop Start and Loop End set the window, as in the loop modes. The slice markers are drawn as Slice mode draws them.</li><li>New in Tape mode: <b>Speed</b>, a bar ruler under the waveform, and on More: Sync (bars), Wow, Flutter, Rotate, Xfade, Slices.</li><li>A note on a tape step jumps to a slice, and the tape keeps rolling. Reverse, Position, Slice, Tune and Roll are existing FX and work on a tape as named.</li></ul></div></div>
+  </section>
+
+  <section class="section" id="more">
+    <div class="intro"><h2>Params → More, on a tape</h2><p>The More window that already holds Overdrive, Bit depth and the sends. A tape gets three more buttons. Spec §4.</p></div>
+    <div class="fig"><div class="bezel" data-screen="more"></div>
+      <div class="notes"><span class="ref">gInstrEdit.cpp · More window</span>
+        <ul><li><b>Grain</b>, <b>Ripple</b> and <b>Echo</b> each open a sub-page with Back on 8, the way Master's Reverb and Delay buttons open theirs.</li><li>Colour isn't a separate block: Overdrive and Bit depth already exist on every instrument.</li><li>The tape track's fader is the chain's output, so there's no return channel to learn.</li></ul></div></div>
   </section>
 
   <section class="section" id="grain">
-    <div class="intro"><h2>Tape screen · Grain page</h2><p>Wet is on button 1 and selected when you arrive: open the page, turn the encoder, and the grains are in. Spec §5.3.</p></div>
+    <div class="intro"><h2>Grain sub-page</h2><p>Vertical bars like every Tracker parameter page. Wet is on button 1 and selected when the page opens: one press, one turn. Spec §4.</p></div>
     <div class="fig"><div class="bezel" data-screen="grain"></div>
-      <div class="notes"><span class="ref">GRAIN · 3 pages · dots in the title bar</span>
-        <p>The live buffer runs as a timeline of the last bars. Each grain is a mark that lights while it sounds, under the read cursor, with the count in words.</p>
-        <ul><li><b>~</b> and the pink rail under Size: M1 moves it. The rail spans its reach, and the dot shows where it is now.</li><li>Top-row pad 11 freezes while held; with <kbd>Shift</kbd> it latches, and <kbd>FROZEN</kbd> shows in the picture.</li></ul></div></div>
+      <div class="notes"><span class="ref">Params → More → Grain</span>
+        <ul><li>More: Position · Warp · Feedback · Freeze · Route · Back.</li><li>Ripple: Wet · Mode · Pitch · Decay · Tone · Chord · Pluck · More. Its Pluck setting (own notes, or + sends) lets a kick that sends here strike the strings.</li><li>Echo: Level · Time · Sync · Feedback · Tone · Spread · Age · More.</li></ul></div></div>
   </section>
 
-  <section class="section" id="assign">
-    <div class="intro"><h2>Holding M1 to give Size a depth</h2><p>Bryo's "hold a modulator, turn a knob", on the Tracker's controls. Spec §6.2.</p></div>
-    <div class="fig"><div class="bezel" data-screen="assign"></div>
-      <div class="notes"><span class="ref">top-row pad 7 held · encoder</span>
-        <p>While pad 7 is held, the labels turn into M1's depths, signed and in pink. The picture plots M1's wave against the selected value's resulting motion.</p>
-        <ul><li>A depth turned back to 0 catches there until the encoder rests for a quarter second.</li><li>Let go of the pad and the page goes back to values, with the rail left under Size.</li></ul>
-        <p class="mini"><b>Mini, or anyone:</b> Mod page → M1 → <kbd>Assign</kbd>. The same pink labels appear, with an <kbd>ASSIGN M1</kbd> badge; set depths with ±1/±10, then press <kbd>Done</kbd>.</p></div></div>
-  </section>
-
-  <section class="section" id="ripple">
-    <div class="intro"><h2>Tape screen · Ripple page</h2><p>The strings ring on the chord; notes on the track, and HIT sends from ordinary tracks, pluck them. Spec §5.3, §8.</p></div>
-    <div class="fig"><div class="bezel" data-screen="ripple"></div>
-      <div class="notes"><span class="ref">RIPPLE · 2 pages</span>
-        <p>Four strings, each with its note, drawn moving while they ring. The chord name and the pluck source sit underneath.</p>
-        <ul><li>Page 2: Cutoff · Resonance · Drive · Pluck · Keys · Route.</li></ul></div></div>
-  </section>
-
-  <section class="section" id="mod">
-    <div class="intro"><h2>Tape screen · Mod page</h2><p>Four slots, each with a live plot of its engine. Spec §6.1.</p></div>
-    <div class="fig"><div class="bezel" data-screen="mod"></div>
-      <div class="notes"><span class="ref">M1–M4 · Assign · Depths</span>
-        <ul><li>Press a slot's button again for its own page, with Engine first: LFO, ADSR, Follow or SEQ.</li><li><kbd>Depths</kbd> lists the slot's targets and amounts; Delete removes one.</li><li>The slots start as M1 a slow LFO, M2 an envelope, M3 a random LFO and M4 a SEQ.</li></ul></div></div>
-  </section>
-
-  <section class="section" id="rec">
-    <div class="intro"><h2>Tape Recorder, armed</h2><p><kbd>SampleRec</kbd> on a tape track. The take waits for the bar line and blinks the way a queued pattern does. Spec §7.</p></div>
-    <div class="fig"><div class="bezel" data-screen="rec"></div>
-      <div class="notes"><span class="ref">Source · Bars · Dub · Gain · Arm · Bounce · Freeze → tape</span>
-        <ul><li>Source defaults to the ordinary tracks, so what you wrote gets printed.</li><li>Dub at 0 adds the new sound to the old; +100 keeps the old loop and −100 replaces it.</li><li>Page 2: Tape length · Undo take · Clear tape (asks first, on buttons 7/8) · Sampler (the ordinary recorder).</li></ul></div></div>
+  <section class="section" id="auto">
+    <div class="intro"><h2>Automation, with a Follow type</h2><p><kbd>Params</kbd> pressed again. It's the existing page: Destination, Type, values, Amount. Spec §6.</p></div>
+    <div class="fig"><div class="bezel" data-screen="auto"></div>
+      <div class="notes"><span class="ref">gInstrEdit.cpp · envelopesLabels · envStateLabels</span>
+        <ul><li>New destinations on a tape: Speed, Grain Wet, Size, Position and Pitch, Ripple Wet, Pitch and Decay, Echo Time and Feedback.</li><li>New type <b>Follow</b>: an envelope follower on another track or the input. Here the kick on track 3 pulls Grain Size down.</li><li>Envelope, LFO (Random included), WT Env and WT LFO work on the new destinations unchanged.</li></ul></div></div>
   </section>
 
   <section class="section" id="sends">
-    <div class="intro"><h2>Master · Tape Sends</h2><p>A fourth Master mode, shown only in tape projects. This one is Tape 6, with four ordinary tracks. Spec §8.</p></div>
+    <div class="intro"><h2>Tape A and Tape B sends on any instrument</h2><p>A drum instrument on track 3, in Params → More. Spec §1, §8, §9.</p></div>
     <div class="fig"><div class="bezel" data-screen="sends"></div>
-      <div class="notes"><span class="ref">fMasterParams.cpp · press cycles modes</span>
-        <ul><li>Press a track's button for its send to A, and press again for B.</li><li><kbd>Shift</kbd> + a track's button toggles <b>HIT</b>: that track's notes pluck the chain's strings and restart its envelopes.</li><li>Sends are taken before the fader, so a track turned all the way down is heard only through the effects.</li></ul></div></div>
+      <div class="notes"><span class="ref">beside Reverb send and Delay send</span>
+        <ul><li>This is how drums, samples and synths flow into the effects. The synth part settings get the same two sends.</li><li>The step FX <b>Tape A send</b> and <b>Tape B send</b> set them per step on any track, the way the Reverb send FX does now.</li></ul></div></div>
+  </section>
+
+  <section class="section" id="rec">
+    <div class="intro"><h2>Sample Recorder, recording onto Tape A</h2><p>The recorder you know, with a Target. It records while the song plays, waits for the bar line, and loops the take in time. Spec §7.</p></div>
+    <div class="fig"><div class="bezel" data-screen="rec"></div>
+      <div class="notes"><span class="ref">gSampleRec.cpp · Source · Level · Gain · … · Record</span>
+        <ul><li>Source adds Tracks (resample the ordinary tracks), Track n, and Grain A/B, which freezes the grain buffer to tape.</li><li>Bar takes skip the trim step; Undo restores the tape. Free takes go through the usual trim and Save.</li><li>Bounce is <b>Render Selection</b> with a new destination, Tape A or Tape B.</li></ul></div></div>
   </section>
 
   <section class="section" id="drum">
-    <div class="intro"><h2>A drum instrument (theseus)</h2><p><kbd>Params</kbd> on a drum instrument: eight values for eight buttons, so the kit fits one page. It works on every device. Spec §9.</p></div>
+    <div class="intro"><h2>Sample Playback, play mode Drum</h2><p>theseus, on every device. The zone strip stands where the waveform would be. Spec §8.</p></div>
     <div class="fig"><div class="bezel" data-screen="drum"></div>
-      <div class="notes"><span class="ref">playModeDrum · from operators-xy</span>
-        <p>The note picks the drum. The picture is the zone strip across the 48 pads, with Tune shifting it, and the hit LFO's steps under it.</p>
-        <ul><li>The step's volume column is the hit's velocity.</li><li>Make one in the Sample Loader: an empty slot → <kbd>New Drum</kbd>.</li></ul>
-        <p class="mini"><b>Mini:</b> the zones are labelled on the mini keyboard's keys.</p></div></div>
-  </section>
-
-  <section class="section" id="scenes">
-    <div class="intro"><h2>Scenes</h2><p><kbd>Perform</kbd> pressed a second time: the press that switched between tracks 1–8 and 9–16, which a tape project doesn't need. Spec §11.</p></div>
-    <div class="fig"><div class="bezel" data-screen="scenes"></div>
-      <div class="notes"><span class="ref">4 scenes · glide · Scene step FX</span>
-        <dl><dt>press</dt><dd>Recall, with the Glide time.</dd><dt>Shift + press</dt><dd>Store. Overwriting a stored scene asks on 7/8.</dd><dt>Delete + press</dt><dd>Clear, after a confirm.</dd></dl>
-        <p>The boxes say what each scene changes, in words, not only in fill: filled for the current scene, framed for a stored one, dotted for an empty one.</p></div></div>
+      <div class="notes"><span class="ref">Sample Loader → New Drum</span>
+        <ul><li>More: Noise · LFO · Rate · Tune · Back.</li><li>The note picks the drum, the pads are the kit, and the volume column is velocity. Params is the usual instrument editor.</li></ul></div></div>
   </section>
 
   <section class="section" id="perf">
-    <div class="intro"><h2>Performance mode with the tape FX</h2><p>The same 12 slots and 4 stored values per slot. Tape projects add stutter, tape speed, freeze, wets, a dub throw and scene. Spec §12.</p></div>
+    <div class="intro"><h2>Performance mode</h2><p>Unchanged, with five tape FX added to its list. Spec §9.</p></div>
     <div class="fig"><div class="bezel" data-screen="perf"></div>
-      <div class="notes"><span class="ref">fPerformance.cpp · pad = slot × row</span>
-        <ul><li>Tape FX act on the tape tracks selected on the bottom buttons; Tape A is selected here.</li><li>The Scene slot plays a scene while its pad is held and goes back to the previous scene on release.</li></ul>
-        <p class="mini"><b>Mini:</b> ±10, +1, −1 and −10 play rows 1–4.</p></div></div>
+      <div class="notes"><span class="ref">fPerformance.cpp</span>
+        <ul><li>New: Speed, Grain Freeze, Grain Wet, Ripple Wet, Echo Throw. The existing FX work on tape tracks as on any track.</li></ul>
+        <p class="mini"><b>Mini:</b> ±10, +1, −1 and −10 play rows 1–4, as now.</p></div></div>
   </section>
 
-  <section class="section" id="padmap">
-    <div class="intro"><h2>Pads on the Tape screen</h2><p>Original and Tracker+. The bottom three rows play the track: slices with the deck as the instrument, notes otherwise. The top row is the deck's controls. Spec §5.2.</p></div>
-    <div class="pads" id="padmapsvg"></div>
-  </section>
-
-  <footer>Mockups for review, not pixel-exact renders of the firmware. Text sizes follow the Tracker's fonts, 14 and 17 px. Every colour that carries meaning also has a glyph or a word. Tape tracks are drawn with reels, lanes with an L, modulation with a ~.</footer>
+  <footer>Mockups for review, not pixel-exact renders of the firmware. The layouts follow the Tracker's own: 8 columns of 100 px, bottom labels at y = 424, the red selection frame, and 14 and 17 px text. Orange marks only what this design adds.</footer>
 </div>
 
 <script>
 (function () {
   "use strict";
   var K = { bg: "#000", bar: "#1d1d1f", box: "#2a2a2c", boxDim: "#1a1a1b", txt: "#c9c9cc", dim: "#5c5c60", faint: "#333336",
-    red: "#cd1818", note: "#00e8be", instr: "#fef749", fx1: "#bb58f1", fx2: "#57f1ff", lane: "#ff9a3c", laneDim: "#7a4a1f", mod: "#ff5fa8", green: "#30cb3f", white: "#f2f2f2" };
+    red: "#cd1818", note: "#00e8be", instr: "#fef749", fx1: "#bb58f1", fx2: "#57f1ff", nw: "#ff9a3c", green: "#30cb3f", white: "#f2f2f2" };
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
   function t(x, y, s, o) { o = o || {}; return '<text x="' + x + '" y="' + y + '" fill="' + (o.c || K.txt) + '" font-size="' + (o.s || 14) + '" font-weight="' + (o.w || 500) + '"' + (o.a ? ' text-anchor="' + o.a + '"' : "") + (o.ls ? ' letter-spacing="' + o.ls + '"' : "") + (o.mono ? ' font-family="IBM Plex Mono, monospace"' : "") + ">" + esc(s) + "</text>"; }
   function r(x, y, w, h, f, o) { o = o || {}; return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + f + '"' + (o.st ? ' stroke="' + o.st + '" stroke-width="' + (o.sw || 2) + '"' : "") + (o.da ? ' stroke-dasharray="' + o.da + '"' : "") + "/>"; }
@@ -199,242 +168,177 @@ svg text { font-family: var(--f-screen); }
     return r(0, 0, 800, 28, K.bar) + t(9, 19, left, { s: 17, w: 700, c: K.white }) + (right ? t(791, 19, right, { a: "end", s: 14 }) : "") + (extra || "");
   }
   function dots(x, n, cur) { var s = ""; for (var i = 0; i < n; i++) s += '<circle cx="' + (x + i * 11) + '" cy="14" r="3.5" fill="' + (i === cur ? K.white : "none") + '" stroke="' + K.txt + '" stroke-width="1"/>'; return s; }
-  // labels: [{n, v, sel, lane, mod:{from,to,at}, dim, vc, wide}]
+  // labels: [{n, v, sel, dim, vc, nc, nw, span}] ; span:2 makes a double-wide label
   function labels(arr) {
     var s = r(0, 424, 800, 56, "#0b0b0c");
     for (var i = 0; i < 8; i++) {
-      var L = arr[i] || {}; var x = 100 * i + 3;
-      s += r(x, 425, 94, 53, L.n || L.v ? (L.dim ? K.boxDim : K.box) : K.boxDim);
-      if (L.n) s += t(x + 47, 445, L.n, { a: "middle", w: 700, c: L.dim ? K.dim : (L.nc || K.txt), s: 14 });
-      if (L.v !== undefined) s += t(x + 47, 466, L.v, { a: "middle", s: 15, w: 600, c: L.vc || (L.dim ? K.dim : K.white) });
-      if (L.lane) { s += r(x + 4, 429, 11, 11, K.lane) + t(x + 9.5, 438.5, "L", { a: "middle", s: 10, w: 700, c: "#000" }); }
-      if (L.mod) { var a = x + 8 + L.mod.from * 78, b = x + 8 + L.mod.to * 78, at = x + 8 + L.mod.at * 78;
-        s += l(x + 8, 474, x + 86, 474, K.faint, 2) + l(a, 474, b, 474, K.mod, 3) + '<circle cx="' + at + '" cy="474" r="3" fill="' + K.white + '"/>' + t(x + 88, 440, "~", { a: "end", s: 16, w: 700, c: K.mod }); }
-      if (L.sel) s += r(x - 1, 424, 96, 55, "none", { st: K.red, sw: 2.5 });
+      var L = arr[i] || {}, x = 100 * i + 3, w = L.span === 2 ? 194 : 94;
+      s += r(x, 425, w, 53, L.n || L.v ? (L.dim ? K.boxDim : K.box) : K.boxDim);
+      if (L.n) s += t(x + w / 2, 445, L.n, { a: "middle", w: 700, c: L.dim ? K.dim : (L.nc || K.txt), s: 14 });
+      if (L.v !== undefined) s += t(x + w / 2, 466, L.v, { a: "middle", s: 15, w: 600, c: L.vc || (L.dim ? K.dim : K.white) });
+      if (L.nw) s += newTag(x + w - 30, 410);
+      if (L.sel) s += r(x - 1, 424, w + 2, 55, "none", { st: K.red, sw: 2.5 });
+      if (L.span === 2) i++;
     }
     return s;
   }
+  function newTag(x, y) { return r(x, y, 28, 12, K.nw) + t(x + 14, y + 10, "NEW", { a: "middle", s: 9, w: 700, c: "#000" }); }
   function svg(inner, label) { return '<svg viewBox="0 0 800 480" role="img" aria-label="' + esc(label) + '">' + r(0, 0, 800, 480, K.bg) + inner + "</svg>"; }
   function wave(x0, x1, yc, amp, seed, lit) {
     var s = "", n = Math.floor((x1 - x0) / 3), rnd = seed;
-    for (var i = 0; i < n; i++) { rnd = (rnd * 9301 + 49297) % 233280; var v = rnd / 233280; var x = x0 + i * 3;
-      var env = 0.35 + 0.65 * Math.abs(Math.sin(i / 11)) * (i % 32 < 4 ? 1 : 0.6); var h = amp * env * (0.4 + 0.6 * v);
+    for (var i = 0; i < n; i++) { rnd = (rnd * 9301 + 49297) % 233280; var v = rnd / 233280, x = x0 + i * 3;
+      var env = 0.35 + 0.65 * Math.abs(Math.sin(i / 11)) * (i % 32 < 4 ? 1 : 0.6), h = amp * env * (0.4 + 0.6 * v);
       s += l(x, yc - h, x, yc + h, lit(x) ? K.white : K.dim, 1.6); }
+    return s;
+  }
+  // Tracker-style parameter columns: frames {x=100*i+1, y=31, w=97, h=391}
+  function bars(cols) {
+    var s = "";
+    cols.forEach(function (c, i) { if (!c) return; var x = 100 * i + 1;
+      s += r(x, 31, 97, 391, "#0e0e10");
+      if (c.v !== undefined) { var top = 70, h = 320, fh = h * c.v;
+        s += r(x + 34, top, 30, h, "#1d1d20") + r(x + 34, top + h - fh, 30, fh, c.dim ? K.dim : K.txt);
+        if (c.tx) s += t(x + 48.5, 56, c.tx, { a: "middle", s: 14, w: 600, c: K.white }); }
+      if (c.list) c.list.forEach(function (it, j) { var y = 60 + j * 28, on = j === c.at;
+        s += r(x + 6, y, 85, 24, on ? "#3a3a3e" : "none") + t(x + 12, y + 17, it, { s: 13, w: on ? 700 : 500, c: on ? K.white : K.txt }); });
+      if (c.open) s += t(x + 48.5, 230, c.open, { a: "middle", s: 14, w: 700, c: K.white }) + t(x + 48.5, 252, "opens ▸", { a: "middle", s: 12, c: K.dim });
+      if (c.sel) s += r(x, 31, 97, 391, "none", { st: K.red, sw: 2.5 });
+    });
     return s;
   }
   var S = {};
 
   S.newproject = function () {
-    var s = titleBar("File", "New project · type");
-    s += t(40, 80, "Project type", { s: 17, w: 700, c: K.white });
-    s += t(40, 106, "4 tracks. Tracks 1–2 are tape tracks with effects and lanes; 3–4 are ordinary tracks.", { s: 15 });
-    s += t(40, 128, "Tapes up to 60 s each. Default keeps today's 16 tracks.", { s: 15, c: K.dim });
-    var cols = [{ tape: "A" }, { tape: "B" }, {}, {}];
-    for (var i = 0; i < 4; i++) { var x = 70 + i * 175, c = cols[i];
-      s += r(x, 160, 140, 230, "none", { st: c.tape ? K.txt : K.dim, sw: 1.5 });
-      s += t(x + 70, 186, c.tape ? "TAPE " + c.tape : "TRACK " + (i + 1), { a: "middle", s: 15, w: 700, c: c.tape ? K.white : K.txt });
-      if (c.tape) { [x + 42, x + 98].forEach(function (cx) { s += '<circle cx="' + cx + '" cy="245" r="26" fill="none" stroke="' + K.white + '" stroke-width="2"/>' + '<circle cx="' + cx + '" cy="245" r="6" fill="' + K.white + '"/>'; for (var k = 0; k < 3; k++) { var a = k * 2.094; s += l(cx + 9 * Math.cos(a), 245 + 9 * Math.sin(a), cx + 22 * Math.cos(a), 245 + 22 * Math.sin(a), K.white, 2); } });
-        s += l(x + 42, 271, x + 98, 271, K.white, 2);
-        ["GRAIN", "RIPPLE", "COLOR", "ECHO"].forEach(function (d, j) { s += r(x + 14, 292 + j * 23, 112, 19, K.box) + t(x + 70, 306 + j * 23, d, { a: "middle", s: 12, w: 600 }); });
-      } else { for (var k = 0; k < 8; k++) s += l(x + 20, 214 + k * 20, x + 120, 214 + k * 20, K.faint, 1); s += t(x + 70, 380, "samples · drums · synths", { a: "middle", s: 12, c: K.dim }); }
+    var s = titleBar("File", "New project");
+    s += t(40, 80, "Project type", { s: 17, w: 700, c: K.white }) + newTag(160, 68);
+    s += t(40, 106, "4 tracks. Tracks 1–2 are tape tracks: a tape, six FX columns, Grain · Ripple · Echo.", { s: 15 });
+    s += t(40, 128, "Tracks 3–4 are ordinary tracks. Tapes up to 60 s each.", { s: 15, c: K.dim });
+    for (var i = 0; i < 4; i++) { var x = 70 + i * 175, tape = i < 2;
+      s += r(x, 160, 140, 230, "none", { st: tape ? K.txt : K.dim, sw: 1.5 });
+      s += t(x + 70, 186, tape ? "TAPE " + "AB"[i] : "TRACK " + (i + 1), { a: "middle", s: 15, w: 700, c: tape ? K.white : K.txt });
+      var cols = tape ? ["NOTE", "INS", "FX1·2", "FX3·4", "FX5·6"] : ["NOTE", "INS", "FX1·2"];
+      cols.forEach(function (c, j) { s += r(x + 14, 204 + j * 26, 112, 22, tape && j > 2 ? "#3a2a1a" : K.box) + t(x + 70, 220 + j * 26, c, { a: "middle", s: 12, w: 600, c: tape && j > 2 ? K.nw : K.txt }); });
+      if (tape) s += t(x + 70, 368, "Grain · Ripple · Echo", { a: "middle", s: 12, c: K.nw });
+      else s += t(x + 70, 368, "samples · drums · synths", { a: "middle", s: 12, c: K.dim });
     }
     s += labels([{ n: "Default", v: "16 tracks" }, { n: "Tape 2", v: "1 tape" }, { n: "Tape 4", v: "2 tapes", sel: true }, { n: "Tape 6", v: "2 tapes" }, {}, {}, { n: "Cancel" }, { n: "Create", nc: K.white }]);
-    return svg(s, "New project type chooser with Tape 4 selected");
+    return svg(s, "New project type choice with Tape 4 selected");
   };
 
   S.pattern = function () {
-    var s = titleBar("Pattern", "A2 Rpt  1/16  Step");
+    var s = titleBar("Pattern", "FX3  Speed  33 %");
     var gx = 34, tw = 191, y0 = 60, rh = 24;
-    var heads = [{ n: "1 TAPE A", tape: 1, bank: "A · TAPE" }, { n: "2 TAPE B", tape: 1 }, { n: "3  →A", }, { n: "4" }];
+    var heads = [["1 TAPE A", "FX 3·4"], ["2 TAPE B", "FX 1·2"], ["3", ""], ["4", ""]];
     for (var i = 0; i < 4; i++) { var x = gx + i * tw;
-      s += r(x, 31, tw - 4, 26, i < 2 ? "#232326" : K.boxDim) + t(x + 8, 49, heads[i].n, { s: 14, w: 700, c: i < 2 ? K.white : K.txt });
-      if (heads[i].tape) { s += '<circle cx="' + (x + tw - 22) + '" cy="44" r="7" fill="none" stroke="' + K.white + '" stroke-width="1.5"/><circle cx="' + (x + tw - 22) + '" cy="44" r="2" fill="' + K.white + '"/>'; }
-      if (heads[i].bank) s += t(x + tw - 36, 49, heads[i].bank, { a: "end", s: 12, w: 700, c: K.lane });
-    }
+      s += r(x, 31, tw - 4, 26, i < 2 ? "#232326" : K.boxDim) + t(x + 8, 49, heads[i][0], { s: 14, w: 700, c: i < 2 ? K.white : K.txt });
+      if (heads[i][1]) s += t(x + tw - 12, 49, heads[i][1], { a: "end", s: 12, w: 700, c: i === 0 ? K.nw : K.dim }); }
     var cur = 12, play = 9;
     for (var row = 0; row < 15; row++) { var y = y0 + row * rh;
       if (row === play) s += r(0, y + 2, 800, rh - 2, "#122a24");
       if (row % 4 === 0) s += r(0, y + 2, gx - 4, rh - 2, "#161618");
-      s += t(gx - 8, y + 18, (row < 10 ? "0" : "") + row, { a: "end", s: 13, c: row % 4 === 0 ? K.txt : K.dim, mono: true });
-    }
+      s += t(gx - 8, y + 18, (row < 10 ? "0" : "") + row, { a: "end", s: 13, c: row % 4 === 0 ? K.txt : K.dim, mono: true }); }
     function cell(x, y, str, c) { return t(x, y, str, { s: 14, c: c, mono: true, w: 500 }); }
-    var tA = { 0: ["C-4", "TA"], 4: ["D#4", "TA"], 8: ["C-4", "TA"], 11: ["G-4", "TA"] };
-    var A1 = {}, A2 = { 12: "50", 13: "50", 14: "75", 15: "75" }, A3 = { 0: "00" };
-    // A1 Speed glides 75 → 25 from step 8 to 14
-    for (var k = 0; k < 15; k++) { if (k < 8) A1[k] = ["75", k === 0]; else A1[k] = [String(75 - Math.round((k - 8) * 50 / 6)), k === 8 || k === 14]; }
-    var tB = { 0: ["A-3", "TB", "R 01"], 8: ["A-3", "TB", ""] };
-    var t3 = { 0: ["C-2", "01"], 2: ["F#2", "01"], 4: ["D-3", "01"], 6: ["F#2", "01"], 8: ["C-2", "01"], 10: ["C-2", "01"], 12: ["D-3", "01"], 14: ["A#4", "01"] };
+    var tA = { 0: ["C-4", "TA"], 4: ["D#4", "TA"], 8: ["C-4", "TA"] };
+    var speed = { 9: "Sp83", 10: "Sp67", 11: "Sp50", 12: "Sp33", 13: "Sp17", 14: "Sp-0" }, roll = { 12: "Ro16", 13: "Ro16", 14: "Ro32" };
+    var tB = { 0: ["A-3", "TB", "Gw40"], 8: ["A-3", "TB", ""] };
+    var t3 = { 0: ["C-2", "01", "Ta64"], 2: ["F#2", "01"], 4: ["D-3", "01"], 6: ["F#2", "01"], 8: ["C-2", "01"], 10: ["C-2", "01"], 12: ["D-3", "01"], 14: ["A#4", "01"] };
     var t4 = { 0: ["C-2", "02"], 3: ["C-2", "02"], 7: ["G-1", "02"], 10: ["A#1", "02"] };
     for (row = 0; row < 15; row++) { y = y0 + row * rh + 18;
       var x = gx, a = tA[row];
       s += cell(x + 6, y, a ? a[0] : "---", a ? K.note : K.faint) + cell(x + 44, y, a ? a[1] : "--", a ? K.instr : K.faint);
-      var lanes = [A1[row] ? A1[row][0] : null, A2[row] || null, A3[row] || (row > 0 ? "00" : null), null];
-      for (var j = 0; j < 4; j++) { var lx = x + 76 + j * 27, v = lanes[j], strong = (j === 0 && A1[row] && A1[row][1]) || (j === 1 && A2[row]) || (j === 2 && A3[row]);
-        s += cell(lx, y, v || "··", v ? (strong ? K.lane : K.laneDim) : K.faint); }
+      s += cell(x + 76, y, speed[row] || "----", speed[row] ? K.fx1 : K.faint) + cell(x + 128, y, roll[row] || "----", roll[row] ? K.fx2 : K.faint);
       x = gx + tw; var b = tB[row];
       s += cell(x + 6, y, b ? b[0] : "---", b ? K.note : K.faint) + cell(x + 44, y, b ? b[1] : "--", b ? K.instr : K.faint) + cell(x + 76, y, b && b[2] ? b[2] : "----", b && b[2] ? K.fx1 : K.faint) + cell(x + 128, y, "----", K.faint);
       [t3, t4].forEach(function (tr, q) { var xx = gx + tw * (2 + q), e = tr[row];
-        s += cell(xx + 6, y, e ? e[0] : "---", e ? K.note : K.faint) + cell(xx + 44, y, e ? e[1] : "--", e ? K.instr : K.faint) + cell(xx + 76, y, row === 0 && q === 0 ? "V 96" : "----", row === 0 && q === 0 ? K.fx1 : K.faint) + cell(xx + 128, y, "----", K.faint); });
+        s += cell(xx + 6, y, e ? e[0] : "---", e ? K.note : K.faint) + cell(xx + 44, y, e ? e[1] : "--", e ? K.instr : K.faint) + cell(xx + 76, y, e && e[2] ? e[2] : "----", e && e[2] ? K.fx1 : K.faint) + cell(xx + 128, y, "----", K.faint); });
     }
-    s += r(gx + 76 + 27 - 3, y0 + cur * rh + 3, 26, rh - 4, "none", { st: K.red, sw: 2 });
+    s += r(gx + 76 - 3, y0 + cur * rh + 3, 44, rh - 4, "none", { st: K.red, sw: 2 });
     s += labels([{ n: "Pattern", v: "3" }, { n: "Length", v: "16" }, { n: "Step jump", v: "1" }, { n: "Fill" }, { n: "Preview" }, { n: "Undo" }, { n: "Redo" }, { n: "More", v: "•··" }]);
-    return svg(s, "Pattern editor in a Tape 4 project with lane bank A shown on Tape A");
+    return svg(s, "Pattern editor in Tape 4 with Tape A showing FX columns 3 and 4");
   };
 
-  function srcLine(str) { return t(24, 62, str, { s: 14, c: K.txt, mono: true }); }
   S.tape = function () {
-    var s = titleBar("Tape A · Tape", "bar 9.1  ·  4.1 MB", dots(130, 2, 0));
-    s += srcLine("IN  deck · trk 3 →A          SYNC 4 bars   SPEED 100 %");
+    var s = titleBar("Sample Playback", "TA  Tape A");
     var x0 = 24, x1 = 776, st = x0 + (x1 - x0) * 0.125, en = st + (x1 - x0) * 0.5;
-    s += r(st, 92, en - st, 210, "#141414");
-    s += wave(x0, x1, 197, 92, 7, function (x) { return x >= st && x <= en; });
-    s += l(st, 86, st, 308, K.lane, 2) + l(en, 86, en, 308, K.lane, 2) + t(st + 4, 84, "START", { s: 12, w: 700, c: K.lane }) + t(en - 4, 84, "END", { s: 12, w: 700, c: K.lane, a: "end" });
-    for (var i = 0; i <= 16; i++) { var x = st + (en - st) * i / 16; s += l(x, 304, x, i % 4 === 0 ? 318 : 312, K.txt, 1); if (i < 16 && i % 4 === 0) s += t(x + 3, 332, String(i + 1), { s: 12, c: K.dim }); }
-    var ph = st + (en - st) * 0.56; s += l(ph, 88, ph, 306, K.white, 2) + '<path d="M' + (ph - 6) + ' 88 L' + (ph + 6) + ' 88 L' + ph + ' 97 Z" fill="' + K.white + '"/>';
-    for (i = 0; i <= 8; i++) { x = x0 + (x1 - x0) * i / 8; s += l(x, 352, x, 362, K.dim) + t(x + 3, 378, "bar " + (i + 1), { s: 12, c: K.dim }); }
-    s += l(x0, 357, x1, 357, K.faint) + r(st, 354, en - st, 6, K.lane);
-    s += t(24, 408, "Slices 1–16 on C-4 … D#5.   OFF pauses the deck.", { s: 13, c: K.dim });
-    s += labels([{ n: "Start", v: "12.5 %", sel: true }, { n: "Length", v: "50 %" }, { n: "Speed", v: "100 %", lane: true }, { n: "Pitch", v: "0 st" }, { n: "Rpt", v: "Off", lane: true }, { n: "Rpt len", v: "125 ms" }, { n: "Sync", v: "4 bars" }, { n: "More", v: "•·" }]);
-    return svg(s, "Tape page with the loop window, slices and play head");
+    s += r(st, 60, en - st, 250, "#141414") + wave(x0, x1, 185, 108, 7, function (x) { return x >= st && x <= en; });
+    s += l(st, 50, st, 316, K.white, 2) + l(en, 50, en, 316, K.white, 2) + t(st + 4, 48, "LOOP START", { s: 12, w: 700, c: K.white }) + t(en - 4, 48, "LOOP END", { s: 12, w: 700, c: K.white, a: "end" });
+    for (var i = 1; i < 16; i++) { var x = st + (en - st) * i / 16; s += l(x, 60, x, 310, K.faint, 1); }
+    var ph = st + (en - st) * 0.56; s += l(ph, 56, ph, 314, K.green, 2);
+    for (i = 0; i <= 8; i++) { x = x0 + (x1 - x0) * i / 8; s += l(x, 346, x, 356, K.dim) + t(x + 3, 372, "bar " + (i + 1), { s: 12, c: K.dim }); }
+    s += l(x0, 351, x1, 351, K.faint) + r(st, 348, en - st, 6, K.txt) + newTag(x0, 384) + t(x0 + 36, 394, "bar ruler and play head while the tape rolls · SYNC 4 bars", { s: 12, c: K.dim });
+    s += labels([{ n: "Preview" }, { n: "Loop Start", v: "12.5 %", sel: true }, { n: "Loop End", v: "62.5 %" }, { n: "Speed", v: "100 %", nw: true }, { n: "Zoom", v: "1.0" }, { n: "More", v: "•·", nw: true }, { n: "Play Mode", v: "▲ Tape ▼", span: 2, nw: true }]);
+    return svg(s, "Sample Playback with play mode Tape");
   };
 
-  function grainPic(s, frozen) {
-    var x0 = 24, x1 = 776; s += srcLine("BUFFER 2 bars · SCAN Stretch · 12 OF 24 GRAINS");
-    for (var i = 0; i < 2; i++) s += l(x0 + (x1 - x0) * i / 2, 96, x0 + (x1 - x0) * i / 2, 320, K.faint, 1, "3 4");
-    s += l(x0, 210, x1, 210, K.faint);
-    var rnd = 3; for (i = 0; i < 24; i++) { rnd = (rnd * 9301 + 49297) % 233280; var v = rnd / 233280; var x = 300 + v * 230 + (i % 5) * 8, y = 120 + ((i * 37) % 180), w = 14 + (i % 4) * 6, on = i % 2 === 0;
-      s += pth("M" + (x - w / 2) + " " + y + " Q " + x + " " + (y - 14) + " " + (x + w / 2) + " " + y, on ? K.white : K.dim, on ? 2 : 1.4); }
-    s += l(420, 92, 420, 324, K.white, 2) + t(426, 104, "cursor", { s: 12, c: K.txt });
-    s += t(x0, 350, "bar 1", { s: 12, c: K.dim }) + t(x0 + 376, 350, "bar 2", { s: 12, c: K.dim });
-    if (frozen) s += r(640, 76, 120, 26, K.box) + t(700, 94, "FROZEN", { a: "middle", s: 14, w: 700, c: K.instr });
-    return s;
-  }
+  S.more = function () {
+    var s = titleBar("Instrument Parameters", "TA  Tape A");
+    s += bars([{ v: 0.2, tx: "20" }, { v: 1, tx: "16 bit" }, { v: 0.3, tx: "30" }, { v: 0.15, tx: "15" }, { open: "Grain" }, { open: "Ripple" }, { open: "Echo" }]);
+    [4, 5, 6].forEach(function (i) { s += newTag(100 * i + 36, 196); });
+    s += labels([{ n: "Overdrive", v: "20" }, { n: "Bit depth", v: "16" }, { n: "Reverb send", v: "30" }, { n: "Delay send", v: "15" }, { n: "Grain", nw: true }, { n: "Ripple", nw: true }, { n: "Echo", nw: true }, { n: "Back" }]);
+    return svg(s, "Params More window on a tape with Grain, Ripple and Echo buttons");
+  };
+
   S.grain = function () {
-    var s = titleBar("Tape A · Grain", "bar 9.3  ·  1.2 MB", dots(132, 3, 0));
-    s = grainPic(s, false);
-    s += labels([{ n: "Wet", v: "60 %", sel: true }, { n: "Size", v: "120 ms", mod: { from: 0.2, to: 0.7, at: 0.52 }, lane: true }, { n: "Rate", v: "18 /s" }, { n: "Pitch", v: "+12 st" }, { n: "Spray", v: "20 %" }, { n: "Spread", v: "70 %" }, { n: "Scan", v: "Stretch" }, { n: "More", v: "•··" }]);
-    return svg(s, "Grain page with grains on the buffer timeline and a modulated Size");
+    var s = titleBar("Tape A · Grain", "TA  Tape A");
+    s += bars([{ v: 0.6, tx: "60 %", sel: true }, { v: 0.35, tx: "120 ms" }, { v: 0.45, tx: "18 /s" }, { v: 0.75, tx: "+12 st" }, { v: 0.2, tx: "20 %" }, { v: 0.7, tx: "70 %" }, { list: ["Tape", "Stretch", "Fixed", "Delay"], at: 1 }]);
+    s += labels([{ n: "Wet", v: "60 %", sel: true, nw: true }, { n: "Size", v: "120 ms", nw: true }, { n: "Density", v: "18 /s", nw: true }, { n: "Pitch", v: "+12 st", nw: true }, { n: "Spray", v: "20 %", nw: true }, { n: "Spread", v: "70 %", nw: true }, { n: "Scan", v: "Stretch", nw: true }, { n: "More", v: "•·" }]);
+    return svg(s, "Grain sub-page with vertical bars");
   };
 
-  S.assign = function () {
-    var s = titleBar("Tape A · Grain", "", dots(132, 3, 0) + r(560, 4, 230, 20, K.mod) + t(675, 19, "M1 · LFO  ·  pad 7 held", { a: "middle", s: 13, w: 700, c: "#000" }));
-    s += srcLine("M1 LFO  sine  1 bar      IN : OUT  Size");
-    var x0 = 40, x1 = 760, yc = 200, d1 = "", d2 = "";
-    for (var i = 0; i <= 180; i++) { var x = x0 + (x1 - x0) * i / 180, ph = i / 180 * Math.PI * 4; d1 += (i ? "L" : "M") + x.toFixed(1) + " " + (yc - 70 * Math.sin(ph)).toFixed(1) + " "; d2 += (i ? "L" : "M") + x.toFixed(1) + " " + (yc + 40 - 28 * Math.sin(ph)).toFixed(1) + " "; }
-    s += l(x0, yc, x1, yc, K.faint) + pth(d1, K.mod, 2) + pth(d2, K.white, 2);
-    s += t(x1, 120, "M1", { a: "end", s: 13, w: 700, c: K.mod }) + t(x1, 290, "Size, +40 %", { a: "end", s: 13, w: 700, c: K.white });
-    s += t(40, 380, "M1 depths 2 / 8     A depth turned back to 0 catches there.", { s: 13, c: K.dim });
-    var P = { vc: K.mod };
-    s += labels([{ n: "Wet", v: "0 %", vc: K.dim }, { n: "Size", v: "+40 %", vc: K.mod, sel: true }, { n: "Rate", v: "0 %", vc: K.dim }, { n: "Pitch", v: "−12 %", vc: K.mod }, { n: "Spray", v: "0 %", vc: K.dim }, { n: "Spread", v: "0 %", vc: K.dim }, { n: "Scan", v: "—", dim: true }, { n: "More", v: "•··" }]);
-    return svg(s, "Grain page while M1 is held: the labels show signed depths in pink");
-  };
-
-  S.ripple = function () {
-    var s = titleBar("Tape A · Ripple", "bar 9.4", dots(134, 2, 0));
-    s += srcLine("Min7 · Strings · plucked by notes and trk 3 HIT");
-    var notes = ["C3", "Eb3", "G3", "Bb3"], amps = [26, 14, 20, 8];
-    for (var i = 0; i < 4; i++) { var y = 120 + i * 64, d = ""; for (var k = 0; k <= 120; k++) { var x = 90 + k * 5.5; d += (k ? "L" : "M") + x.toFixed(1) + " " + (y + amps[i] * Math.sin(k / 120 * Math.PI) * Math.sin(k / (3 + i))).toFixed(1) + " "; }
-      s += l(90, y, 750, y, K.faint) + pth(d, amps[i] > 12 ? K.white : K.txt, 2) + t(40, y + 5, notes[i], { s: 15, w: 700 }) + t(770, y + 5, i % 2 ? "R" : "L", { s: 12, c: K.dim, a: "end" }); }
-    s += labels([{ n: "Wet", v: "45 %", sel: true }, { n: "Mode", v: "Strings" }, { n: "Pitch", v: "C3", lane: true }, { n: "Decay", v: "2.4 s", lane: true }, { n: "Tone", v: "60 %" }, { n: "Chord", v: "Min7" }, { n: "Spread", v: "10 %" }, { n: "More", v: "•·" }]);
-    return svg(s, "Ripple page with four strings ringing on a Min7 chord");
-  };
-
-  S.mod = function () {
-    var s = titleBar("Tape A · Mod", "24 depths max · 5 used");
-    var names = ["M1 · LFO", "M2 · ADSR", "M3 · LFO rnd", "M4 · SEQ"], cnt = ["2 depths", "1 depth", "0 depths", "2 depths"];
-    for (var i = 0; i < 4; i++) { var x = 24 + i * 190, w = 172, y = 70, h = 250, d = "";
-      s += r(x, y, w, h, "none", { st: K.faint, sw: 1 }) + t(x + 10, y + 22, names[i], { s: 15, w: 700, c: K.white }) + t(x + 10, y + h - 12, cnt[i], { s: 13, c: K.txt });
-      var yc = y + 130;
-      if (i === 0) { for (var k = 0; k <= 60; k++) d += (k ? "L" : "M") + (x + 10 + k * 2.5) + " " + (yc - 50 * Math.sin(k / 60 * 2 * Math.PI)).toFixed(1) + " "; s += pth(d, K.mod, 2); }
-      if (i === 1) s += pth("M" + (x + 10) + " " + (yc + 50) + " L" + (x + 30) + " " + (yc - 55) + " L" + (x + 70) + " " + (yc - 10) + " L" + (x + 125) + " " + (yc - 10) + " L" + (x + 160) + " " + (yc + 50), K.mod, 2);
-      if (i === 2) { var lv = [10, -30, 40, -5, 25, -45, 15, 35]; d = "M" + (x + 10) + " " + (yc - lv[0]); lv.forEach(function (v, j) { d += " L" + (x + 10 + j * 19.5) + " " + (yc - v) + " L" + (x + 10 + (j + 1) * 19.5) + " " + (yc - v); }); s += pth(d, K.mod, 2); }
-      if (i === 3) { [60, 20, 85, 40, 70, 10, 50, 95].forEach(function (v, j) { s += r(x + 10 + j * 19.5, yc + 50 - v, 14, v, j === 2 ? K.mod : "#6b2a4a"); }); }
-    }
-    s += t(24, 360, "Press a slot again for its page: Engine · Rate · Shape …  Amount · Offset", { s: 13, c: K.dim });
-    s += labels([{ n: "M1", v: "LFO", sel: true }, { n: "M2", v: "ADSR" }, { n: "M3", v: "LFO" }, { n: "M4", v: "SEQ" }, { n: "Assign", nc: K.mod }, { n: "Depths", v: "2" }, {}, {}]);
-    return svg(s, "Mod page with four modulator slots and their plots");
-  };
-
-  S.rec = function () {
-    var s = titleBar("Tape Recorder", "bar 8.3.2");
-    s += srcLine("SOURCE  ordinary tracks (3, 4)      INPUT");
-    s += r(700, 50, 70, 10, K.faint) + r(700, 50, 46, 10, K.green);
-    [["TAPE A", 120, true], ["TAPE B", 250, false]].forEach(function (tp) { var y = tp[1];
-      s += t(24, y - 10, tp[0], { s: 14, w: 700, c: K.white }) + r(24, y, 752, 70, "#101012", { st: K.faint, sw: 1 });
-      s += wave(28, 772, y + 35, 24, tp[2] ? 11 : 5, function () { return !tp[2]; });
-      for (var i = 0; i <= 8; i++) s += l(24 + i * 94, y + 70, 24 + i * 94, y + 78, K.dim);
-      if (tp[2]) { s += r(24 + 94 * 0, y - 4, 94 * 4, 78, "none", { st: K.red, sw: 2.5, da: "8 6" }) + t(28, y + 94, "take: bars 9–12", { s: 13, w: 600, c: K.red }); }
-    });
-    s += r(500, 352, 276, 40, "#2a0d0d") + '<circle cx="522" cy="372" r="7" fill="' + K.red + '"/>' + t(538, 377, "ARMED · starts on bar 9", { s: 15, w: 700, c: K.white });
-    s += labels([{ n: "Source", v: "Ordinary" }, { n: "Bars", v: "4" }, { n: "Dub", v: "0" }, { n: "Gain", v: "0 dB" }, { n: "Arm", v: "Armed", vc: "#ff6b6b", sel: true }, { n: "Bounce" }, { n: "Freeze→tape" }, { n: "More", v: "•·" }]);
-    return svg(s, "Tape Recorder with Tape A armed for a 4-bar take starting on bar 9");
+  S.auto = function () {
+    var s = titleBar("Instrument Automation", "TA  Tape A");
+    var dest = ["Volume", "Panning", "Cutoff", "Finetune", "Speed", "Grain Wet", "Grain Size", "Grain Pos", "Ripple Pitch", "Ripple Decay", "Echo Time"];
+    s += r(1, 31, 197, 391, "#0e0e10");
+    dest.forEach(function (d, j) { var y = 44 + j * 31, on = j === 6, nw = j >= 4;
+      s += r(8, y, 183, 27, on ? "#3a3a3e" : "none") + t(16, y + 19, d, { s: 14, w: on ? 700 : 500, c: on ? K.white : K.txt }); if (nw) s += newTag(156, y + 7); });
+    s += r(1, 31, 197, 391, "none", { st: K.red, sw: 2.5 });
+    s += bars([null, null, { list: ["Off", "Envelope", "LFO", "WT Env", "WT LFO", "Follow"], at: 5 }, { list: ["Track 3", "Track 4", "Input"], at: 0 }, { v: 0.1, tx: "5 ms" }, { v: 0.4, tx: "180 ms" }, null, { v: 0.4, tx: "−40" }]);
+    s += newTag(212, 220);
+    s += labels([{ n: "Destination", v: "Grain Size", span: 2 }, { n: "Type", v: "Follow", nw: true }, { n: "Source", v: "Track 3", nw: true }, { n: "Rise", v: "5 ms", nw: true }, { n: "Fall", v: "180 ms", nw: true }, {}, { n: "Amount", v: "−40" }]);
+    return svg(s, "Automation page with destination Grain Size and type Follow");
   };
 
   S.sends = function () {
-    var s = titleBar("Master · Tape Sends", "pre-fader");
-    var tr = [["Trk 3", 64, 0, true], ["Trk 4", 30, 0, false], ["Trk 5", 0, 80, false], ["Trk 6", 0, 0, false]];
-    for (var i = 0; i < 4; i++) { var x = 100 * i + 3;
-      [0, 1].forEach(function (q) { var bx = x + 18 + q * 34, v = tr[i][1 + q];
-        s += r(bx, 90, 22, 260, "#141416", { st: K.faint, sw: 1 }) + r(bx, 90 + 260 - v * 2.6, 22, v * 2.6, q ? K.fx2 : K.white) + t(bx + 11, 372, q ? "→B" : "→A", { a: "middle", s: 13, w: 700, c: K.txt }); });
-      if (tr[i][3]) s += r(x + 22, 386, 50, 20, K.box) + t(x + 47, 401, "HIT", { a: "middle", s: 13, w: 700, c: K.instr });
-    }
-    s += t(430, 110, "Press: send to A.  Press again: send to B.", { s: 14 }) + t(430, 134, "Shift + press: HIT on or off.", { s: 14 }) + t(430, 170, "HIT: this track's notes pluck the chain's", { s: 13, c: K.dim }) + t(430, 188, "strings and restart its envelopes.", { s: 13, c: K.dim });
-    s += labels([{ n: "Trk 3", v: "→A 64 · →B 0", sel: true }, { n: "Trk 4", v: "→A 30 · →B 0" }, { n: "Trk 5", v: "→A 0 · →B 80" }, { n: "Trk 6", v: "→A 0 · →B 0" }, {}, {}, {}, {}]);
-    return svg(s, "Master Tape Sends page with per-track sends into Tape A and Tape B");
+    var s = titleBar("Instrument Parameters", "01  Kit");
+    s += bars([{ v: 0.1, tx: "10" }, { v: 1, tx: "16 bit" }, { v: 0.2, tx: "20" }, { v: 0, tx: "0" }, null, { v: 0.64, tx: "64", sel: true }, { v: 0, tx: "0" }]);
+    s += newTag(536, 404) + newTag(636, 404);
+    s += labels([{ n: "Overdrive", v: "10" }, { n: "Bit depth", v: "16" }, { n: "Reverb send", v: "20" }, { n: "Delay send", v: "0" }, { n: "Instrument" }, { n: "Tape A send", v: "64", sel: true, nw: true }, { n: "Tape B send", v: "0", nw: true }, { n: "Back" }]);
+    return svg(s, "Params More window on a drum instrument with Tape A and Tape B sends");
+  };
+
+  S.rec = function () {
+    var s = titleBar("Sample Recorder", "bar 8.3.2");
+    s += bars([{ list: ["Line in", "Mic", "Radio", "Tracks", "Track 3", "Track 4", "Grain A"], at: 3 }, { v: 0.62 }, { v: 0.5, tx: "0 dB" }, { list: ["New instr", "Tape A", "Tape B"], at: 1 }, { list: ["Free", "1", "2", "4", "8", "16"], at: 3 }, { v: 0.5, tx: "0" }]);
+    [0, 3, 4, 5].forEach(function (i) { s += newTag(100 * i + 66, 404); });
+    s += r(604, 60, 190, 120, "#2a0d0d") + '<circle cx="626" cy="86" r="7" fill="' + K.red + '"/>' + t(642, 91, "WAITING", { s: 15, w: 700, c: K.white }) + t(612, 118, "starts on bar 9,", { s: 14 }) + t(612, 140, "records 4 bars,", { s: 14 }) + t(612, 162, "then Tape A loops it", { s: 14 });
+    s += labels([{ n: "Source", v: "Tracks", nw: true }, { n: "Level" }, { n: "Gain", v: "0 dB" }, { n: "Target", v: "Tape A", nw: true }, { n: "Bars", v: "4", nw: true }, { n: "Dub", v: "0", nw: true }, { n: "Metronome", v: "Off" }, { n: "Record", v: "waiting", vc: "#ff6b6b", sel: true }]);
+    return svg(s, "Sample Recorder recording onto Tape A, waiting for bar 9");
   };
 
   S.drum = function () {
-    var s = titleBar("Instrument · Drum", "01 Kit");
-    var x0 = 24, w = 752 / 48, zones = [["KICK", 0, 10], ["TOM", 10, 18], ["SNARE", 18, 27], ["TOM", 27, 33], ["HATS", 33, 42], ["METAL", 42, 48]], shift = 1.5;
-    for (var i = 0; i < 48; i++) { var x = x0 + i * w, blk = [1, 3, 6, 8, 10].indexOf(i % 12) >= 0; s += r(x + 1, blk ? 90 : 90, w - 2, blk ? 70 : 110, blk ? "#2a2a2c" : "#4a4a4e"); }
-    zones.forEach(function (z, j) { var a = x0 + (z[1] + shift) * w, b = x0 + Math.min(48, z[2] + shift) * w; s += r(a, 214, b - a - 3, 26, j % 2 ? "#2a2a2c" : "#3a3a3e") + t((a + b) / 2, 232, z[0], { a: "middle", s: 13, w: 700, c: K.white }); });
-    s += t(x0, 266, "Tune +2 st shifts the zones right by 2 keys", { s: 13, c: K.dim });
-    s += t(x0, 314, "HIT LFO · 1 cycle / 8 hits", { s: 13, c: K.txt });
-    for (i = 0; i < 16; i++) { var v = Math.abs(((i % 8) - 4) / 4); s += r(x0 + i * 30, 330 + (1 - v) * 50, 22, 4 + v * 0, i === 5 ? K.white : K.dim); s += r(x0 + i * 30 + 10, 330 + (1 - v) * 50, 2, v * 50, i === 5 ? K.white : K.faint); }
-    s += labels([{ n: "Decay", v: "320 ms", sel: true }, { n: "Punch", v: "43 %" }, { n: "Cutoff", v: "49 %" }, { n: "FM", v: "24 %" }, { n: "Noise", v: "12 %" }, { n: "LFO", v: "0 %" }, { n: "Rate", v: "8 hits" }, { n: "Tune", v: "+2 st" }]);
-    return svg(s, "Drum instrument page with the note-to-drum zone strip");
-  };
-
-  S.scenes = function () {
-    var s = titleBar("Perform · Scenes", "glide 300 ms");
-    var sc = [["1", "current", "Grain 60 · Ripple 0 · Echo 20"], ["2", "stored", "Grain 0 · Ripple 70 · Min7"], ["3", "stored", "Speed −100 · Rpt 1/16"], ["4", "empty", "Shift + 4 to store"]];
-    for (var i = 0; i < 4; i++) { var x = 24 + i * 190, st = sc[i][1];
-      s += r(x, 70, 172, 300, st === "current" ? "#2c2c30" : "none", st === "empty" ? { st: K.dim, sw: 1.5, da: "5 5" } : { st: st === "current" ? K.white : K.txt, sw: 2 });
-      s += t(x + 14, 112, "SCENE " + sc[i][0], { s: 17, w: 700, c: st === "empty" ? K.dim : K.white }) + t(x + 14, 136, st.toUpperCase(), { s: 12, w: 700, c: st === "current" ? K.instr : K.dim, ls: 1 });
-      var words = sc[i][2].split(" · "); words.forEach(function (wd, j) { s += t(x + 14, 176 + j * 22, wd, { s: 14, c: st === "empty" ? K.dim : K.txt }); });
-    }
-    s += t(24, 404, "Press: recall · Shift + press: store · Delete + press: clear", { s: 13, c: K.dim });
-    s += labels([{ n: "Scene 1", v: "current", sel: true }, { n: "Scene 2", v: "stored" }, { n: "Scene 3", v: "stored" }, { n: "Scene 4", v: "empty", dim: true }, { n: "Glide", v: "300 ms" }, {}, {}, { n: "Back" }]);
-    return svg(s, "Scenes page with four scene slots");
+    var s = titleBar("Sample Playback", "01  Kit");
+    var x0 = 24, w = 752 / 48, zones = [["KICK", 0, 10], ["TOM", 10, 18], ["SNARE", 18, 27], ["TOM", 27, 33], ["HATS", 33, 42], ["METAL", 42, 48]];
+    for (var i = 0; i < 48; i++) { var x = x0 + i * w, blk = [1, 3, 6, 8, 10].indexOf(i % 12) >= 0; s += r(x + 1, 70, w - 2, blk ? 90 : 140, blk ? "#2a2a2c" : "#4a4a4e"); }
+    zones.forEach(function (z, j) { var a = x0 + z[0 + 1] * w, b = x0 + z[2] * w; s += r(a, 230, b - a - 3, 30, j % 2 ? "#2a2a2c" : "#3a3a3e") + t((a + b) / 2, 250, z[0], { a: "middle", s: 13, w: 700, c: K.white }); });
+    s += t(x0, 290, "The note picks the drum. Tune on More shifts the zones.", { s: 13, c: K.dim }) + newTag(x0, 304);
+    s += labels([{ n: "Preview" }, { n: "Decay", v: "320 ms", sel: true, nw: true }, { n: "Punch", v: "43 %", nw: true }, { n: "Cutoff", v: "49 %", nw: true }, { n: "FM", v: "24 %", nw: true }, { n: "More", v: "•·" }, { n: "Play Mode", v: "▲ Drum ▼", span: 2, nw: true }]);
+    return svg(s, "Sample Playback with play mode Drum and the zone strip");
   };
 
   S.perf = function () {
-    var s = titleBar("Performance FX", "tape project");
-    var fx = ["Tape Rpt", "Tape Speed", "Grain Freeze", "Grain Wet", "Ripple Wet", "Echo Throw", "Scene", "Filter", "Reverb", "Delay", "Volume", "Pitch"], vals = [["1/4", "1/8", "1/16", "1/32"], ["50 %", "−100", "200 %", "0 %"], ["on", "on", "on", "on"], ["25", "50", "75", "100"], ["25", "50", "75", "100"], ["40", "60", "80", "95"], ["1", "2", "3", "4"]];
-    for (var i = 0; i < 12; i++) { var x = 4 + i * 66, tape = i < 7;
-      s += r(x, 34, 62, 386, tape ? "#17171a" : K.boxDim);
-      s += '<text transform="translate(' + (x + 22) + ' 404) rotate(-90)" fill="' + (tape ? K.white : K.txt) + '" font-size="14" font-weight="700">' + esc(fx[i]) + "</text>";
-      for (var k = 0; k < 4; k++) { var y = 60 + k * 44, v = vals[i] ? vals[i][k] : "—", lit = (i === 0 && k === 2);
-        s += r(x + 22, y, 38, 32, lit ? K.white : "#2a2a2c") + t(x + 41, y + 21, v, { a: "middle", s: 12, w: 700, c: lit ? "#000" : K.txt }); }
-    }
-    s += labels([{ n: "Tape A", v: "pat 3", nc: K.white, sel: true }, { n: "Tape B", v: "pat 3" }, { n: "Trk 3", v: "pat 3" }, { n: "Trk 4", v: "pat 3" }, {}, {}, {}, {}]);
-    return svg(s, "Performance mode with tape FX slots; Tape Rpt 1/16 is held");
+    var s = titleBar("Performance FX", "");
+    var fx = ["Speed", "Grain Freeze", "Grain Wet", "Ripple Wet", "Echo Throw", "Filter LP", "Reverb", "Delay", "Volume", "Tune", "Reverse", "Position"],
+      vals = [["50 %", "−100", "200 %", "0 %"], ["on", "on", "on", "on"], ["25", "50", "75", "100"], ["25", "50", "75", "100"], ["40", "60", "80", "95"]];
+    for (var i = 0; i < 12; i++) { var x = 4 + i * 66, nw = i < 5;
+      s += r(x, 34, 62, 386, nw ? "#17171a" : K.boxDim);
+      s += '<text transform="translate(' + (x + 22) + ' 404) rotate(-90)" fill="' + (nw ? K.white : K.txt) + '" font-size="14" font-weight="700">' + esc(fx[i]) + "</text>";
+      if (nw) s += newTag(x + 30, 254);
+      for (var k = 0; k < 4; k++) { var y = 60 + k * 44, v = vals[i] ? vals[i][k] : "·", lit = (i === 0 && k === 3);
+        s += r(x + 22, y, 38, 32, lit ? K.white : "#2a2a2c") + t(x + 41, y + 21, v, { a: "middle", s: 12, w: 700, c: lit ? "#000" : K.txt }); } }
+    s += labels([{ n: "Tape A", v: "pat 3", nc: K.white, sel: true }, { n: "Tape B", v: "pat 3" }, { n: "Track 3", v: "pat 3" }, { n: "Track 4", v: "pat 3" }, {}, {}, {}, {}]);
+    return svg(s, "Performance mode with five tape FX added; the Speed 0 % pad is held");
   };
 
   document.querySelectorAll("[data-screen]").forEach(function (el) { var f = S[el.getAttribute("data-screen")]; if (f) el.innerHTML = f(); });
-
-  // pad map
-  (function () {
-    var W = 980, H = 300, cw = 74, ch = 56, gx = 24, gy = 20, s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="Pad map on the Tape screen">';
-    var top = ["Tape", "Grain", "Ripple", "Color", "Echo", "Mod", "M1", "M2", "M3", "M4", "Freeze", "Rpt"];
-    for (var row = 0; row < 4; row++) for (var c = 0; c < 12; c++) { var x = gx + c * (cw + 6), y = gy + row * (ch + 6), isTop = row === 0;
-      var fill = isTop ? (c === 1 ? "var(--fg)" : "var(--bg)") : "var(--bg)", stroke = isTop ? (c >= 6 && c <= 9 ? "var(--mod)" : c >= 10 ? "var(--tape)" : "var(--fg)") : "var(--line)";
-      s += '<rect x="' + x + '" y="' + y + '" width="' + cw + '" height="' + ch + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + (isTop ? 2 : 1) + '"/>';
-      if (isTop) s += '<text x="' + (x + cw / 2) + '" y="' + (y + 34) + '" text-anchor="middle" font-size="14" font-weight="600" fill="' + (c === 1 ? "var(--bg)" : "var(--fg)") + '" font-family="IBM Plex Sans Condensed, sans-serif">' + top[c] + "</text>";
-      else if (c === 0) s += '<text x="' + (x + cw / 2) + '" y="' + (y + 34) + '" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="IBM Plex Mono, monospace">row ' + (4 - row) + "</text>";
-    }
-    s += '<text x="' + gx + '" y="' + (gy + 4 * (ch + 6) + 22) + '" font-size="13" fill="var(--muted)" font-family="IBM Plex Sans, sans-serif">Top row: pages 1–6 (current page bright: Grain here) · M1–M4 held for depths · Freeze (Shift latches) · Rpt held to stutter. Rows 1–3: play the track (slices or notes).</text>';
-    document.getElementById("padmapsvg").innerHTML = s + "</svg>";
-  })();
 })();
 </script>
