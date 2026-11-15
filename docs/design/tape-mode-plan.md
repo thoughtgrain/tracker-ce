@@ -17,7 +17,7 @@ Bryo has no song structure: you play it. A tracker is written into patterns and 
 | Bryo | Tape projects | Why it changed |
 | :--- | :--- | :--- |
 | 4 tracks, every one with a tape and a chain | 2, 4 or 6 tracks; 1 or 2 of them tape tracks, the rest ordinary tracker tracks | The ordinary tracks write the parts (drums, bass, synth lines); the tape tracks catch, loop and mangle them. Two chains is what all three devices can run well. |
-| Source per track: TAPE, SYNTH, POLY, DRUM | A tape track always has its tape. What also plays into its chain is decided per step by the instrument column: any sample instrument, a drum kit (§7a), or (Tracker+/Mini) a synth part bound to it | The instrument column already does "what plays here". POLY is the existing sampler. DRUM becomes a firmware drum engine, because the Original has no synth engines to fill that role. |
+| Source per track: TAPE, SYNTH, POLY, DRUM | A tape track always has its tape. What also plays into its chain is decided per step by the instrument column: any sample instrument, a theseus drum instrument (§7a), or (Tracker+/Mini) a synth part bound to it | The instrument column already does "what plays here". POLY is the existing sampler. DRUM becomes theseus, ported into the firmware, because the Original has no synth engines to fill that role. |
 | 16 white keys = 16 slices | A note on a tape step jumps the head to a slice (C = slice 1, chromatic up) | Same idea as Beat Slice, but the head keeps rolling after the jump. |
 | REC prints the other tracks | REC IN picks the ordinary tracks' mix, one track, the tape track itself or the audio input | Same, and it's the main way the ordinary tracks reach a tape. |
 | SEQ modulator + p-locks | **Lanes** in the pattern (§5), plus a SEQ engine kept for polymeters | P-locks are what a tracker grid already is. Lanes make them first-class and visible. |
@@ -183,15 +183,30 @@ The synth's real-time budget guard (`kMaxSynthRealtimeBudgetUs` in `synth_PolySy
 
 ---
 
-## 7a. Drum engine (all three devices)
+## 7a. Drum engine: theseus (all three devices)
 
-The Original Tracker has no synth engines, so a drum source can't be a `.psyn` plugin (those are IMX only). It has to be **firmware code that runs on all three devices**, like the sample player does.
+The Original Tracker has no synth engines, so a drum source can't be a `.psyn` plugin (those are IMX only). It has to be firmware code that runs on all three devices, the way the sample player does. The engine is **theseus**, my DFAM-style percussion voice from [`thoughtgrain/operators-xy`](https://github.com/thoughtgrain/operators-xy) (`machines/theseus/engine.cpp`). That tree is MIT and my own work, so this is a straight port with a `NOTICE.md` entry, not a redesign.
 
-**How it plugs in, as I see it now:** a **drum kit** is a kind of sample instrument, with a new play mode appended to `instrumentPlayMode`. Its parameters live in the sidecar file, not in `strInstrument`, which is a size contract. A note picks the drum (C = kick, C# = rim, D = snare and so on), the instrument's existing volume, filter and envelope settings still apply, and step FX and lanes move the kit's own parameters. That way the drum kit works on any track, ordinary or tape, in tape projects and Default projects alike.
+**Why it fits a tracker.** Theseus is one voice where **the note picks the drum**: low notes are kicks (a sine with a deep pitch drop), the middle is toms and snare, and high notes lean on noise and FM into hats and metal. The signal path is VCO 1 FM-ing an inharmonic VCO 2, mixed with noise, through a 2-pole state-variable filter that the hit opens (crossfading low-pass to high-pass across the upper zones), then a decay envelope. On a tracker, the note column already is "which drum", so a whole kit is one instrument on one track. Its hit LFO steps once per note instead of with a clock, so it's locked to the pattern: at Rate 2 it alternates every other hit, and a pattern breathes the same way every time it plays.
 
-**Polyphony.** A track today is one voice, so a kick would cut off a hat on the same track. The drum player renders a few voices of its own inside that one voice (my guess is 4, with chokes such as closed hat cutting open hat), so a whole kit can be written on one track. That matters when the project only has 2 to 6 tracks.
+**Why it fits all three CPUs.** It's integer DSP with no `double`, no tables and no allocation, and its only divides are two per block. The OP-XY port estimates about 13–15 k instructions per 64-sample voice block at its heaviest, roughly 230 a sample. That's cheap on the Tracker+/Mini's M7, but on the Original's 180 MHz M4 a voice is around 5 % of the CPU, so the voice count there is set by phase 0's measurements (my guess is 2, against 4 on Tracker+ and Mini).
 
-**Source.** I'll base the voices on the drum engine repository you're sharing. Its licence decides whether I port it (MIT-compatible) or redesign from its ideas, the way I'm doing with Bryo. This section firms up once I've read it.
+**How it plugs in.**
+- A **drum instrument** is a sample instrument with a new play mode, `playModeDrum`, appended to `instrumentPlayMode`. It has no sample data, so it costs no sample memory, and it works in any project type, Default included, on any track, ordinary or tape.
+- The player is a new `core/libs/Audio/play_memory_drum.cpp`. It renders a small pool of theseus voices inside the track's one voice, so a kick's tail isn't cut by the next hat. A new hit takes a silent voice, else the quietest one. The output is Q15, which is the `int16` the audio blocks already carry, so there's no conversion.
+- The instrument's filter, overdrive, bit depth, volume, pan, envelopes and sends still apply after it, like any instrument. On a tape track it feeds the chain.
+
+**Parameters.** Theseus's 8 controls, kept as they are: **Decay** (30 ms–1.5 s, high drums shorter), **Punch** (pitch-envelope depth), **Cutoff**, **FM**, **Noise**, **LFO** (hit-LFO depth on cutoff, FM and a little pitch), **Rate** (one LFO cycle every 32…2 hits) and **Tune** (±24 semitones, shifts which drum a note picks). Every one can be moved by step FX, and on tape tracks by lanes and modulators.
+
+**What changes from the OP-XY build, and why:**
+- **Velocity comes back.** The XY doesn't give engines velocity, so the port fixed it at full. On the Tracker the step's volume column becomes the hit's velocity, which deepens Punch and the filter's opening, as the OP-1 original did. Without a volume value a hit plays at full, which matches the XY.
+- **Block size.** The Tracker's blocks are 128 samples. I render each block as two 64-sample halves, so the envelope ramps and the sound stay the same as the XY build.
+- **Sample rate.** The note-to-drum zone maths assumes the XY's rate. I recompute its offset for the Tracker's 44,117.6 Hz, so the same note picks the same drum.
+- **Pitch.** The XY hands the engine a phase increment per sample. Here it comes from the note and the instrument's finetune, through the existing pitch code.
+
+**Where the 8 values are stored** is the one open detail. `strInstrument` is a 372-byte contract, but a drum instrument doesn't use the granular, wavetable or loop-point fields. If those fields can hold the 8 values without changing what any other play mode reads, the kit saves and loads as a normal `.pti`, and older firmware just sees an empty instrument. Otherwise they go in a small project sidecar keyed by instrument slot. I'll decide in phase 7a, after grepping every reader of those fields.
+
+**Tests.** The theseus repo has a host sound test (`machines/theseus/tests/sound.cpp`: 5,832 control and pitch combinations; peak level, every hit decaying to silence, kick longer and darker than hat, the LFO stepping once per hit, Tune moving the zone). I'll port it to this repo's host-test layout and add golden hashes for the Tracker build.
 
 ---
 
@@ -295,11 +310,14 @@ Each phase is one PR. The fences are a starting point; I re-grep the blast radiu
 - **Do:** strings, comb, resonators, and plucking on notes. Anything ported from an MIT original gets a `NOTICE.md` entry.
 - **Verify:** rung 2; rung 5.
 
-### Phase 7a: Drum engine
-- **Do:** the drum kit play mode, its voices and chokes, kit parameters in the sidecar, and the kit's page in the instrument editor.
-- **Fence:** `core/source/mtStructs.h` (enum append), new `core/libs/Audio/play_memory_drum.cpp` and voice files, the instrument editor's play mode list.
-- **Invariant:** bit-exact audio for every existing play mode.
-- **Verify:** rung 2 goldens per drum voice; rung 5 CPU with a full kit on 6 tracks on the Original.
+### Phase 7a: Drum engine (theseus)
+- **Do:** port theseus into `play_memory_drum.cpp` with its voice pool, `playModeDrum`, velocity from the volume column, the zone offset for 44.1 kHz, the 8 parameters and their storage, step FX for them, and the drum page in the instrument editor.
+- **Fence:** `core/source/mtStructs.h` (enum append), new `core/libs/Audio/play_memory_drum.cpp` and its header, the play-mode dispatch in `play_memory.cpp`, the instrument editor's play-mode list, `NOTICE.md`.
+- **Blast radius:** every reader of the `strInstrument` fields the parameters reuse, if they're reused.
+- **Invariant:** bit-exact audio for every existing play mode; `.pti` files of other play modes byte-identical.
+- **Verify:** rung 2: the ported theseus sound test, plus goldens. Rung 5: CPU per voice on the Original, which sets its voice count.
+
+It doesn't depend on any tape phase, so it can go first if drums on the Original matter more than tapes.
 
 ### Phase 8: Modulators and scenes
 - **Do:** the 4 slots, the depth tables, the assign gesture and the Mini list, scenes, the `SCENE` FX, and a scene row in performance mode.
@@ -325,7 +343,7 @@ Later, once the numbers are in: morph, a second room, a channel strip, GRAIN's W
 - **Ordinary tracks are full tracker tracks.** They play samples and synths as they do today and are what usually gets printed onto the tapes.
 - **Fixed tape length**, chosen when a tape is made. Tapes that grow while recording fit badly with the Tracker's sample memory and make save sizes unpredictable.
 - **Tape length:** fixed, default 8 bars, with per-device caps set by phase 0.
-- **A firmware drum engine** (§7a), because the Original has no synth engines. It works on every track and every device.
+- **theseus is the drum engine** (§7a), ported from my MIT `operators-xy` tree, because the Original has no synth engines. It works on every track, in every project type, on every device.
 - **This is a fork** (`thoughtgrain/tracker-ce`), so the upstream "discuss first" step isn't a gate for now. The draft post below is kept for if and when this goes upstream.
 - **Synth editing stays as it is.** Engines, patches and macros are edited in the existing synth screens. Tape projects add only the binding of a part to a tape track.
 - **Patterns, song mode and performance mode work as usual.** Lanes travel with patterns, and scenes are one more thing performance mode and a step FX can recall.
