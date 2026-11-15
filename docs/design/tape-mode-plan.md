@@ -17,7 +17,7 @@ Bryo has no song structure: you play it. A tracker is written into patterns and 
 | Bryo | Tape projects | Why it changed |
 | :--- | :--- | :--- |
 | 4 tracks, every one with a tape and a chain | 2, 4 or 6 tracks; 1 or 2 of them tape tracks, the rest ordinary tracker tracks | The ordinary tracks write the parts (drums, bass, synth lines); the tape tracks catch, loop and mangle them. Two chains is what all three devices can run well. |
-| Source per track: TAPE, SYNTH, POLY, DRUM | A tape track always has its tape. What also plays into its chain is decided per step by the instrument column: any sample instrument, or (Tracker+/Mini) a synth part bound to it | The instrument column already does "what plays here". POLY is the existing sampler. DRUM is dropped: an ordinary track with a slice kit or the PERC engine does that job. |
+| Source per track: TAPE, SYNTH, POLY, DRUM | A tape track always has its tape. What also plays into its chain is decided per step by the instrument column: any sample instrument, a drum kit (§7a), or (Tracker+/Mini) a synth part bound to it | The instrument column already does "what plays here". POLY is the existing sampler. DRUM becomes a firmware drum engine, because the Original has no synth engines to fill that role. |
 | 16 white keys = 16 slices | A note on a tape step jumps the head to a slice (C = slice 1, chromatic up) | Same idea as Beat Slice, but the head keeps rolling after the jump. |
 | REC prints the other tracks | REC IN picks the ordinary tracks' mix, one track, the tape track itself or the audio input | Same, and it's the main way the ordinary tracks reach a tape. |
 | SEQ modulator + p-locks | **Lanes** in the pattern (§5), plus a SEQ engine kept for polymeters | P-locks are what a tracker grid already is. Lanes make them first-class and visible. |
@@ -183,6 +183,18 @@ The synth's real-time budget guard (`kMaxSynthRealtimeBudgetUs` in `synth_PolySy
 
 ---
 
+## 7a. Drum engine (all three devices)
+
+The Original Tracker has no synth engines, so a drum source can't be a `.psyn` plugin (those are IMX only). It has to be **firmware code that runs on all three devices**, like the sample player does.
+
+**How it plugs in, as I see it now:** a **drum kit** is a kind of sample instrument, with a new play mode appended to `instrumentPlayMode`. Its parameters live in the sidecar file, not in `strInstrument`, which is a size contract. A note picks the drum (C = kick, C# = rim, D = snare and so on), the instrument's existing volume, filter and envelope settings still apply, and step FX and lanes move the kit's own parameters. That way the drum kit works on any track, ordinary or tape, in tape projects and Default projects alike.
+
+**Polyphony.** A track today is one voice, so a kick would cut off a hat on the same track. The drum player renders a few voices of its own inside that one voice (my guess is 4, with chokes such as closed hat cutting open hat), so a whole kit can be written on one track. That matters when the project only has 2 to 6 tracks.
+
+**Source.** I'll base the voices on the drum engine repository you're sharing. Its licence decides whether I port it (MIT-compatible) or redesign from its ideas, the way I'm doing with Bryo. This section firms up once I've read it.
+
+---
+
 ## 8. Scenes
 
 A project has 4 scenes, stored in `tape.ptt`. A scene holds each tape track's base parameter values, chain settings, synth binding and modulator AMTs. It doesn't hold tapes, patterns, lanes, depths, ordinary tracks or the tempo; in a tracker the tempo belongs to the song.
@@ -197,7 +209,7 @@ A project has 4 scenes, stored in `tape.ptt`. A scene holds each tape track's ba
 
 ## 9. UI and the three devices
 
-New screens follow `docs/recipes/ui-screen.md`. Tape projects add one module, **TAPE**, with pages switched by the screen buttons: TRACKS (which tracks are tape tracks, and their synth binding) · TAPE · GRAIN · RIPPLE · COLOR · ECHO · MOD · LANES · SCENES · REC. Each page shows its parameters in the existing parameter-bar style, and every page is a list the Mini can step through. It adds a module slot, a menu entry, a new-project popup and a pattern-editor view, which `AGENTS.md` §7 says to discuss first. A draft post is at the end of this plan.
+New screens follow `docs/recipes/ui-screen.md`. Tape projects add one module, **TAPE**, with pages switched by the screen buttons: TRACKS (which tracks are tape tracks, and their synth binding) · TAPE · GRAIN · RIPPLE · COLOR · ECHO · MOD · LANES · SCENES · REC. Each page shows its parameters in the existing parameter-bar style, and every page is a list the Mini can step through. It adds a module slot, a menu entry, a new-project popup and a pattern-editor view, which `AGENTS.md` §7 says to discuss first upstream. This is a fork, so that waits until the work is offered upstream; a draft post is at the end of this plan.
 
 | | Original | Tracker+ | Mini |
 | :--- | :--- | :--- | :--- |
@@ -283,6 +295,12 @@ Each phase is one PR. The fences are a starting point; I re-grep the blast radiu
 - **Do:** strings, comb, resonators, and plucking on notes. Anything ported from an MIT original gets a `NOTICE.md` entry.
 - **Verify:** rung 2; rung 5.
 
+### Phase 7a: Drum engine
+- **Do:** the drum kit play mode, its voices and chokes, kit parameters in the sidecar, and the kit's page in the instrument editor.
+- **Fence:** `core/source/mtStructs.h` (enum append), new `core/libs/Audio/play_memory_drum.cpp` and voice files, the instrument editor's play mode list.
+- **Invariant:** bit-exact audio for every existing play mode.
+- **Verify:** rung 2 goldens per drum voice; rung 5 CPU with a full kit on 6 tracks on the Original.
+
 ### Phase 8: Modulators and scenes
 - **Do:** the 4 slots, the depth tables, the assign gesture and the Mini list, scenes, the `SCENE` FX, and a scene row in performance mode.
 - **Verify:** rung 2 for modulator output and depth maths; rung 4 for the gesture; rung 6 for scene glides.
@@ -305,8 +323,10 @@ Later, once the numbers are in: morph, a second room, a channel strip, GRAIN's W
 
 - **Four project types:** Default (16 tracks, no tape), Tape 2 (1 tape track), Tape 4 and Tape 6 (up to 2 tape tracks each). The caps keep tapes long and give the chains the CPU, memory and screen room.
 - **Ordinary tracks are full tracker tracks.** They play samples and synths as they do today and are what usually gets printed onto the tapes.
-- **Fixed tape length**, chosen when a tape is made (default 8 bars). Tapes that grow while recording fit badly with the Tracker's sample memory and make save sizes unpredictable.
-- **No drum source.** An ordinary track with a slice kit or the PERC engine covers it.
+- **Fixed tape length**, chosen when a tape is made. Tapes that grow while recording fit badly with the Tracker's sample memory and make save sizes unpredictable.
+- **Tape length:** fixed, default 8 bars, with per-device caps set by phase 0.
+- **A firmware drum engine** (§7a), because the Original has no synth engines. It works on every track and every device.
+- **This is a fork** (`thoughtgrain/tracker-ce`), so the upstream "discuss first" step isn't a gate for now. The draft post below is kept for if and when this goes upstream.
 - **Synth editing stays as it is.** Engines, patches and macros are edited in the existing synth screens. Tape projects add only the binding of a part to a tape track.
 - **Patterns, song mode and performance mode work as usual.** Lanes travel with patterns, and scenes are one more thing performance mode and a step FX can recall.
 
