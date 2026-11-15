@@ -2,11 +2,13 @@
 
 > Status: **plan only, nothing built.** Branch `work/keen-babbage-uvnhez`, from `main` at `377c56f`. Every phase below is its own PR with a fence, a blast radius, an invariant and a verification rung, per [`AGENTS.md`](../../AGENTS.md) §1.
 
-> **UX first.** How all of this works in your hands is in [`tape-ux.md`](tape-ux.md), with drawn screens in [`tape-ux-mockups.html`](tape-ux-mockups.html). Where they differ from this plan on anything a person sees or touches, they win. The differences I still have to fold in here:
-> - **Lanes** are 16 per tape track in four banks (A–D) of four, any lane any target, shown in place of the FX columns by pressing Fx again. They replace the five fixed groups in §5.
-> - **The deck isn't the track's voice.** A tape track's own notes can play any instrument while the tape keeps rolling, so each deck needs a player of its own. Tape projects hide tracks 7 and 8 in every type, so their two players become decks A and B.
-> - **Synth routing** is an Output setting (Mix, Tape A, Tape B) in the synth editor, not a binding on the Tape screen.
-> - **Screens:** Params on a tape track opens the Tape screen (pages Tape · Grain · Ripple · Color · Echo · Mod). SampleRec on a tape track opens the Tape Recorder. Master gains a Tape Sends mode, and Perform's second press opens Scenes.
+> **UX first.** How this works in your hands is in [`tape-ux.md`](tape-ux.md) (version 2), with screens in [`tape-ux-mockups.html`](tape-ux-mockups.html). Version 2 puts every idea in the Tracker screen that already does that job, so parts of this plan are out of date until I fold them in:
+> - **No Tape module.** The tape is play mode Tape in Sample Playback. Grain, Ripple and Echo are sub-pages of Params → More on the tape instrument. Color is dropped: Overdrive and Bit depth already exist on every instrument.
+> - **Lanes are FX columns.** Tape tracks have FX1–FX6, paged by pressing Fx again, and the tape and chain controls are new FX types. The lane files, lane groups and lane modes in §5 go away. Where FX3–FX6 are stored is open (a sidecar, or the step slots of the tracks a tape project hides).
+> - **Modulation is Automation**, with new destinations and a Follow type. The modulator slots and depth tables in §6 go away.
+> - **One voice per tape track.** Another instrument on a tape step plays instead of the tape, and the tape keeps time underneath (its position comes from the song position), so no second player is needed.
+> - **Sends:** Tape A and Tape B sends on every instrument and synth part, beside Reverb and Delay. Scenes and the synth Output setting are dropped.
+> - **Recording** is the Sample Recorder with a tape Target, Bars and Dub. Bounce is Render Selection to a tape.
 
 ## What I'm building, in one paragraph
 
