@@ -1,98 +1,112 @@
-# Tape Mode: Plan
+# Tape Projects: Plan
 
 > Status: **plan only, nothing built.** Branch `work/keen-babbage-uvnhez`, from `main` at `377c56f`. Every phase below is its own PR with a fence, a blast radius, an invariant and a verification rung, per [`AGENTS.md`](../../AGENTS.md) §1.
 
 ## What I'm building, in one paragraph
 
-When I make a new project, I can pick **Classic**, **Tape 2** or **Tape 4**. A tape project has **only** 2 or 4 tracks, and they're all **tape tracks**: each one owns a running tape loop that rolls with the transport, a fixed effects chain after it (GRAIN → RIPPLE → COLOR → ECHO), four modulators, and **lanes**, rows of step values beside the pattern's note and FX columns that sequence the tape and its effects. Limiting the count is the point: the screen width, CPU and memory the other tracks would use go to the resonator, granular and effects lanes and the chain behind them. Notes in a tape track's pattern still do what notes do (they jump the tape to a slice, play a sample instrument or play a synth part *through* the track's chain). Patterns, song mode, performance mode, the synth engine editor and its screens work the way they do in any project; the tape tracks are what's new. It runs on the Original Tracker, Tracker+ and Tracker Mini, scaled to each one.
+When I make a new project, I pick its type: **Default** (today's 16 tracks, no tape), **Tape 2**, **Tape 4** or **Tape 6**. A tape project has exactly that many tracks, and up to two of them are **tape tracks**: one in Tape 2, two in Tape 4 and Tape 6. A tape track owns a running tape loop that rolls with the transport and can be recorded over while the song plays, a fixed effects chain after it (GRAIN → RIPPLE → COLOR → ECHO), four modulators, and **lanes**, columns of step values beside the pattern's note and FX columns that sequence the tape and its effects. The other tracks are ordinary tracker tracks, playing samples and synth engines, and they're what usually gets printed onto the tapes. Capping both numbers is the point: fewer tracks and at most two tapes means longer tapes, and the CPU, memory and screen width the missing tracks would use go to the two chains and their lanes. Patterns, song mode, performance mode and the synth editor work the way they do in any project. It runs on the Original Tracker, Tracker+ and Tracker Mini, scaled to each one.
 
-The design comes from [Bryo](https://github.com/thoughtgrain/bryo), a four-track sound-sculpting firmware for the M-VAVE FM-1. I take its ideas, not its code: Bryo is GPL-3.0-only and this repository is MIT, so everything here is written fresh in C++ for this audio engine (float, 128-sample blocks) and this UI. Where the right starting point is a public algorithm (Karplus-Strong, Freeverb-style rooms, a TPT state-variable filter), I work from the algorithm or an MIT original (DaisySP, Rings), with an entry in `NOTICE.md` for anything ported.
+The design comes from [Bryo](https://github.com/thoughtgrain/bryo), a four-track sound-sculpting firmware for the M-VAVE FM-1. I take its ideas, not its code, and I don't copy it one to one: it's an instrument played live with keys and knobs, and this is a tracker. Bryo is GPL-3.0-only and this repository is MIT, so everything here is written fresh in C++ for this audio engine (float, 128-sample blocks) and this UI. Where the right starting point is a public algorithm (Karplus-Strong, a TPT state-variable filter), I work from the algorithm or an MIT original (DaisySP, Rings), with an entry in `NOTICE.md` for anything ported.
 
 ---
 
 ## 1. How it maps from Bryo to a tracker
 
-Bryo is played live with keys and knobs and has no song structure. A tracker is written into patterns and played back. So I keep what Bryo is *for* (a loop you keep re-shaping through a fixed chain, moved by modulators) and change how you drive it.
+Bryo has no song structure: you play it. A tracker is written into patterns and played back. So I keep what Bryo is *for* (a loop you keep re-shaping through a fixed chain, moved by modulators) and change how you drive it.
 
-| Bryo | Tape mode | Why it changed |
+| Bryo | Tape projects | Why it changed |
 | :--- | :--- | :--- |
-| 4 tracks, all special | 2 or 4 tape tracks, nothing else | The room the other tracks would take goes to lanes and the chain. Classic stays one menu choice away for projects that need 8 tracks. |
-| Source per track: TAPE, SYNTH, POLY, DRUM | Every tape track **has** a tape. What plays into its chain is decided per step by the instrument column: the tape itself, any sample instrument, or (Tracker+/Mini) a synth part | The instrument column already does "what plays here". POLY is the existing sampler. DRUM is dropped: a slice kit or the PERC engine already does that job. |
-| 16 white keys = 16 slices | Note column on a tape-instrument step = jump to slice (C = slice 1, chromatic up) | Same idea as Beat Slice, but the head keeps rolling after the jump. |
+| 4 tracks, every one with a tape and a chain | 2, 4 or 6 tracks; 1 or 2 of them tape tracks, the rest ordinary tracker tracks | The ordinary tracks write the parts (drums, bass, synth lines); the tape tracks catch, loop and mangle them. Two chains is what all three devices can run well. |
+| Source per track: TAPE, SYNTH, POLY, DRUM | A tape track always has its tape. What also plays into its chain is decided per step by the instrument column: any sample instrument, or (Tracker+/Mini) a synth part bound to it | The instrument column already does "what plays here". POLY is the existing sampler. DRUM is dropped: an ordinary track with a slice kit or the PERC engine does that job. |
+| 16 white keys = 16 slices | A note on a tape step jumps the head to a slice (C = slice 1, chromatic up) | Same idea as Beat Slice, but the head keeps rolling after the jump. |
+| REC prints the other tracks | REC IN picks the ordinary tracks' mix, one track, the tape track itself or the audio input | Same, and it's the main way the ordinary tracks reach a tape. |
 | SEQ modulator + p-locks | **Lanes** in the pattern (§5), plus a SEQ engine kept for polymeters | P-locks are what a tracker grid already is. Lanes make them first-class and visible. |
-| Hold slot, turn knob | Hold a modulator button/pad, turn the encoder on a parameter (Original/+). A depth list on the Mini (§9) | One encoder, 48 pads; the Mini has no pads or encoder. |
+| Hold slot, turn knob | Hold a modulator pad, turn the encoder on a parameter (Original/+). A depth list on the Mini (§9) | One encoder and 48 pads; the Mini has no pads or encoder. |
 | Scenes (4, glide or morph) | 4 scenes a project, recalled from a step FX, from performance mode, or by hand with a glide | Scenes become something a song can call. |
-| Two shared rooms | Room A = the existing master reverb send. Room B deferred | The reverb send exists and works on all three devices. |
-| Channel strip LOW/HIGH/DJ filter, master compressor | Not in the first pass | Tracker has volume, pan, the instrument filter and the master limiter/enhancer already. Revisit after measurements. |
-| ADPCM tapes at 22.05 kHz, 20 s shared | 16-bit PCM at the engine rate, inside normal sample memory | Memory is the Tracker's strength. A tape is just a sample, so saving, the sample editor and export keep working. |
+| Two shared rooms | The existing master reverb send is the room | It exists and works on all three devices. A second room can come later. |
+| Channel strip, master compressor | Not in the first pass | Tracker has volume, pan, the instrument filter and the master limiter/enhancer already. |
+| ADPCM tapes at 22.05 kHz, 20 s shared by four | 16-bit PCM at the engine rate, in normal sample memory, at most two tapes | With two tapes and the Tracker's sample memory, each tape can be long. A tape is a sample, so saving, the sample editor and export keep working. |
 
 ---
 
-## 2. Project mode: how it's chosen and stored
+## 2. Project types: how they're chosen and stored
 
-**UI.** `cProjectEditor::createNewProject()` (`core/interface/projectEditor/fProjEdit.cpp`) gets a popup before `newFileManager.createNewProjectInWorkspace()`: **Classic / Tape 2 / Tape 4**. Classic is the default and the highlighted choice, so muscle memory still makes a classic project. Boot (`Interface::openNewProject()`) and MOD/IT import always make Classic.
+| Type | Tracks | Tape tracks (max) | Default tape tracks |
+| :--- | :---: | :---: | :--- |
+| **Default** | 16 (8 sample + 8 MIDI, as today) | 0 | — |
+| **Tape 2** | 2 | 1 | track 1 |
+| **Tape 4** | 4 | 2 | tracks 1 and 2 |
+| **Tape 6** | 6 | 2 | tracks 1 and 2 |
 
-**The mode flag.** One byte. `strMtProjectRemote` is asserted at 2,304 bytes, and the `strMtValues::midiInstrument[].reserved[7]` bytes are zeroed on create (`fileManagerProject.cpp:320`) and on v10 migration (`mtFileManagerOldVersionRecovery.cpp:257`) and read nowhere else. I'll take one of them as `projectMode` (0 = Classic, 1 = Tape 2, 2 = Tape 4), give it a named accessor so nobody reads it as "MIDI reserved", and add a `static_assert` that pins its offset. Old projects read 0, which is Classic, so they load exactly as before and the struct size doesn't move.
+Any track in a tape project can be switched between tape and ordinary on the TAPE screen, as long as the limit holds. Switching a tape track to ordinary keeps its tape and chain settings in the project, so switching back loses nothing.
 
-The alternative is bumping `PROJECT_FILE_VERSION` to 18 and growing `strMtValues`, which breaks the 2,304 contract and every older firmware's ability to open the file. For one byte, that's the wrong trade.
+**UI.** `cProjectEditor::createNewProject()` (`core/interface/projectEditor/fProjEdit.cpp`) gets a type popup before `newFileManager.createNewProjectInWorkspace()`. Default is the first and highlighted choice, so muscle memory still makes the project people make today. Boot (`Interface::openNewProject()`) and MOD/IT import always make Default.
 
-**Everything else goes in a sidecar file**, `tape.ptt` in the project folder, with its own magic, version and CRC: per-tape-track state (chain settings, modulators, depths, lane targets, source binding) and the 4 scenes. Lanes themselves are per pattern and go in their own files (§5). The sidecar is copied by `ProjectSave` and `ProjectOpen` the way synth patches are (`copyWorkspacePatches`). Loading it is field-by-field with counts and clamping, never a struct dump, so I can add fields later without a version dance.
+**The type byte.** `strMtProjectRemote` is asserted at 2,304 bytes, so there's no room to add a field without a format change. The `strMtValues::midiInstrument[].reserved[7]` bytes are zeroed on create (`fileManagerProject.cpp:320`) and on v10 migration (`mtFileManagerOldVersionRecovery.cpp:257`), and nothing else reads them. I'll take one as `projectType` (0 = Default, 1 = Tape 2, 2 = Tape 4, 3 = Tape 6), give it a named accessor so nobody reads it as "MIDI reserved", and add a `static_assert` that pins its offset. Old projects read 0, which is Default, so they load exactly as before and the struct size doesn't move. Bumping `PROJECT_FILE_VERSION` to grow `strMtValues` would break the size contract and stop older firmware opening the file, which is the wrong trade for one byte.
 
-**The other tracks.** The sequencer still has its 8 sample tracks and the MIDI tracks internally (the pattern format doesn't change), but in a tape project tracks past 2 or 4 are hidden in every screen, their pattern data stays empty, and their voices aren't rendered. That's where the chain's CPU comes from, especially on the Original. MIDI tracks are hidden too in the first version; a tape track can still send MIDI by playing a MIDI instrument, as any track can.
+**Everything else goes in a sidecar file**, `tape.ptt` in the project folder, with its own magic, version and CRC: which tracks are tape tracks, their tape and chain settings, modulators, depths, lane targets, synth binding, and the 4 scenes. Lanes themselves are per pattern and go in their own files (§5). `ProjectSave` and `ProjectOpen` copy it the way synth patches are copied (`copyWorkspacePatches`). It's read field by field with counts and clamping, never as a struct dump, so I can add fields later without a version change.
 
-What an older firmware does with a tape project: it opens it as a classic project (the flag byte is ignored), plays the tape instruments as plain samples and ignores the sidecar. Nothing breaks, the tape effects are just missing. I think that's the right failure mode.
+**The tracks a type doesn't have.** The sequencer still has its 8 sample tracks and the MIDI tracks internally, and the pattern format doesn't change. In a tape project, tracks past 2, 4 or 6, and the MIDI tracks, are hidden in every screen, their pattern data stays empty and their voices aren't rendered. That's where the chains' CPU comes from, especially on the Original. An ordinary track can still play MIDI instruments, as any track can.
+
+**Opened on older firmware**, a tape project looks like a Default project (the type byte is ignored): the tracks play, the tapes play as plain samples, and the sidecar is ignored. Nothing breaks; the tape behaviour and effects are just missing.
 
 ---
 
 ## 3. The tape
 
-**A tape is an instrument.** Tape mode reserves the last 2 or 4 sample instrument slots (indices 46–47 or 44–47) as the tapes for tracks 1–2 or 1–4. That buys a lot for free: the tape saves as a normal `.pti`, the sample editor can trim, normalise or run a `.ptfx` over it, sample export and stem export see it, and the memory bar counts it.
+**A tape is an instrument.** A tape project reserves the last two sample instrument slots (indices 46 and 47, or just 47 in Tape 2) as tapes A and B. That buys a lot for free: the tape saves as a normal `.pti`, the sample editor can trim, normalise or run a `.ptfx` over it, sample and stem export see it, and the memory bar counts it.
 
 The instrument gets a new play mode, `playModeTape`, appended to `instrumentPlayMode` (`core/source/mtStructs.h:387`, append-only). Its playback is a new `core/libs/Audio/play_memory_tape.cpp` next to the existing per-mode files:
 
 - **The head always rolls** while the transport plays, looping the window START…START+LENGTH. With no notes in the pattern, the tape still plays. That's the difference between a tape and Beat Slice.
 - **SYNC** (off, 1–16 bars) sets the loop to N bars at the project tempo, and the tape's speed follows the tempo like a tape machine. It's a soft lock: the head is nudged a little each block toward where the beat says it should be, with a crossfaded jump if it's far out. Step 1 of the pattern is the loop's start.
-- **Notes jump** the head to a slice (16 slices of the window), with a short crossfade, and keep rolling. A note-off doesn't stop a tape. An explicit note-off step (the existing `OFF`) mutes it.
+- **Notes jump** the head to a slice (16 slices of the window), with a short crossfade, and the head keeps rolling. A note-off doesn't stop a tape. An explicit note-off step (the existing `OFF`) mutes it.
 - **Parameters:** START, LENGTH, SPEED (±200 %, negative is reverse), PITCH, REVERSE, RPT (hold the head on a short loop, 10 ms–1 s, for stutters), RLEN, WOW, FLUTTER, ROTATE (shift the loop against the beat), XFADE (seam crossfade), SYNC, LEVEL.
 - **Never streamed.** `isPlayModeStreamable(playModeTape)` returns false, so the tape stays in RAM where the record head can reach it.
 
-**Length and memory.** The tape's length is fixed when it's created (default 8 bars at the project tempo, capped per device: about 32 s stereo on Tracker+/Mini, about 20 s mono on the Original) and allocated from the normal sample pool like any sample. No change to `SAMPLE_MEMORY_SIZE`, so classic projects lose nothing. A tape that doesn't fit is refused with a popup, not silently shortened.
+**Length and memory.** A tape's length is fixed when it's made: the default is 8 bars at the project tempo, and the most is set per device by phase 0 measurements. Two tapes is the reason the cap can be generous: my starting figures are up to 60 s stereo per tape on Tracker+ and Mini (about 10.6 MB each, from a pool of about 39 MB) and up to 20 s mono on the Original (about 1.8 MB each, from 7.5 MB). Tapes come from the normal sample pool like any sample, with no change to `SAMPLE_MEMORY_SIZE`, so Default projects lose nothing. A tape that doesn't fit is refused with a popup, not silently shortened.
 
-**Recording onto tape.** The existing `Recorder` overwrites sample memory from its base and stops every player while it runs, so it can't record while the song plays. Tape mode gets its own write path, a small `TapeWriter` inside the tape player: it writes into the instrument's own sample memory at the record head, a block at a time, in the interrupt. That's just RAM writes, no SD, no allocation.
+**Recording onto tape.** The existing `Recorder` overwrites sample memory from its base and stops every player while it runs, so it can't record while the song plays. Tape tracks get their own write path, a small `TapeWriter` inside the tape player. It writes into the instrument's own sample memory at the record head, one block at a time, in the interrupt: RAM writes only, no SD and no allocation.
 
-- **REC IN** per tape track: OTHERS (the mix of every track but this one, one block late), a single track, SELF (resampling through its own chain), or the audio input (line/mic, plus USB on Tracker+/Mini).
-- **DUB** (−100…+100): how much of the old loop survives a pass. 0 is sound-on-sound, +100 keeps the loop, −100 replaces it.
-- **Takes** are bar-exact: armed, they start on the next bar line and stop after the set bars.
-- **Bounce** records a track's own output onto its tape and switches the track's steps to the tape.
-- **Freeze to tape**: the GRAIN live buffer (§4) is copied onto the tape.
-- The take marks the instrument dirty, and saving writes it in the main loop like any edited sample.
+- **REC IN** per tape track:
+  - **ORDINARY**: the mix of the project's ordinary tracks. This is the default, and it's how the written parts reach a tape.
+  - **One track**: any track, ordinary or the other tape track.
+  - **SELF**: resampling through its own chain.
+  - **INPUT**: line or mic, plus USB on Tracker+ and Mini.
+
+  The tap is one block late, which is fine for a loop.
+- **DUB** (−100…+100) sets how much of the old loop survives a pass: 0 is sound-on-sound, +100 keeps the loop, −100 replaces it.
+- **Takes** are bar-exact: armed, they start on the next bar line and stop after the set number of bars.
+- **Bounce** records an ordinary track's output onto a tape for the set bars.
+- **Freeze to tape** copies the GRAIN live buffer (§4) onto the tape.
+- **Saving:** a take marks the instrument dirty, and saving writes it in the main loop like any edited sample.
 
 ---
 
 ## 4. The chain
 
-A tape track's audio runs `source → GRAIN → RIPPLE → COLOR → ECHO → track amp/pan → mix`, plus the existing delay and reverb sends. Every block starts out of the way (WET 0, or no drive), so a fresh tape track sounds exactly like its source. Each of GRAIN, RIPPLE and COLOR is an insert or a send (ROUT). ECHO is always a send.
+A tape track's audio runs `tape + source → GRAIN → RIPPLE → COLOR → ECHO → track amp/pan → mix`, plus the existing delay and reverb sends. Every block starts out of the way (WET 0, or no drive), so a fresh tape track sounds exactly like its tape. Each of GRAIN, RIPPLE and COLOR is an insert or a send (ROUT). ECHO is always a send. Ordinary tracks have no chain; they keep the instrument filter, overdrive, bit depth and sends they have today.
 
-**Where it lives.** A new `TapeTrackChain` in `core/AudioEngine/`, one per tape track, built only in tape mode (constructed after the voices and synth nodes, since `AudioStream::update_all` runs in construction order). Its input is an `AudioMixer` of the track's voice filter output and, on Tracker+/Mini, the synth part bound to that track. Its output takes the place of the voice's own connection into the amp and the send mixers. Classic projects never build or connect it.
+**Where it lives.** A new `TapeTrackChain` in `core/AudioEngine/`, one per tape track, so at most two. It's built only in tape projects, and constructed after the voices and synth nodes, because `AudioStream::update_all` runs nodes in construction order. Its input is an `AudioMixer` of the track's voice filter output and, on Tracker+ and Mini, the synth part bound to that track. Its output takes the place of the voice's own connection into the amp and the send mixers. Default projects never build or connect it.
 
 The DSP nodes are new `AudioStream` classes in `core/libs/Audio/`, following `core/libs/Audio/AGENTS.md` (NULL-safe `allocate()`, every block released or sent on every path, `AUDIO_CORE_RAM` only for the inner loops that earn it):
 
 | Block | What it does | Parameters | Memory |
 | :--- | :--- | :--- | :--- |
-| **GRAIN** | Granulates the track's last 1–4 bars from a live buffer recorded on the bar line. SCAN picks where grains read: the tape window, a moving cursor (time stretch), a fixed spot, or trailing the write head (a granular delay). FREEZE holds the buffer. | SIZE, RATE, PITCH, SPREAD, SPRAY, CONTOUR, REV chance, PATTERN, SCALE, PRAND, SCAN, WARP, OFFSET, FEEDBACK, GRAINS, SYNC, ROUT, WET | The live buffer (up to 4 bars, from the tape arena) + a fixed grain pool shared across the tape tracks |
-| **RIPPLE** | 4 tuned Karplus-Strong strings, or a comb, or 4 resonators on a chord's partials. Notes on the track retune and pluck it. | PITCH, DECAY, TONE, SCALE (chord), CUT/RES, DRIVE, SPREAD, PLUCK, ROUT, WET | 4 short delay lines per track |
+| **GRAIN** | Granulates the track's last 1–4 bars from a live buffer recorded on the bar line. SCAN picks where grains read: the tape window, a moving cursor (time stretch), a fixed spot, or trailing the write head (a granular delay). FREEZE holds the buffer. | SIZE, RATE, PITCH, SPREAD, SPRAY, CONTOUR, REV chance, PATTERN, SCALE, PRAND, SCAN, WARP, OFFSET, FEEDBACK, GRAINS, SYNC, ROUT, WET | The live buffer (up to 4 bars) + a grain pool shared by the two tape tracks |
+| **RIPPLE** | 4 tuned Karplus-Strong strings, a comb, or 4 resonators on a chord's partials. Notes on the track retune and pluck it. | PITCH, DECAY, TONE, SCALE (chord), CUT/RES, DRIVE, SPREAD, PLUCK, ROUT, WET | 4 short delay lines |
 | **COLOR** | Drive (soft clip), crush (bits, rate or both), noise that follows the input's envelope, tilt EQ | DRIVE, CRUSH, CMODE, NOISE, NDECAY, NTONE, TILT, ROUT, WET, LEVEL | None |
-| **ECHO** | A tape-ish delay per track, then a send into Room A (the master reverb) | TIME (or SYNC division), FEEDBACK, DLY level, TONE, SPREAD, DUCK, AGE, DIFFUSE, VERB send | One delay line per track |
+| **ECHO** | A tape-style delay per track, then a send into the master reverb | TIME (or a SYNC division), FEEDBACK, DLY level, TONE, SPREAD, DUCK, AGE, DIFFUSE, VERB send | One delay line |
 
-**The tape arena.** GRAIN, RIPPLE and ECHO buffers come from one block of sample memory reserved at project open, only in tape mode, and shown on the memory bar as "Tape FX". Buffers are carved when a block is switched on (WET above 0) and handed back when it's off, and only the main loop allocates. The interrupt only reads pointers it was handed, so to free a buffer the main loop unpublishes the pointer, waits a block, then frees. Sizes come from phase 0 measurements; my starting guess is about 4 MB on Tracker+/Mini and about 1 MB on the Original.
+**The effects arena.** GRAIN, RIPPLE and ECHO buffers come from one block of sample memory reserved when a tape project opens, shown on the memory bar as "Tape FX". Buffers are carved when a block is switched on (WET above 0) and handed back when it's off. Only the main loop allocates. The interrupt only reads pointers it was handed, so to free a buffer the main loop unpublishes the pointer, waits a block, then frees. With at most two chains, my starting guess is about 2 MB on Tracker+ and Mini and about 0.5 MB on the Original; phase 0 and phase 6 set the real figures.
 
-**What's reused instead of rebuilt:** the instrument filter and overdrive and the bit-depth node (still there on sample sources), the master reverb (Room A), the master delay send, the limiter and the master enhancer.
+**Reused, not rebuilt:** the instrument filter, overdrive and bit-depth node (still on the sample source going into the chain), the master reverb, the master delay send, the limiter and the master enhancer.
 
 ---
 
 ## 5. Lanes
 
-Lanes are what makes this a tracker instrument rather than a box with knobs, and they're why a tape project stops at 4 tracks. Each tape track has **5 lane groups of 4 lanes**, one group per part of the instrument:
+Lanes are what make this a tracker instrument rather than a box with knobs. Each tape track has **5 lane groups of 4 lanes**, one group per part of the instrument:
 
 | Group | Default lanes (each can be re-targeted within its group) |
 | :--- | :--- |
@@ -102,186 +116,212 @@ Lanes are what makes this a tracker instrument rather than a box with knobs, and
 | **FX** (COLOR + ECHO) | DRIVE, CRUSH, ECHO send, VERB send |
 | **MOD** | M1–M4 AMT |
 
-Each lane is bound to one target and each step either holds a value or is empty. Keeping lanes in groups tied to a block means a lane's meaning is readable from where it sits, and a group's column is the same width as a track's note column, which is what makes the screen layout below work.
+Each lane is bound to one target, and each step either holds a value or is empty. Tying each group to one block means a lane's meaning is readable from where it sits. A group's column is the same width as a track column, which is what makes the screen layout below work.
 
 **Per-lane behaviour**, set on the lane:
 - **STEP**: the value applies on that step only, then the parameter goes back to its base. That's a p-lock.
 - **HOLD**: the value stays until the next value in the lane.
 - **GLIDE**: ramps from this value to the next one across the steps between.
 
-Lane values are written as the parameter's own units on screen (ms, %, semitones, a division) but stored as one byte, 0–254 mapped across the target's range, 255 meaning empty.
+**Values.** On screen, a lane value shows in the parameter's own units (ms, %, semitones, a division). It's stored as one byte: 0–254 mapped across the target's range, and 255 meaning empty.
 
-**Storage.** `Sequencer::strPattern` is a size contract (16,432 bytes), so lanes don't go in it. Each pattern that has lanes gets `lanes_NNN.ptl` next to its pattern file: a header (magic, version, per-track lane targets and modes) and, per track, only the groups that hold a value: 4 lanes × 128 steps, 512 bytes a group, so at most 10 KB for a Tape 4 pattern with every group in use. Copy, paste, insert, delete and the pattern length all act on lane columns too, so moving steps around keeps lanes in line with notes.
+**Storage.** `Sequencer::strPattern` is a size contract (16,432 bytes), so lanes don't go in it. Each pattern that has lanes gets `lanes_NNN.ptl` next to its pattern file:
+- a header: magic, version, and the lane targets and modes for each tape track;
+- then, for each tape track, only the groups that hold a value: 4 lanes × 128 steps, 512 bytes a group;
+- so a pattern's file is at most 5 KB, with both tape tracks using every group.
 
-**Applying them.** The sequencer's step handling runs in the interrupt, so lane values are applied there from a RAM copy: no file reads, no allocation. Lane files are read in the main loop when a pattern is loaded or *queued* (the next pattern in song mode or performance mode is read ahead into a second buffer, and the interrupt flips one pointer on the pattern change). I'm deliberately not copying `Sequencer::loadNextPattern`'s SD read in the interrupt, which `core/source/AGENTS.md` already lists as a violation.
+Copy, paste, insert, delete and the pattern length act on lane columns too, so moving steps around keeps lanes lined up with the notes.
 
-**Order of evaluation** each block, per target: base value (the knob, or the active scene) → lane value (if the lane has one in force) → plus each modulator's swing × depth → clamp to the target's range.
+**Applying them.** The sequencer's step handling runs in the interrupt, so lane values are applied there from a RAM copy: no file reads, no allocation. Lane files are read in the main loop when a pattern is loaded or *queued*. The next pattern in song mode or performance mode is read ahead into a second buffer, and the interrupt flips one pointer when the pattern changes. I'm deliberately not copying the SD read that `Sequencer::loadNextPattern` does in the interrupt, which `core/source/AGENTS.md` already lists as a violation.
 
-**On screen.** The pattern editor today shows 4 full track columns (note, instrument, 2 FX), or 8 narrow ones with one parameter each (`patternViewMode`, `core/interface/patternEditor/fPatternEdit.cpp`). Tape mode uses the slots of the hidden tracks for lanes instead of adding width:
+**Order of evaluation**, each block, per target:
+1. the base value (the knob, or the active scene);
+2. the lane value, if the lane has one in force;
+3. plus each modulator's swing × depth;
+4. clamped to the target's range.
 
-- **Tape 2:** 4 columns = track 1, a lane group for track 1, track 2, a lane group for track 2. Every step of both tracks and one group of each is on screen at once.
-- **Tape 4:** 4 columns of tracks, as now. Holding the lane button swaps a track's column for one of its lane groups, or the 8-column view shows each track's note column next to its chosen lane group.
-- **Choosing the group:** a screen button cycles TAPE → GRAIN → RIPPLE → FX → MOD per track (an Fn binding on the Mini). The column header names the group and its 4 targets.
+**On screen.** The pattern editor today shows 4 full track columns (note, instrument, 2 FX), or 8 narrow ones with one parameter each (`patternViewMode`, `core/interface/patternEditor/fPatternEdit.cpp`). Tape projects add a **lane view** next to these. A pattern-editor button switches between the normal view and the lane view (an Fn binding on the Mini):
 
-A lane column holds 4 lanes of 2-character values, the same character count as a track column, so its display-list cost is about the same as the track column it replaces and the frame stays inside the 8,172-byte budget (`core/libs/NewDisplay/AGENTS.md`). I'll count the bytes in phase 4. Step FX keep working on tape tracks as they do everywhere.
+| Type | Normal view | Lane view (4 columns) |
+| :--- | :--- | :--- |
+| Tape 2 | 2 track columns | tape track · lane group · lane group · the ordinary track |
+| Tape 4 | 4 track columns, as today | tape 1 · its lane group · tape 2 · its lane group |
+| Tape 6 | 6 tracks, scrolling as Default's 8 do | tape 1 · its lane group · tape 2 · its lane group |
 
-**One new step FX:** `SCENE` (value 1–4, recall with the scene glide), taken from one of the free `FX_TYPE_R*` placeholders in `core/source/mtSequencer.h`. It's the only thing a lane can't do, because scenes span tracks.
+A screen button cycles the group under the cursor: TAPE → GRAIN → RIPPLE → FX → MOD. Each column header names the group and its 4 targets.
+
+A lane column holds 4 lanes of 2-character values, the same character count as a track column. Its display-list cost should be about the same as the track column it stands in for, which keeps the frame inside the 8,172-byte budget (`core/libs/NewDisplay/AGENTS.md`); I'll count the bytes in phase 4. Step FX keep working on every track.
+
+**One new step FX:** `SCENE` (value 1–4, recalled with the scene glide), taken from one of the free `FX_TYPE_R*` placeholders in `core/source/mtSequencer.h`. It's the one thing a lane can't do, because scenes span tracks. It works from any track, so an ordinary drum track can call the scene changes.
 
 ---
 
 ## 6. Modulators
 
-Each tape track has **4 slots**. Each slot runs one engine:
+Each tape track has **4 slots**. Ordinary tracks keep the instrument envelopes and LFOs they have today. Each slot runs one engine:
 
-- **LFO**: SIN, TRI, SQR, SAW, RANDOM, free (0.02–20 Hz) or synced (16 bars to 1/32), FREE or note-retriggered, with phase, skew, smoothing and per-cycle variation.
+- **LFO**: SIN, TRI, SQR, SAW or RANDOM. Free (0.02–20 Hz) or synced (16 bars to 1/32), free-running or retriggered by notes, with phase, skew, smoothing and per-cycle variation.
 - **ADSR**: triggered by the track's notes and, optionally, by the tape's loop seam.
-- **FOLLOW**: an envelope follower on this track, another track or the input, auto-levelled, with optional sample-and-hold. I'll build it on the RMS node each voice already has (`AudioVoice::getRMS`).
-- **SEQ**: a 1–16 step sequence with its own length and rate. Lanes already sequence at the pattern's length; SEQ is kept for polymeters (a 5-step SEQ over a 16-step pattern).
+- **FOLLOW**: an envelope follower on this track, any other track or the input, auto-levelled, with an optional sample-and-hold. Following an ordinary track (the kick, say) to move a tape track's chain is the obvious use. I'll build it on the RMS node each voice already has (`AudioVoice::getRMS`).
+- **SEQ**: a 1–16 step sequence with its own length and rate. Lanes already sequence at the pattern's length, so SEQ is kept for polymeters (a 5-step SEQ over a 16-step pattern).
 
 **Depths.** A depth (−100…+100 %) connects a slot to a target, and at 100 % the swing covers the target's whole range. An LFO swings both ways around the base; ADSR, SEQ and FOLLOW push one way, set by the depth's sign. Limits: 24 depths a track, at most 8 per slot. Each slot also has AMT and OFFSET, both lane-able, so a lane can fade a modulator in over a bar.
 
-**Cost and context.** Modulators run once per audio block (128 samples, about 2.9 ms) in the interrupt, before the chain renders. A depth is a precomputed `range × depth` entry in a fixed array, double-buffered: the main loop rebuilds it when a depth changes and the interrupt flips one byte. No allocation, no `double`, all `f`-suffixed. Instrument-level envelopes and LFOs (`strInstrument::envelope/lfo`) keep working on the tape instrument and sample sources; these slots are on top of them.
+**Cost and context.** Modulators run once per audio block (128 samples, about 2.9 ms) in the interrupt, before the chain renders. Each depth is a precomputed `range × depth` entry in a fixed array, double-buffered: the main loop rebuilds the array when a depth changes, and the interrupt flips one byte to pick it up. No allocation, no `double`, and every literal is `f`-suffixed.
 
 ---
 
-## 7. Synth engines in a tape track (Tracker+ and Mini)
+## 7. Synth engines (Tracker+ and Mini)
 
-Synth parts don't go through any track's voice today: `SynthVoice` feeds the mixer directly. Tape mode adds a **binding**: each tape track can be bound to one synth part (A, B or C, or none). While bound, that part's output is routed into the track's chain input instead of straight to the mixer, so a synth goes through GRAIN, RIPPLE, COLOR and ECHO like any source. Notes for it are written on the tape track as usual, with the synth instrument in the instrument column.
+**On ordinary tracks, synths work exactly as they do today:** synth instruments in the instrument column, the 3 parts, the existing synth editor, patch and macro screens, and synth step FX.
 
-The synth editor screens (engine, patch, macros) are unchanged; binding is the only new setting, on the TAPE screen. There are 3 parts and up to 4 tape tracks, so in Tape 4 at most 3 tracks have a synth. The binding screen shows which part is taken. The synth's real-time budget guard (`kMaxSynthRealtimeBudgetUs` in `synth_PolySynth.cpp`) stays as it is; the chain's cost comes out of what's left, and phase 0 tells me how much that is.
+**On a tape track,** a part can be **bound** to the track. While it's bound, that part's output goes into the track's chain input instead of straight to the mixer, so a synth runs through GRAIN, RIPPLE, COLOR and ECHO. Notes for it go on the tape track as usual, with the synth instrument in the instrument column. There are at most two tape tracks and three parts, so a binding never runs out of parts, and at least one part stays free for the ordinary tracks. The binding is the only new synth setting, and it lives on the TAPE screen.
 
-On the Original Tracker there are no synth parts (`FEATURE_SYNTH` is IMX only), so a tape track's sources are the tape and sample instruments, including wavetable and granular play modes, which cover much of the "synth" ground.
+The synth's real-time budget guard (`kMaxSynthRealtimeBudgetUs` in `synth_PolySynth.cpp`) stays as it is. The chains' cost comes out of what's left, and phase 0 says how much that is.
+
+**On the Original Tracker** there are no synth parts (`FEATURE_SYNTH` is IMX only). A tape track's sources there are its tape and the sample instruments, including the wavetable and granular play modes.
 
 ---
 
 ## 8. Scenes
 
-4 scenes per project, stored in `tape.ptt`. A scene holds every tape track's base parameter values, chain settings, the source binding and each modulator's AMT. It doesn't hold tapes, patterns, lanes, depths or the tempo (in a tracker the tempo belongs to the song).
+A project has 4 scenes, stored in `tape.ptt`. A scene holds each tape track's base parameter values, chain settings, synth binding and modulator AMTs. It doesn't hold tapes, patterns, lanes, depths, ordinary tracks or the tempo; in a tracker the tempo belongs to the song.
 
-- **Recall** glides over a set time (default 300 ms). Choices (a mode, a scale) switch at the halfway point.
+- **Recall** glides over a set time (default 300 ms). Choices such as a mode or a scale switch at the halfway point.
 - **From the pattern:** the `SCENE` step FX.
 - **From performance mode:** a scene row, so scenes can be thrown live next to the existing performance FX.
 - **Capture:** Shift + a scene slot saves the current sound into it.
-- **Morph** (an encoder sweep between two scenes) is a later phase. It's the most CPU-hungry part (every parameter interpolated every block), so it waits for real numbers.
+- **Morph** (an encoder sweep between two scenes) is a later phase.
 
 ---
 
 ## 9. UI and the three devices
 
-New screens follow `docs/recipes/ui-screen.md`. Tape mode adds one module, **TAPE**, with pages switched by the screen buttons: TAPE · GRAIN · RIPPLE · COLOR · ECHO · MOD · LANES · SCENES · REC. Each page shows its parameters in the existing parameter-bar style, and every page is a list a Mini can step through. This is a new screen, not a change to existing ones, but it adds a module slot and a menu entry, which `AGENTS.md` §7 says to discuss first. I'll open that discussion before phase 4's PR.
+New screens follow `docs/recipes/ui-screen.md`. Tape projects add one module, **TAPE**, with pages switched by the screen buttons: TRACKS (which tracks are tape tracks, and their synth binding) · TAPE · GRAIN · RIPPLE · COLOR · ECHO · MOD · LANES · SCENES · REC. Each page shows its parameters in the existing parameter-bar style, and every page is a list the Mini can step through. It adds a module slot, a menu entry, a new-project popup and a pattern-editor view, which `AGENTS.md` §7 says to discuss first. A draft post is at the end of this plan.
 
 | | Original | Tracker+ | Mini |
 | :--- | :--- | :--- | :--- |
-| Tape tracks | 2 or 4 | 2 or 4 | 2 or 4 |
-| Audio | Mono chain (`SAMPLE_CHANNELS = 1`); RIPPLE and GRAIN pan collapse to mono | Stereo | Stereo |
+| Project types | Default, Tape 2/4/6 | Same | Same |
+| Audio | Mono chain (`SAMPLE_CHANNELS = 1`); GRAIN and RIPPLE stereo spread collapses to mono | Stereo | Stereo |
 | Synth binding | — | Yes | Yes |
-| Assign a depth | Hold a modulator pad (pads 1–4 of the TAPE screen's pad row) + turn the encoder on a parameter | Same | MOD page: pick a slot, pick a target from a list, set depth with ±1/±10 |
-| Lanes | Columns of the hidden tracks; screen button picks the group | Same | Same, groups cycled by an Fn key |
-| REC IN sources | Line, radio, mics, other tracks | + USB | Line, mic, USB, other tracks |
-| Expected limits | Fewer grains and strings; maybe ECHO only on 2 tracks in Tape 4. **Set by phase 0** | Bound by the synth budget | Same as Tracker+ |
+| Assign a depth | Hold a modulator pad + turn the encoder on a parameter | Same | MOD page: pick a slot, then a target from a list, then set the depth with ±1/±10 |
+| Lanes | Lane view; a screen button picks the group | Same | Same, with the groups cycled by an Fn key |
+| REC IN sources | Ordinary tracks, one track, self, line, radio, mics | Same + USB | Ordinary tracks, one track, self, line, mic, USB |
+| Expected limits | Fewer grains and strings; **set by phase 0** | Bound by the synth budget | Same as Tracker+ |
 
 ---
 
-## 10. Interrupt, memory and compatibility rules this has to keep
+## 10. Rules this has to keep
 
-- **Interrupt context.** The tape player, `TapeWriter`, the chain nodes, modulators and lane application all run in the audio DMA interrupt. No SD, no allocation, no UI calls, no blocking, no `double`, no "cheap" library calls in the inner loops (`core/` builds with `-fno-builtin`).
-- **Main loop only:** reading and writing `tape.ptt` and lane files, carving and freeing arena buffers, rebuilding depth tables, saving tapes.
-- **Classic projects are untouched.** No change to `strInstrument`, `strPattern`, `strMtProjectRemote` sizes, `SAMPLE_MEMORY_SIZE` or any existing enum value. Appended only: `playModeTape`, the `SCENE` FX ID, and new `InstrumentTypeId` values if any appear (I don't expect any).
-- **Memory.** No new static `EXTERNAL_RAM` buffers on IMX (it's full). Everything tape-sized comes from sample memory, and only in tape mode. Fast RAM additions (grain pool state, modulator tables, lane RAM copies) are counted per phase against the ARM build's memory report.
+- **Interrupt context.** The tape player, `TapeWriter`, the chain nodes, modulators and lane application all run in the audio DMA interrupt. That means no SD, no allocation, no UI calls, no blocking and no `double`. Inner loops also avoid library calls that look cheap, because `core/` builds with `-fno-builtin`.
+- **Main loop only:** reading and writing `tape.ptt` and lane files, carving and freeing effects buffers, rebuilding depth tables, saving tapes.
+- **Default projects are untouched.** No change to the sizes of `strInstrument`, `strPattern` or `strMtProjectRemote`, to `SAMPLE_MEMORY_SIZE`, or to any existing enum value. Appended only: `playModeTape` and the `SCENE` FX ID.
+- **Memory.** No new static `EXTERNAL_RAM` buffers on IMX (it's full). Everything tape-sized comes from sample memory, and only in tape projects. Additions to fast RAM (grain pool state, modulator tables, lane RAM copies) are counted per phase against the ARM build's memory report.
 - **Display.** Every new or changed control's display-list bytes are counted against the 8,172-byte frame budget.
 
 ---
 
 ## 11. Phases
 
-Each phase is one PR. Fences are a starting point; I re-grep the blast radius right before each phase, because code moves.
+Each phase is one PR. The fences are a starting point; I re-grep the blast radius right before each phase, because code moves.
 
 ### Phase 0: Measure and prepare (no user-visible change)
-- **Do:** measure idle and busy audio load per device with `Profiler` on a fixed reference project (8 sample tracks + 3 synth parts on IMX). Bring in or depend on the `tests/audio` host harness from `perf/optimization-plan`, so every new node can get golden-hash tests.
-- **Fence:** `docs/design/tape-mode-plan.md` (numbers), host-test scaffolding under `tests/`.
+- **Do:** measure idle and busy audio load per device with `Profiler` on fixed reference projects: 6 sample tracks, plus 3 synth parts on IMX. Bring in, or depend on, the `tests/audio` host harness from `perf/optimization-plan`, so every new node can get golden-hash tests.
+- **Fence:** this doc (the numbers), host-test scaffolding under `tests/`.
 - **Invariant:** firmware unchanged.
-- **Verify:** rung 5 measurements written into this doc. This sets the per-device limits in §9.
+- **Verify:** rung 5 measurements written into this doc. They set the tape length caps and the per-device limits in §9.
 
-### Phase 1: Project mode and sidecar (no audio)
-- **Do:** `projectMode` accessor + offset `static_assert`; the new-project popup; `tape.ptt` read/write and copy on save/open; tape instruments created, with no audio yet.
+### Phase 1: Project types and sidecar (no audio)
+- **Do:**
+  - the `projectType` accessor and the `static_assert` pinning its offset;
+  - the type popup in the new-project flow;
+  - `tape.ptt` read and write, copied on save and open;
+  - tape instruments created, with no audio yet.
 - **Fence:** `core/source/mtStructs.h` (accessor only), `core/FileManager/fileManagerProject.cpp`, `ProjectSave.cpp`, `ProjectOpen.cpp`, a new `core/FileManager/TapeProjectFile.{h,cpp}`, `core/interface/projectEditor/fProjEdit.cpp` and `gProjEdit.cpp`.
-- **Blast radius:** every reader of `midiInstrument[].reserved` (today: the two zeroing sites), project save/open callers, MOD/IT import.
-- **Invariant:** byte-identical files for classic projects.
-- **Verify:** rung 2, a host test that loads and saves a set of existing projects and compares bytes, plus a `tape.ptt` round-trip. Rung 3.
+- **Blast radius:** every reader of `midiInstrument[].reserved` (today, only the two zeroing sites), the callers of project save and open, MOD/IT import.
+- **Invariant:** byte-identical files for Default projects.
+- **Verify:** rung 2: a host test that loads and saves existing projects and compares the bytes, plus a `tape.ptt` round-trip. Rung 3.
 
-### Phase 1b: Hide the unused tracks
-- **Do:** in a tape project, hide tracks past 2 or 4 and the MIDI tracks in the pattern editor, mixer, performance mode, song and export screens, and skip rendering their voices.
-- **Fence:** `core/interface/patternEditor/`, `core/interface/` mixer and performance screens, `core/AudioEngine/mtAudioEngine.cpp` (skip only), the export track list.
-- **Blast radius:** every loop over `kSampleTracks` / `kAllTracks` in those screens, found by grep.
-- **Invariant:** classic projects visually identical and bit-exact.
+### Phase 1b: Hide the tracks a type doesn't have
+- **Do:** in a tape project, hide the tracks past 2, 4 or 6 and the MIDI tracks in the pattern editor, mixer, performance mode, song and export screens, and skip rendering their voices.
+- **Fence:** `core/interface/patternEditor/`, the mixer and performance screens in `core/interface/`, `core/AudioEngine/mtAudioEngine.cpp` (the skip only), the export track list.
+- **Blast radius:** every loop over `kSampleTracks` or `kAllTracks` in those screens, found by grep.
+- **Invariant:** Default projects visually identical and bit-exact.
 - **Verify:** rung 2 for the render skip; rung 4 on each screen.
 
 ### Phase 2: Tape playback
-- **Do:** `playModeTape`, `play_memory_tape.cpp`, the running head, SYNC soft lock, slice jumps on notes, RPT, wow/flutter, reverse; the TAPE page of the new screen.
-- **Fence:** `core/source/mtStructs.h` (enum append), `core/libs/Audio/play_memory*.{h,cpp}`, `isPlayModeStreamable`, the sequencer's note path for tape instruments, the new `core/interface/tapeMode/` screen.
+- **Do:** `playModeTape` and `play_memory_tape.cpp`: the running head, the SYNC soft lock, slice jumps on notes, RPT, wow and flutter, reverse. Plus the TRACKS and TAPE pages of the new screen.
+- **Fence:** `core/source/mtStructs.h` (enum append), `core/libs/Audio/play_memory*.{h,cpp}`, `isPlayModeStreamable`, the sequencer's note path for tape instruments, a new `core/interface/tapeMode/` screen.
 - **Invariant:** bit-exact audio for every existing play mode.
-- **Verify:** rung 2, golden hashes for existing modes unchanged and a new golden for tape playback. Rung 3, then rung 4 on each device I have.
+- **Verify:** rung 2: golden hashes for the existing modes unchanged, and a new golden for tape playback. Rung 3, then rung 4 on each device I have.
 
 ### Phase 3: Recording onto tape
-- **Do:** `TapeWriter`, REC IN routing (others, one track, self, input), DUB, bar-exact takes, bounce, saving dirty tapes.
-- **Invariant:** the classic Sample Recorder behaves as before.
+- **Do:** `TapeWriter`, REC IN routing (ordinary tracks, one track, self, input), DUB, bar-exact takes, bounce, saving dirty tapes.
+- **Invariant:** the existing Sample Recorder behaves as before.
 - **Verify:** rung 2 for the overdub maths; rung 4 for takes against the clock.
 
 ### Phase 4: Lanes
-- **Do:** lane files, the RAM double-buffer and read-ahead, application in the step path, the pattern-editor view toggle, copy/paste/insert/delete over lanes, the `SCENE` FX ID reserved (it does nothing until phase 8).
+- **Do:**
+  - lane files, the RAM double buffer and the read-ahead;
+  - applying lanes in the step path;
+  - the lane view in the pattern editor;
+  - copy, paste, insert and delete over lanes;
+  - the `SCENE` FX ID reserved (it does nothing until phase 8).
 - **Invariant:** timing (same ticks per block, step 1 on the downbeat with external clock); pattern files byte-identical.
-- **Verify:** rung 2, a sequencer host test that steps a pattern with lanes and checks values per tick. Rung 5 for timing. The display-list byte count for the lane view.
-- **Discuss first:** pattern editor change.
+- **Verify:** rung 2: a sequencer host test that steps a pattern with lanes and checks the values per tick. Rung 5 for timing. The display-list byte count for the lane view.
 
 ### Phase 5: COLOR and ECHO
-- **Do:** `TapeTrackChain` wiring and the two cheapest blocks, plus the tape arena.
-- **Invariant:** classic projects bit-exact; with every block off, a tape track is bit-exact with the same instrument on a classic track.
+- **Do:** wire up `TapeTrackChain`, the two cheapest blocks, and the effects arena.
+- **Invariant:** Default projects bit-exact; with every block off, a tape track is bit-exact with the same tape played on an ordinary track.
 - **Verify:** rung 2 goldens; rung 5 CPU per block per device.
 
 ### Phase 6: GRAIN
-- **Do:** live buffer, grain pool, SCAN modes, freeze, freeze to tape.
+- **Do:** the live buffer, the grain pool, the SCAN modes, freeze, and freeze to tape.
 - **Verify:** rung 2 goldens with fixed random seeds; rung 5 CPU, which sets the grain counts per device.
 
 ### Phase 7: RIPPLE
-- **Do:** strings, comb, resonators, pluck on notes. Port from the MIT originals if I use them, with `NOTICE.md` entries.
+- **Do:** strings, comb, resonators, and plucking on notes. Anything ported from an MIT original gets a `NOTICE.md` entry.
 - **Verify:** rung 2; rung 5.
 
 ### Phase 8: Modulators and scenes
-- **Do:** the 4 slots, depth tables, the assign gesture and Mini list, scenes, the `SCENE` FX, a scene row in performance mode.
+- **Do:** the 4 slots, the depth tables, the assign gesture and the Mini list, scenes, the `SCENE` FX, and a scene row in performance mode.
 - **Verify:** rung 2 for modulator output and depth maths; rung 4 for the gesture; rung 6 for scene glides.
 
 ### Phase 9: Synth binding (Tracker+ and Mini)
 - **Do:** route a bound synth part into a tape track's chain.
-- **Fence:** `core/AudioEngine/` connection code under `FEATURE_SYNTH`, `SynthVoice`, the binding UI.
+- **Fence:** the `core/AudioEngine/` connection code under `FEATURE_SYNTH`, `SynthVoice`, and the binding on the TRACKS page.
 - **Invariant:** unbound synths bit-exact.
 - **Verify:** rung 2; rung 5 under the synth budget guard.
 
 ### Phase 10: Device tuning, Mini pass, manual
-- **Do:** per-device limits from the measurements, the Mini's Fn bindings, a user manual page in `docs/` in the same voice as the others.
-- **Verify:** rung 4 on all three devices, rung 6 write-ups.
+- **Do:** per-device limits from the measurements, the Mini's Fn bindings, and a user manual page in `docs/` in the same voice as the others.
+- **Verify:** rung 4 on all three devices; rung 6 write-ups.
 
-Later, once the numbers are in: morph, a second room, a channel strip (LOW/HIGH/DJ filter), GRAIN's WARBLE/VINYL forms.
+Later, once the numbers are in: morph, a second room, a channel strip, GRAIN's WARBLE and VINYL forms, and a "through tape" send from an ordinary track into a tape track's chain.
 
 ---
 
 ## 12. Decisions made
 
-- **Only tape tracks.** A tape project has 2 or 4 tracks and nothing else, so lanes, the chain and its memory get the room the other tracks would take.
-- **Fixed tape length**, chosen when a tape is made (default 8 bars at the project tempo). Tapes that grow while recording are a poor fit for the Tracker's sample memory and make save sizes unpredictable.
-- **No drum source.** A tape track can play a slice kit or a sample instrument, or (Tracker+/Mini) the PERC engine through a synth binding, which covers it.
-- **Synth editing stays as it is.** Engines, patches and macros are edited in the existing synth editor screens. Tape mode adds only the binding of a part to a tape track.
+- **Four project types:** Default (16 tracks, no tape), Tape 2 (1 tape track), Tape 4 and Tape 6 (up to 2 tape tracks each). The caps keep tapes long and give the chains the CPU, memory and screen room.
+- **Ordinary tracks are full tracker tracks.** They play samples and synths as they do today and are what usually gets printed onto the tapes.
+- **Fixed tape length**, chosen when a tape is made (default 8 bars). Tapes that grow while recording fit badly with the Tracker's sample memory and make save sizes unpredictable.
+- **No drum source.** An ordinary track with a slice kit or the PERC engine covers it.
+- **Synth editing stays as it is.** Engines, patches and macros are edited in the existing synth screens. Tape projects add only the binding of a part to a tape track.
 - **Patterns, song mode and performance mode work as usual.** Lanes travel with patterns, and scenes are one more thing performance mode and a step FX can recall.
 
 ## Appendix: draft GitHub Discussion post
 
-> **Proposal: a Tape project mode (2 or 4 tape tracks with granular, resonator and effects lanes)**
+> **Proposal: tape projects (2, 4 or 6 tracks, with up to two tape tracks that have granular, resonator and effects lanes)**
 >
-> I'd like to add a second kind of project. When you make a new project you'd pick Classic (what exists today, the default), Tape 2 or Tape 4. A tape project has 2 or 4 tracks, each with a tape loop that rolls with the transport and can be recorded over while the song plays, an effects chain after it (granular, resonator, colour, echo), four modulators, and lanes: columns beside the pattern's notes that sequence the tape and its effects step by step.
+> I'd like to add project types. When you make a new project you'd pick Default (what exists today, still the first choice), Tape 2, Tape 4 or Tape 6. A tape project has that many tracks. Up to two of them (one in Tape 2) are tape tracks: a tape loop that rolls with the transport and can be recorded over while the song plays, an effects chain after it (granular, resonator, colour, echo), four modulators, and lanes, which are columns beside the pattern's notes that sequence the tape and its effects step by step. The other tracks are ordinary tracker tracks with samples and synths, and they're what you usually print onto the tapes.
 >
-> What changes for people who don't use it: nothing. Classic projects read and write byte-for-byte as before, and no sample memory is taken unless a tape project is open.
+> Why the caps: with fewer tracks and at most two tapes, each tape can be long, and the CPU and screen room go to the two effects chains and their lanes.
 >
-> What's new on screen: a TAPE screen (pages for the tape, each effect, the modulators, lanes, scenes and recording), a choice in the new-project flow, and a lane view in the pattern editor for tape projects only. Patterns, song mode, performance mode and the synth editor work as they do now.
+> What changes for people who don't use it: nothing. Default projects read and write byte-for-byte as before, and no sample memory is taken unless a tape project is open.
 >
-> It's planned for all three devices: Original Tracker (mono chain, no synth binding), Tracker+ and Mini (synth parts can be routed through a tape track; the Mini uses its Fn keys and list pages instead of pads).
+> What's new on screen: a type choice when you make a project, a TAPE screen (which tracks are tape tracks, the tape, each effect, the modulators, lanes, scenes and recording), and a lane view in the pattern editor in tape projects. Patterns, song mode, performance mode and the synth editor work as they do now.
+>
+> It's planned for all three devices: the Original Tracker (mono chain, no synth binding), and Tracker+ and Mini (a synth part can be run through a tape track; the Mini uses its Fn keys and list pages instead of pads).
 >
 > The full plan, with the phases and how each one is verified, is in `docs/design/tape-mode-plan.md` on the `work/keen-babbage-uvnhez` branch. I'd especially like opinions on the lane view layout and on where the TAPE screen should sit in the module buttons.
