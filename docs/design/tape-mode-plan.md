@@ -2,6 +2,12 @@
 
 > Status: **plan only, nothing built.** Branch `work/keen-babbage-uvnhez`, from `main` at `377c56f`. Every phase below is its own PR with a fence, a blast radius, an invariant and a verification rung, per [`AGENTS.md`](../../AGENTS.md) §1.
 
+> **UX first.** How all of this works in your hands is in [`tape-ux.md`](tape-ux.md), with drawn screens in [`tape-ux-mockups.html`](tape-ux-mockups.html). Where they differ from this plan on anything a person sees or touches, they win. The differences I still have to fold in here:
+> - **Lanes** are 16 per tape track in four banks (A–D) of four, any lane any target, shown in place of the FX columns by pressing Fx again. They replace the five fixed groups in §5.
+> - **The deck isn't the track's voice.** A tape track's own notes can play any instrument while the tape keeps rolling, so each deck needs a player of its own. Tape projects hide tracks 7 and 8 in every type, so their two players become decks A and B.
+> - **Synth routing** is an Output setting (Mix, Tape A, Tape B) in the synth editor, not a binding on the Tape screen.
+> - **Screens:** Params on a tape track opens the Tape screen (pages Tape · Grain · Ripple · Color · Echo · Mod). SampleRec on a tape track opens the Tape Recorder. Master gains a Tape Sends mode, and Perform's second press opens Scenes.
+
 ## What I'm building, in one paragraph
 
 When I make a new project, I pick its type: **Default** (today's 16 tracks, no tape), **Tape 2**, **Tape 4** or **Tape 6**. A tape project has exactly that many tracks, and up to two of them are **tape tracks**: one in Tape 2, two in Tape 4 and Tape 6. A tape track owns a running tape loop that rolls with the transport and can be recorded over while the song plays, a fixed effects chain after it (GRAIN → RIPPLE → COLOR → ECHO), four modulators, and **lanes**, columns of step values beside the pattern's note and FX columns that sequence the tape and its effects. The other tracks are ordinary tracker tracks, playing samples and synth engines, and they're what usually gets printed onto the tapes. Capping both numbers is the point: fewer tracks and at most two tapes means longer tapes, and the CPU, memory and screen width the missing tracks would use go to the two chains and their lanes. Patterns, song mode, performance mode and the synth editor work the way they do in any project. It runs on the Original Tracker, Tracker+ and Tracker Mini, scaled to each one.
