@@ -85,7 +85,13 @@ The instrument gets a new play mode, `playModeTape`, appended to `instrumentPlay
 
 ## 4. The chain
 
-A tape track's audio runs `tape + source → GRAIN → RIPPLE → COLOR → ECHO → track amp/pan → mix`, plus the existing delay and reverb sends. Every block starts out of the way (WET 0, or no drive), so a fresh tape track sounds exactly like its tape. Each of GRAIN, RIPPLE and COLOR is an insert or a send (ROUT). ECHO is always a send. Ordinary tracks have no chain; they keep the instrument filter, overdrive, bit depth and sends they have today.
+A tape track's audio runs `tape + source → GRAIN → RIPPLE → COLOR → ECHO → track amp/pan → mix`, plus the existing delay and reverb sends. Every block starts out of the way (WET 0, or no drive), so a fresh tape track sounds exactly like its tape. Each of GRAIN, RIPPLE and COLOR is an insert or a send (ROUT). ECHO is always a send. Ordinary tracks don't get chains of their own (two chains is the CPU cap), but they can **feed** one. Every ordinary track has two new sends, **FX A** and **FX B**, into tape track A's or B's chain. That's how drums, or anything else on an ordinary track, flow into the effects live, without printing them to tape first:
+
+- **What a send feeds.** The send enters the chain after the tape, so it's granulated, rung through RIPPLE, coloured and echoed along with whatever the tape track plays. It's pre-fader by default, so a drum track can be muted in the mix and still heard only through the effects.
+- **Hits drive the chain.** A note on an ordinary track that sends to a chain can, per send, pluck RIPPLE (so the kick strikes the strings), retrigger the chain's ADSR modulators, and feed a FOLLOW modulator. The send level, and the pluck on or off, are lane-able on the tape track and settable by step FX on the ordinary track.
+- **Cost.** A send is one gain and one mixer input per track. The chains run once whatever feeds them, so sending all four ordinary tracks costs about the same CPU as sending one.
+
+Ordinary tracks also keep the instrument filter, overdrive, bit depth and the master delay and reverb sends they have today.
 
 **Where it lives.** A new `TapeTrackChain` in `core/AudioEngine/`, one per tape track, so at most two. It's built only in tape projects, and constructed after the voices and synth nodes, because `AudioStream::update_all` runs nodes in construction order. Its input is an `AudioMixer` of the track's voice filter output and, on Tracker+ and Mini, the synth part bound to that track. Its output takes the place of the voice's own connection into the amp and the send mixers. Default projects never build or connect it.
 
@@ -194,7 +200,7 @@ The Original Tracker has no synth engines, so a drum source can't be a `.psyn` p
 **How it plugs in.**
 - A **drum instrument** is a sample instrument with a new play mode, `playModeDrum`, appended to `instrumentPlayMode`. It has no sample data, so it costs no sample memory, and it works in any project type, Default included, on any track, ordinary or tape.
 - The player is a new `core/libs/Audio/play_memory_drum.cpp`. It renders a small pool of theseus voices inside the track's one voice, so a kick's tail isn't cut by the next hat. A new hit takes a silent voice, else the quietest one. The output is Q15, which is the `int16` the audio blocks already carry, so there's no conversion.
-- The instrument's filter, overdrive, bit depth, volume, pan, envelopes and sends still apply after it, like any instrument. On a tape track it feeds the chain.
+- The instrument's filter, overdrive, bit depth, volume, pan, envelopes and sends still apply after it, like any instrument. On a tape track it feeds that track's chain. On an ordinary track its FX A and FX B sends feed the tape tracks' chains (§4), and each hit can pluck RIPPLE and retrigger the chain's envelopes, so a drum track is the most direct way to play the effects.
 
 **Parameters.** Theseus's 8 controls, kept as they are: **Decay** (30 ms–1.5 s, high drums shorter), **Punch** (pitch-envelope depth), **Cutoff**, **FM**, **Noise**, **LFO** (hit-LFO depth on cutoff, FM and a little pitch), **Rate** (one LFO cycle every 32…2 hits) and **Tune** (±24 semitones, shifts which drum a note picks). Every one can be moved by step FX, and on tape tracks by lanes and modulators.
 
@@ -302,6 +308,12 @@ Each phase is one PR. The fences are a starting point; I re-grep the blast radiu
 - **Invariant:** Default projects bit-exact; with every block off, a tape track is bit-exact with the same tape played on an ordinary track.
 - **Verify:** rung 2 goldens; rung 5 CPU per block per device.
 
+### Phase 5b: FX sends from ordinary tracks
+- **Do:** the FX A and FX B sends on every ordinary track, the send-level step FX, and hit triggers (RIPPLE pluck and ADSR retrigger stubs that phases 7 and 8 fill in).
+- **Fence:** `core/AudioEngine/` connection code for the chain inputs, the mixer screen's send controls, `core/AudioEngine/mtAudioSequencer.cpp` for the step FX.
+- **Invariant:** with both sends at 0, every track is bit-exact with no send connected.
+- **Verify:** rung 2 goldens; rung 5 CPU with every ordinary track sending.
+
 ### Phase 6: GRAIN
 - **Do:** the live buffer, the grain pool, the SCAN modes, freeze, and freeze to tape.
 - **Verify:** rung 2 goldens with fixed random seeds; rung 5 CPU, which sets the grain counts per device.
@@ -333,14 +345,14 @@ It doesn't depend on any tape phase, so it can go first if drums on the Original
 - **Do:** per-device limits from the measurements, the Mini's Fn bindings, and a user manual page in `docs/` in the same voice as the others.
 - **Verify:** rung 4 on all three devices; rung 6 write-ups.
 
-Later, once the numbers are in: morph, a second room, a channel strip, GRAIN's WARBLE and VINYL forms, and a "through tape" send from an ordinary track into a tape track's chain.
+Later, once the numbers are in: morph, a second room, a channel strip, GRAIN's WARBLE and VINYL forms.
 
 ---
 
 ## 12. Decisions made
 
 - **Four project types:** Default (16 tracks, no tape), Tape 2 (1 tape track), Tape 4 and Tape 6 (up to 2 tape tracks each). The caps keep tapes long and give the chains the CPU, memory and screen room.
-- **Ordinary tracks are full tracker tracks.** They play samples and synths as they do today and are what usually gets printed onto the tapes.
+- **Ordinary tracks are full tracker tracks.** They play samples, synths and drums as they do today, get printed onto the tapes, and feed the effects live through their FX A and FX B sends.
 - **Fixed tape length**, chosen when a tape is made. Tapes that grow while recording fit badly with the Tracker's sample memory and make save sizes unpredictable.
 - **Tape length:** fixed, default 8 bars, with per-device caps set by phase 0.
 - **theseus is the drum engine** (§7a), ported from my MIT `operators-xy` tree, because the Original has no synth engines. It works on every track, in every project type, on every device.
