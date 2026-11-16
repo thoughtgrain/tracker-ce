@@ -73,7 +73,7 @@ svg text { font-family: var(--f-screen); }
       <span><i class="sw fx1"></i><i class="sw fx2"></i>FX columns</span>
     </div>
     <nav class="toc" aria-label="Screens">
-      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Params · More</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">Sample Playback · Drum</a><a href="#perf">Performance</a>
+      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Params · More</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">Sample Playback · Drum</a><a href="#perf">Performance</a>
     </nav>
   </header>
 
@@ -93,6 +93,16 @@ svg text { font-family: var(--f-screen); }
         <p>A tape track has four FX columns where an ordinary track has two. Pressing <kbd>Fx</kbd> again swaps the visible pair between FX1·2 and FX3·4, the way <kbd>Note</kbd> pressed again swaps in Micro-move and Volume. The header shows which pair is up.</p>
         <ul><li>They're the same FX list, entry, Fill, Copy and Undo you already use. The new tape FX are new entries in that list.</li><li>Here, FX3 holds a <b>Fill</b> of Speed from 100 down to −100 over steps 9–14, and FX4 holds a <b>Roll</b>, an existing FX.</li><li>Ending a stutter works as it does today: write the FX again with 0.</li><li><b>The sample strip</b>: a thin waveform beside a track runs down with the steps, showing the stretch of sample each step plays. It appears on any track whose sample keeps playing across steps, in Default projects too, not only on tapes. Orange lines mark a note starting or jumping to a slice; dashed white lines mark a loop wrapping. On Tape A it narrows and goes flat as the Speed fill slows the tape to a stop; on track 4, a looping pad started on step 0 wraps every six steps.</li></ul>
         <p class="mini"><b>Mini:</b> the same, with the Fx button and ±1/±10.</p></div></div>
+  </section>
+
+  <section class="section" id="strips">
+    <div class="intro"><h2>Sample strips in a Default project</h2><p>Every project type, not only tapes: a looping break, a synth pad and a one-shot vocal each get a strip, and short drum hits don't. Spec §5.</p></div>
+    <div class="fig"><div class="bezel" data-screen="strips"></div>
+      <div class="notes"><span class="ref">pattern editor · Config: Sample strips</span>
+        <dl><dt>Loop</dt><dd>Track 2: a break started on step 0, wrapping at its loop end every eight steps (dashed line). It keeps going across the pattern end.</dd>
+          <dt>Synth</dt><dd>Track 3: a synth has no stored sample, so its strip is the part's real output, captured as it plays. Rows already heard on this pass are bright; rows ahead are dim, from the last pass. The attack of each note and the release after OFF show as the waveform swelling and fading.</dd>
+          <dt>One-shot</dt><dd>Track 4: a vocal starting on step 2. The strip ends where the sample does.</dd>
+          <dt>Drums</dt><dd>Track 1: hits shorter than a beat get no strip, so the grid stays clean. <b>All notes</b> in Config shows them too.</dd></dl></div></div>
   </section>
 
   <section class="section" id="tape">
@@ -270,6 +280,39 @@ svg text { font-family: var(--f-screen); }
     [6, 12].forEach(function (lr) { s += l(gx + 3 * tw + 162, y0 + lr * rh + 2, gx + 3 * tw + 190, y0 + lr * rh + 2, K.white, 1.5, "3 2"); });
     s += labels([{ n: "Pattern", v: "3" }, { n: "Length", v: "16" }, { n: "Step jump", v: "1" }, { n: "Fill" }, { n: "Preview" }, { n: "Undo" }, { n: "Redo" }, { n: "More", v: "•··" }]);
     return svg(s, "Pattern editor in Tape 4 with Tape A showing FX columns 3 and 4");
+  };
+
+  S.strips = function () {
+    var s = titleBar("Pattern", "S1  Synth Pad");
+    var gx = 34, tw = 191, y0 = 60, rh = 24, play = 5;
+    var heads = ["1 Drums", "2 Break", "3 Pad", "4 Vox"];
+    for (var i = 0; i < 4; i++) { var x = gx + i * tw; s += r(x, 31, tw - 4, 26, K.boxDim) + t(x + 8, 49, heads[i], { s: 14, w: 700, c: K.txt }); }
+    for (var row = 0; row < 15; row++) { var y = y0 + row * rh;
+      if (row === play) s += r(0, y + 2, 800, rh - 2, "#122a24");
+      if (row % 4 === 0) s += r(0, y + 2, gx - 4, rh - 2, "#161618");
+      s += t(gx - 8, y + 18, (row < 10 ? "0" : "") + row, { a: "end", s: 13, c: row % 4 === 0 ? K.txt : K.dim, mono: true }); }
+    function cell(x, y, str, c) { return t(x, y, str, { s: 14, c: c, mono: true, w: 500 }); }
+    var cols = [{ 0: ["C-2", "01"], 2: ["F#2", "01"], 4: ["D-3", "01"], 6: ["F#2", "01"], 8: ["C-2", "01"], 10: ["C-2", "01"], 12: ["D-3", "01"], 14: ["F#2", "01"] },
+      { 0: ["C-4", "04"] }, { 0: ["C-3", "S1"], 8: ["G-2", "S1"], 14: ["OFF", ""] }, { 2: ["C-4", "05"] }];
+    for (row = 0; row < 15; row++) { var yy = y0 + row * rh + 18;
+      cols.forEach(function (c, q) { var x = gx + q * tw, e = c[row];
+        s += cell(x + 6, yy, e ? e[0] : "---", e ? K.note : K.faint) + cell(x + 44, yy, e && e[1] ? e[1] : "--", e && e[1] ? K.instr : K.faint) + cell(x + 76, yy, "----", K.faint) + cell(x + 128, yy, "----", K.faint); }); }
+    // amp(row, q) gives a 0..1 level for each quarter-row; bright = heard on this pass, dim = from the last pass
+    function strip(x, amp, seed, starts, wraps, captured) {
+      var o = r(x, y0 + 2, 20, 15 * rh - 2, "#0c0c0e"), rnd = seed;
+      for (var rw = 0; rw < 15; rw++) for (var q = 0; q < 4; q++) { rnd = (rnd * 9301 + 49297) % 233280;
+        var v = rnd / 233280, a = amp(rw, q) * (2 + 7 * (captured ? 0.75 + 0.25 * Math.sin((rw * 4 + q) * 1.3) : v)), yy2 = y0 + rw * rh + 5 + q * 5;
+        if (a > 0.3) o += l(x + 10 - a, yy2, x + 10 + a, yy2, rw === play ? K.white : (captured && rw > play ? K.dim : K.txt), 2); }
+      starts.forEach(function (sr) { o += l(x - 2, y0 + sr * rh + 2, x + 22, y0 + sr * rh + 2, K.nw, 2); });
+      wraps.forEach(function (wr) { o += l(x - 4, y0 + wr * rh + 2, x + 24, y0 + wr * rh + 2, K.white, 1.5, "3 2"); });
+      return o;
+    }
+    s += strip(gx + tw + 166, function () { return 1; }, 31, [0], [8], false);
+    s += strip(gx + 2 * tw + 166, function (rw, q) { var p = rw * 4 + q; if (rw >= 14) return Math.max(0, 0.6 - q * 0.2); var n = p % 32; return Math.min(1, n / 6) * (n < 32 ? 0.85 : 1); }, 5, [0, 8], [], true);
+    s += strip(gx + 3 * tw + 166, function (rw) { return rw >= 2 && rw < 8 ? 1 - (rw - 2) * 0.08 : 0; }, 13, [2], [], false);
+    s += newTag(gx + tw + 140, 38) + newTag(gx + 2 * tw + 140, 38) + newTag(gx + 3 * tw + 140, 38);
+    s += labels([{ n: "Pattern", v: "1" }, { n: "Length", v: "16" }, { n: "Step jump", v: "1" }, { n: "Fill" }, { n: "Preview" }, { n: "Undo" }, { n: "Redo" }, { n: "More", v: "•··" }]);
+    return svg(s, "Default project: strips on a looping break, a synth pad and a one-shot vocal, none on short drum hits");
   };
 
   S.tape = function () {
