@@ -33,7 +33,7 @@ That leaves **two** new pieces of UI: the project-type choice, and paging throug
 - **A tape track** is the track the tape lives on. It's an ordinary track in every way you already know, one voice and the same columns, with two additions:
   - **more FX columns** (FX1–FX4 instead of FX1–FX2);
   - **its own send effect**, Tape A FX or Tape B FX: Grain → Ripple → Echo in series. It works like Reverb and Delay: instruments send into it, and it's set up in **Master**.
-- **The tape sends to its own FX** at 100 by default, so a fresh tape is heard dry plus through its effects, and you turn either down independently: the track fader for the dry tape, the FX's Level in Master for the effects.
+- **The tape sends to its own FX** at 100 by default, so a fresh tape is heard dry plus through its effects, and you turn either down independently: the track fader for the dry tape, the Tape FX level in Global Mixer for the effects.
 - **Every instrument**, on any track, has two new sends, **Tape A send** and **Tape B send**, beside Reverb send and Delay send. That's how drums, synths and samples flow into the effects.
 
 | Type | Tracks | Tape tracks | Ordinary |
@@ -100,22 +100,28 @@ Choose Tape A as the instrument and press **SamplePlay**. The screen is the one 
 
 Grain, Ripple and Echo are **send effects**, one set per tape, the same kind of thing as the Tracker's Reverb and Delay. Instruments send into them (Params → More: Tape A send, Tape B send), and you set them up in **Master**, where Reverb and Delay are set up today.
 
-**Master**, pressed until **Tape FX** (a mode after master, mixer and sends, only in tape projects):
+It fits the Master screens the way Reverb and Delay already do. On the Tracker today, **Master 1/3** has Reverb and Delay as buttons that open their own pages (Master Reverb, Master Delay, with Back on 8), and their return levels sit in **Global Mixer 3/3** beside Dry Mix, Line in and the synths. The tape effects copy that exactly:
 
-| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| A Grain | A Ripple | A Echo | A Level | B Grain | B Ripple | B Echo | B Level |
+- **Master Tape** is a new page in the Master cycle, in tape projects only, so pressing Master goes 1/4 → 2/4 → 3/4 → 4/4. It holds six buttons, laid out like Master 1/3's Reverb and Delay: they open pages and have no bars of their own.
 
-Level is the effect's return, a bar like Master's other levels. Each of the other buttons opens a sub-page of vertical bars with Back on button 8, the way Master's Reverb and Delay buttons open theirs:
+  | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+  | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+  | A Grain | A Ripple | A Echo | | B Grain | B Ripple | B Echo | |
+
+  Above each button, the page shows that effect's main values as text (Wet, and two or three settings), and a line across the top of each half reads **Tape A send → Grain → Ripple → Echo → Tape A FX level**, so the order the sound goes through is on screen.
+- **Each button opens its page** (Master Tape A Grain, and so on): bars, with **More** on 7 for the rest and **Back** on 8, as the Reverb and Delay pages have Back.
+- **The return levels go in Global Mixer 3/4**, beside Delay and Reverb. On Tracker+ and Mini that mixer has one free column, so it's one **Tape FX** column that shows Tape A's level and steps to Tape B's when pressed again, the Tracker's rule for a selected list. On the Original there's room for both as two columns.
+
+The pages:
 
 | Sub-page | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Grain** | Wet | Size | Density | Pitch | Spray | Spread | Scan | More |
-| Grain, More | Position | Warp | Feedback | Freeze | | | | Back |
-| **Ripple** | Wet | Mode (strings, comb, reso) | Pitch | Decay | Tone | Chord | Pluck (own notes, + sends) | More |
-| Ripple, More | Cutoff | Resonance | Drive | Spread | | | | Back |
-| **Echo** | Level | Time | Sync | Feedback | Tone | Spread | Age | More |
-| Echo, More | Duck | Diffuse | Verb send | | | | | Back |
+| **Grain** | Wet | Size | Density | Pitch | Spray | Scan | More | Back |
+| Grain, More | Spread | Position | Warp | Feedback | Freeze | | More | Back |
+| **Ripple** | Wet | Mode (strings, comb, reso) | Pitch | Decay | Tone | Chord | More | Back |
+| Ripple, More | Pluck (own notes, + sends) | Cutoff | Resonance | Drive | Spread | | More | Back |
+| **Echo** | Wet | Time | Sync | Feedback | Tone | Age | More | Back |
+| Echo, More | Spread | Duck | Diffuse | Reverb send | | | More | Back |
 
 - **Wet is on button 1 and selected when the sub-page opens.** Inside a tape's FX the three run in series, and each block's Wet sets how much of its own sound passes on to the next, so Grain, then a turn of the encoder, brings the grains in. That's the one Bryo habit worth keeping, and it costs nothing on the Tracker.
 - **No insert or send switch per block.** The whole set is a send, so Bryo's ROUT goes away; the dry sound always stays on its track.
@@ -224,7 +230,7 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 | **Shift** | all 48 | set the selected parameter's value, pad 1 = minimum, pad 48 = maximum, the way pads set an FX value in the pattern editor | a bar from pad 1 to the current value |
 
 - **Two taps and a press.** To make the snare brighter: hold Parameter, tap the Snare section pad, tap the Tone pad, let go, then hold Shift and press a pad high up. Fine-tune with the encoder afterwards. Nothing about the screen changes: the grid and the list follow what the pads selected.
-- **The same rule on bar pages.** On pages of vertical bars (Master → Tape FX sub-pages, Params), holding a parameter's screen button and pressing a pad sets that value across the 48 pads, exactly the hold-a-button-press-a-pad habit above.
+- **The same rule on bar pages.** On pages of vertical bars (the Master Tape pages, Params), holding a parameter's screen button and pressing a pad sets that value across the 48 pads, exactly the hold-a-button-press-a-pad habit above.
 - **List values** (a mode, a shape) step through their choices across the pads, one pad per choice, from the bottom-left.
 - **Mini:** no pads, so nothing changes: Left/Right move between grid and list, and ±1/±10 set the value.
 
@@ -244,7 +250,7 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 
 | First version | Now | Why |
 | :--- | :--- | :--- |
-| A new **Tape** module with six pages and pictures | Sample Playback (the tape) and Master → Tape FX (the effects, as send effects) | Those are the screens a Tracker user already opens for "how a sound plays" and "how it's shaped". |
+| A new **Tape** module with six pages and pictures | Sample Playback (the tape) and Master Tape 4/4 (the effects, as send effects, like Reverb and Delay) | Those are the screens a Tracker user already opens for "how a sound plays" and "how it's shaped". |
 | Lanes in four banks, with Step / Hold / Glide modes and a target popup | Four more **FX columns**, new FX types, and **Fill** for ramps | Lanes *are* FX columns in a tracker. Separate rules would be a second grid to learn. |
 | Modulator slots M1–M4, hold a pad to set depth, Assign mode | **Automation**, with new destinations and a **Follow** type | The Tracker's model is destination-first; adding destinations fits it. |
 | A deck that plays alongside the track's notes | One voice per track; the tape keeps time underneath | One voice per track is how every Tracker track works. |
@@ -264,7 +270,7 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 1. **File → New Project → Tape 4 → Create.** Pattern 1 has `C-4 TA` on Tape A and `C-4 TB` on Tape B.
 2. On track 3, write a beat with a drum instrument (§8). **Play.**
 3. **SampleRec**: Source Tracks, Target Tape A, Bars 4. **Record.** It starts on the next bar, stops after 4, and Tape A loops it.
-4. **Master** until **Tape FX**, then **A Grain**, and turn the encoder: Wet is already selected.
+4. **Master** until **Master Tape 4/4**, then **A Grain**, and turn the encoder: Wet is already selected.
 
 **J2. A tape break in the pattern**
 1. On Tape A, press **Fx** twice for FX3·4.
@@ -273,7 +279,7 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 
 **J3. The kick plucks the strings**
 1. On track 3's drum instrument, **Params → More → Tape A send** up.
-2. **Master → Tape FX → A Ripple**: Wet up, Chord Min7, and **Pluck: + sends**.
+2. **Master Tape 4/4 → A Ripple**: Wet up, Chord Min7, and **Pluck: + sends**.
 
 **J4. The kick pumps the grains**
 1. Tape A: **Params**, **Params** again (Automation). Destination **Grain Size**, Type **Follow**, Source **Track 3**, Amount −40.
