@@ -12,6 +12,10 @@ on:
         description: "Publish this run as a pre-release with this tag (e.g. v0.1.0-alpha.1). Leave empty to only build."
         required: false
         default: ""
+      release_notes:
+        description: "Notes for that pre-release. Used instead of GitHub's generated notes."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -249,7 +253,10 @@ jobs:
           tag_name: ${{ inputs.prerelease_tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
           name: Polyend Tracker CE ${{ inputs.prerelease_tag || github.ref_name }}
-          generate_release_notes: true
+          # Generated notes list merged PRs and "new contributors", which says nothing useful about a
+          # test build from a branch. A manual pre-release uses the notes given to the run instead.
+          generate_release_notes: ${{ inputs.prerelease_tag == '' }}
+          body: ${{ inputs.release_notes }}
           # A test build is never shown as the latest release: a manual pre-release run, or a tag
           # with a suffix (v0.1.0-alpha.1, v1.2.0-beta.2).
           prerelease: ${{ inputs.prerelease_tag != '' || contains(github.ref_name, '-') }}
