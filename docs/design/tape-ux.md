@@ -12,8 +12,9 @@ I asked one question for each Bryo idea: **where would a Tracker user look for t
 | :--- | :--- | :--- |
 | Set where a sample starts, loops and slices | **Sample Playback** | the tape is a play mode there |
 | Trim, normalise or process audio | **Sample Editor** | the tape's audio is edited there, unchanged |
-| Shape an instrument's sound, set its sends | **Params** (and its **More** window) | Grain, Ripple and Echo are there, beside Overdrive and Bit depth |
-| Move a parameter with an envelope or LFO | **Params** pressed again: **Automation** | the chain's values are new automation destinations |
+| Shape an instrument's sound, set its sends | **Params** (and its **More** window) | Tape A send and Tape B send sit beside Reverb send and Delay send |
+| Set up a send effect, like Reverb or Delay | **Master** | each tape's Grain, Ripple and Echo are set up there |
+| Move a parameter with an envelope or LFO | **Params** pressed again: **Automation** | the tape FX values are new automation destinations |
 | Change something on a step | an **FX column** in the pattern | tape tracks get more FX columns, and the tape FX are FX |
 | Record audio | **Sample Recorder** | it can record onto a tape while the song plays |
 | Turn a pattern into a sample | **Render Selection** | it can render onto a tape |
@@ -31,9 +32,9 @@ That leaves **two** new pieces of UI: the project-type choice, and paging throug
 - **A tape is an instrument** (Tape A, Tape B) with a new play mode, **Tape**. While the transport runs it keeps rolling in sync, whether or not a note is playing on it, so coming back to it lands where the music is.
 - **A tape track** is the track the tape lives on. It's an ordinary track in every way you already know, one voice and the same columns, with two additions:
   - **more FX columns** (FX1–FX4 instead of FX1–FX2);
-  - **its own chain**, Grain → Ripple → Echo, through which its sound and every send into it pass.
-- **Its fader is the chain's output.** Muting Tape A mutes Tape A's chain, including what other tracks send into it. There's no separate return channel to learn.
-- **Ordinary tracks** are exactly today's tracks. Their instruments have two new sends, **Tape A send** and **Tape B send**, beside Reverb send and Delay send. That's how drums, synths and samples flow into the effects.
+  - **its own send effect**, Tape A FX or Tape B FX: Grain → Ripple → Echo in series. It works like Reverb and Delay: instruments send into it, and it's set up in **Master**.
+- **The tape sends to its own FX** at 100 by default, so a fresh tape is heard dry plus through its effects, and you turn either down independently: the track fader for the dry tape, the FX's Level in Master for the effects.
+- **Every instrument**, on any track, has two new sends, **Tape A send** and **Tape B send**, beside Reverb send and Delay send. That's how drums, synths and samples flow into the effects.
 
 | Type | Tracks | Tape tracks | Ordinary |
 | :--- | :---: | :--- | :--- |
@@ -86,22 +87,32 @@ Choose Tape A as the instrument and press **SamplePlay**. The screen is the one 
 
 ---
 
-## 4. The chain: Params → More
+## 4. The effects: send effects, set up in Master
 
-**Params** on Tape A is the instrument editor, unchanged: Volume, Panning, Tune, Finetune, Filter Type, Cutoff, Resonance, More. The **More** window, where Overdrive, Bit depth, Reverb send and Delay send already live, gains three buttons on a tape: **Grain**, **Ripple** and **Echo**. Each opens a sub-page of vertical bars with Back on button 8, the way Master's Reverb and Delay buttons open theirs.
+Grain, Ripple and Echo are **send effects**, one set per tape, the same kind of thing as the Tracker's Reverb and Delay. Instruments send into them (Params → More: Tape A send, Tape B send), and you set them up in **Master**, where Reverb and Delay are set up today.
+
+**Master**, pressed until **Tape FX** (a mode after master, mixer and sends, only in tape projects):
+
+| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| A Grain | A Ripple | A Echo | A Level | B Grain | B Ripple | B Echo | B Level |
+
+Level is the effect's return, a bar like Master's other levels. Each of the other buttons opens a sub-page of vertical bars with Back on button 8, the way Master's Reverb and Delay buttons open theirs:
 
 | Sub-page | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Grain** | Wet | Size | Density | Pitch | Spray | Spread | Scan | More |
-| Grain, More | Position | Warp | Feedback | Freeze | Route (insert, send) | | | Back |
+| Grain, More | Position | Warp | Feedback | Freeze | | | | Back |
 | **Ripple** | Wet | Mode (strings, comb, reso) | Pitch | Decay | Tone | Chord | Pluck (own notes, + sends) | More |
-| Ripple, More | Cutoff | Resonance | Drive | Spread | Route | | | Back |
+| Ripple, More | Cutoff | Resonance | Drive | Spread | | | | Back |
 | **Echo** | Level | Time | Sync | Feedback | Tone | Spread | Age | More |
 | Echo, More | Duck | Diffuse | Verb send | | | | | Back |
 
-- **Wet is on button 1 and selected when the sub-page opens**, so Grain, then a turn of the encoder, brings it in. That's the one Bryo habit worth keeping, and it costs nothing on the Tracker.
+- **Wet is on button 1 and selected when the sub-page opens.** Inside a tape's FX the three run in series, and each block's Wet sets how much of its own sound passes on to the next, so Grain, then a turn of the encoder, brings the grains in. That's the one Bryo habit worth keeping, and it costs nothing on the Tracker.
+- **No insert or send switch per block.** The whole set is a send, so Bryo's ROUT goes away; the dry sound always stays on its track.
+- **Automation and FX columns reach it.** The tape instrument's Automation can target its own FX's values (Grain Size and so on), and tape FX in a tape track's FX columns act on that tape's FX.
 - **Colour isn't a separate block.** The Tracker already has Overdrive and Bit depth on every instrument, which is what Bryo's COLOR mostly did. Each source gets coloured by its own settings before it reaches the chain.
-- **Pluck (own notes, + sends)** decides whether notes from tracks that send into this chain also pluck the strings. That's how a kick on track 3 strikes Tape A's strings, set in one place.
+- **Pluck (own notes, + sends)** decides whether notes from tracks that send into this tape's FX also pluck the strings. That's how a kick on track 3 strikes Tape A's strings, set in one place.
 
 ---
 
@@ -134,7 +145,7 @@ A tape track has **four FX columns** where an ordinary track has two. They *are*
 | Grain Freeze | on / off | hold the grain buffer |
 | Ripple Wet / Pitch / Decay | 0–100, semitones | |
 | Echo Level / Feedback | 0–100 | |
-| Tape A send / Tape B send | 0–100 | **any track**: this note's send into a chain, like Reverb send |
+| Tape A send / Tape B send | 0–100 | **any track**: this note's send into a tape's FX, like Reverb send |
 
 **Ramps and sweeps** use **Fill**, which already offers an FX Type with From and To. Fill Speed from 100 to −100 across steps 9–16 and the tape slows into reverse.
 
@@ -196,7 +207,7 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 
 | First version | Now | Why |
 | :--- | :--- | :--- |
-| A new **Tape** module with six pages and pictures | Sample Playback (the tape) and Params → More (the chain) | Those are the screens a Tracker user already opens for "how a sound plays" and "how it's shaped". |
+| A new **Tape** module with six pages and pictures | Sample Playback (the tape) and Master → Tape FX (the effects, as send effects) | Those are the screens a Tracker user already opens for "how a sound plays" and "how it's shaped". |
 | Lanes in four banks, with Step / Hold / Glide modes and a target popup | Four more **FX columns**, new FX types, and **Fill** for ramps | Lanes *are* FX columns in a tracker. Separate rules would be a second grid to learn. |
 | Modulator slots M1–M4, hold a pad to set depth, Assign mode | **Automation**, with new destinations and a **Follow** type | The Tracker's model is destination-first; adding destinations fits it. |
 | A deck that plays alongside the track's notes | One voice per track; the tape keeps time underneath | One voice per track is how every Tracker track works. |
@@ -216,7 +227,7 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 1. **File → New Project → Tape 4 → Create.** Pattern 1 has `C-4 TA` on Tape A and `C-4 TB` on Tape B.
 2. On track 3, write a beat with a drum instrument (§8). **Play.**
 3. **SampleRec**: Source Tracks, Target Tape A, Bars 4. **Record.** It starts on the next bar, stops after 4, and Tape A loops it.
-4. Cursor to Tape A. **Params → More → Grain**, then turn the encoder: Wet is already selected.
+4. **Master** until **Tape FX**, then **A Grain**, and turn the encoder: Wet is already selected.
 
 **J2. A tape break in the pattern**
 1. On Tape A, press **Fx** twice for FX3·4.
@@ -225,7 +236,7 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 
 **J3. The kick plucks the strings**
 1. On track 3's drum instrument, **Params → More → Tape A send** up.
-2. Tape A: **Params → More → Ripple**, Wet up, Chord Min7, and **Pluck: + sends**.
+2. **Master → Tape FX → A Ripple**: Wet up, Chord Min7, and **Pluck: + sends**.
 
 **J4. The kick pumps the grains**
 1. Tape A: **Params**, **Params** again (Automation). Destination **Grain Size**, Type **Follow**, Source **Track 3**, Amount −40.
@@ -242,6 +253,6 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 
 1. **One voice on a tape track.** Another instrument on a tape step plays *instead of* the tape, with the tape keeping time underneath, which is how every Tracker track works. Bryo plays a source and its tape at once. Is the Tracker way right here, given that the sends cover "play something into the chain while the tape rolls"?
 2. **Scenes dropped.** Patterns and performance mode cover them on a tracker. Do you still want them?
-3. **Colour folded into Overdrive and Bit depth.** That drops Bryo's noise and tilt. Acceptable, or should Color be a fourth chain sub-page?
+3. **Colour folded into Overdrive and Bit depth.** That drops Bryo's noise and tilt. Acceptable, or should Color be a fourth Tape FX sub-page?
 4. **Tape FX only on tape tracks** (except the sends). Or should they be available, and do nothing, on any track?
 5. **New Drum in the Sample Loader.** Or would you rather drums were a choice in Sample Playback's Play Mode list on an empty slot?
