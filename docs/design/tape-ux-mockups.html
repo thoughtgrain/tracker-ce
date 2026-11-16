@@ -64,7 +64,7 @@ svg text { font-family: var(--f-screen); }
   <header>
     <div class="eyebrow">Tracker CE fork · tape projects · UI and UX mockups v2 · 800 × 480</div>
     <h1>Tape Project Screens</h1>
-    <p class="lede">These are the screens a Tracker user already knows, with what a tape project adds to each. There's no new module. The tape is a play mode in Sample Playback, the chain lives in Params → More, modulation is Automation, lanes are extra FX columns, and recording happens in the Sample Recorder. Anything new is tagged <b>NEW</b> in orange; everything untagged is how the Tracker works today. The written spec is <code>docs/design/tape-ux.md</code>.</p>
+    <p class="lede">These are the screens a Tracker user already knows, with what a tape project adds to each. There's no new module. The tape is a play mode in Sample Playback, Grain, Ripple and Echo are send effects in Master, modulation is Automation, lanes are extra FX columns, and recording happens in the Sample Recorder. Anything new is tagged <b>NEW</b> in orange; everything untagged is how the Tracker works today. The written spec is <code>docs/design/tape-ux.md</code>.</p>
     <div class="legend" aria-label="Colour key">
       <span><i class="sw lane"></i>new in this design (tagged NEW)</span>
       <span><i class="sw red"></i>selection frame, record</span>
@@ -73,7 +73,7 @@ svg text { font-family: var(--f-screen); }
       <span><i class="sw fx1"></i><i class="sw fx2"></i>FX columns</span>
     </div>
     <nav class="toc" aria-label="Screens">
-      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Params · More</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">Sample Playback · Drum</a><a href="#perf">Performance</a>
+      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Master · Tape FX</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">Sample Playback · Drum</a><a href="#perf">Performance</a>
     </nav>
   </header>
 
@@ -113,16 +113,16 @@ svg text { font-family: var(--f-screen); }
   </section>
 
   <section class="section" id="more">
-    <div class="intro"><h2>Params → More, on a tape</h2><p>The More window that already holds Overdrive, Bit depth and the sends. A tape gets three more buttons. Spec §4.</p></div>
+    <div class="intro"><h2>Master → Tape FX: the effects are sends</h2><p>Grain, Ripple and Echo are send effects, one set per tape, set up in Master the way Reverb and Delay are. Spec §4.</p></div>
     <div class="fig"><div class="bezel" data-screen="more"></div>
-      <div class="notes"><span class="ref">gInstrEdit.cpp · More window</span>
-        <ul><li><b>Grain</b>, <b>Ripple</b> and <b>Echo</b> each open a sub-page with Back on 8, the way Master's Reverb and Delay buttons open theirs.</li><li>Colour isn't a separate block: Overdrive and Bit depth already exist on every instrument.</li><li>The tape track's fader is the chain's output, so there's no return channel to learn.</li></ul></div></div>
+      <div class="notes"><span class="ref">fMasterParams.cpp · Master pressed until Tape FX</span>
+        <ul><li>Instruments send in with <b>Tape A send</b> and <b>Tape B send</b> in Params → More, beside Reverb and Delay send. A tape sends to its own FX at 100 by default.</li><li><b>Grain</b>, <b>Ripple</b> and <b>Echo</b> each open a sub-page with Back on 8, the way Master's Reverb and Delay buttons open theirs. <b>Level</b> is the return.</li><li>Inside a tape's FX the three run in series. There's no insert or send switch per block: the dry sound always stays on its track.</li><li>Colour isn't a separate block: Overdrive and Bit depth already exist on every instrument.</li></ul></div></div>
   </section>
 
   <section class="section" id="grain">
     <div class="intro"><h2>Grain sub-page</h2><p>Vertical bars like every Tracker parameter page. Wet is on button 1 and selected when the page opens: one press, one turn. Spec §4.</p></div>
     <div class="fig"><div class="bezel" data-screen="grain"></div>
-      <div class="notes"><span class="ref">Params → More → Grain</span>
+      <div class="notes"><span class="ref">Master → Tape FX → A Grain</span>
         <ul><li>More: Position · Warp · Feedback · Freeze · Route · Back.</li><li>Ripple: Wet · Mode · Pitch · Decay · Tone · Chord · Pluck · More. Its Pluck setting (own notes, or + sends) lets a kick that sends here strike the strings.</li><li>Echo: Level · Time · Sync · Feedback · Tone · Spread · Age · More.</li></ul></div></div>
   </section>
 
@@ -329,15 +329,16 @@ svg text { font-family: var(--f-screen); }
   };
 
   S.more = function () {
-    var s = titleBar("Instrument Parameters", "TA  Tape A");
-    s += bars([{ v: 0.2, tx: "20" }, { v: 1, tx: "16 bit" }, { v: 0.3, tx: "30" }, { v: 0.15, tx: "15" }, { open: "Grain" }, { open: "Ripple" }, { open: "Echo" }]);
-    [4, 5, 6].forEach(function (i) { s += newTag(100 * i + 36, 196); });
-    s += labels([{ n: "Overdrive", v: "20" }, { n: "Bit depth", v: "16" }, { n: "Reverb send", v: "30" }, { n: "Delay send", v: "15" }, { n: "Grain", nw: true }, { n: "Ripple", nw: true }, { n: "Echo", nw: true }, { n: "Back" }]);
-    return svg(s, "Params More window on a tape with Grain, Ripple and Echo buttons");
+    var s = titleBar("Master · Tape FX", "send effects");
+    s += bars([{ open: "Grain" }, { open: "Ripple" }, { open: "Echo" }, { v: 0.7, tx: "70" }, { open: "Grain" }, { open: "Ripple" }, { open: "Echo" }, { v: 0.5, tx: "50" }]);
+    s += r(1, 31, 397, 22, "#232326") + t(10, 47, "TAPE A FX", { s: 13, w: 700, c: K.white }) + r(401, 31, 397, 22, "#232326") + t(410, 47, "TAPE B FX", { s: 13, w: 700, c: K.white });
+    s += newTag(360, 36) + newTag(760, 36);
+    s += labels([{ n: "A Grain", sel: true }, { n: "A Ripple" }, { n: "A Echo" }, { n: "A Level", v: "70" }, { n: "B Grain" }, { n: "B Ripple" }, { n: "B Echo" }, { n: "B Level", v: "50" }]);
+    return svg(s, "Master Tape FX mode with Grain, Ripple, Echo and Level for each tape");
   };
 
   S.grain = function () {
-    var s = titleBar("Tape A · Grain", "TA  Tape A");
+    var s = titleBar("Master · Tape A Grain", "send effect");
     s += bars([{ v: 0.6, tx: "60 %", sel: true }, { v: 0.35, tx: "120 ms" }, { v: 0.45, tx: "18 /s" }, { v: 0.75, tx: "+12 st" }, { v: 0.2, tx: "20 %" }, { v: 0.7, tx: "70 %" }, { list: ["Tape", "Stretch", "Fixed", "Delay"], at: 1 }]);
     s += labels([{ n: "Wet", v: "60 %", sel: true, nw: true }, { n: "Size", v: "120 ms", nw: true }, { n: "Density", v: "18 /s", nw: true }, { n: "Pitch", v: "+12 st", nw: true }, { n: "Spray", v: "20 %", nw: true }, { n: "Spread", v: "70 %", nw: true }, { n: "Scan", v: "Stretch", nw: true }, { n: "More", v: "•·" }]);
     return svg(s, "Grain sub-page with vertical bars");
