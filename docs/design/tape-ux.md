@@ -214,6 +214,20 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 - **Playing it:** the note picks the drum (low kicks, then toms and snare, then hats and metal). The 48 pads are the kit, and the step's velocity is the hit's velocity, which synth notes already carry. **Polyphony** sets how many hits overlap.
 - **Into the effects:** a synth part's screen has no free button, so in tape projects **Reverb send** and **Delay send** each step on when pressed again, following the Tracker's rule that pressing a selected list again steps it: Reverb send → **Tape A send**, and Delay send → **Tape B send**. The label shows which send the encoder is setting.
 
+**Pads make editing fast** (Original and Tracker+; this works in every engine's patch editor, not only theseus). The Tracker already lets you hold a button and press a pad to choose, as when holding Pattern and pressing a pad picks the pattern number. The patch editor uses the same habit, so you rarely need the encoder to get somewhere:
+
+| Hold | Pads | What happens | LEDs while held |
+| :--- | :--- | :--- | :--- |
+| nothing | all 48 | play notes, as now; on theseus a hit also selects that drum's section | as now |
+| **Parameter** (the wide label naming the section) | top row, 12 pads | select section tile 1–12 in grid order (Kit, Hit LFO, Kick… M5) | current section bright, other sections dim |
+| **Parameter** | rows 1–3, 36 pads | select the current section's parameters, in list order | current parameter bright, others that exist dim, unused pads off |
+| **Shift** | all 48 | set the selected parameter's value, pad 1 = minimum, pad 48 = maximum, the way pads set an FX value in the pattern editor | a bar from pad 1 to the current value |
+
+- **Two taps and a press.** To make the snare brighter: hold Parameter, tap the Snare section pad, tap the Tone pad, let go, then hold Shift and press a pad high up. Fine-tune with the encoder afterwards. Nothing about the screen changes: the grid and the list follow what the pads selected.
+- **The same rule on bar pages.** On pages of vertical bars (Master → Tape FX sub-pages, Params), holding a parameter's screen button and pressing a pad sets that value across the 48 pads, exactly the hold-a-button-press-a-pad habit above.
+- **List values** (a mode, a shape) step through their choices across the pads, one pad per choice, from the bottom-left.
+- **Mini:** no pads, so nothing changes: Left/Right move between grid and list, and ±1/±10 set the value.
+
 **On the Original Tracker.** There are no synth parts on the Original today (`FEATURE_SYNTH` and `GUI_HANDLE_SYNTH` are IMX only), so this needs one of two things:
 1. **One synth part on the Original, for built-in engines only.** It would be the same synth screens and the same `synthPart` settings, which the project file already stores on every device, with theseus as the only engine and no `.psyn` loading (that needs the M7). This is the consistent answer. The cost is building the synth host and its screens for the M4, and I don't know yet whether they fit in the Original's spare flash (about 153 KB) and RAM. Phase 0 measures it.
 2. **If they don't fit:** the Original gets theseus as a drum instrument whose screens copy the synth part and patch editor layout button for button, so the same muscle memory works. Projects move between devices with the kit's eight values intact.

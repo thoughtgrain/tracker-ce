@@ -72,7 +72,7 @@ svg text { font-family: var(--f-screen); }
       <span><i class="sw fx1"></i><i class="sw fx2"></i>FX columns</span>
     </div>
     <nav class="toc" aria-label="Screens">
-      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Master · Tape FX</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">theseus · synth screens</a><a href="#perf">Performance</a>
+      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Master · Tape FX</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">theseus · synth screens</a><a href="#padedit">Pads in the patch editor</a><a href="#perf">Performance</a>
     </nav>
   </header>
 
@@ -157,6 +157,17 @@ svg text { font-family: var(--f-screen); }
       <div class="notes"><span class="ref">SynthPatchEditor.cpp · Edit</span>
         <ul><li>The patch editor as it is on the device: the engine's logo, a 4×4 grid of tiles (its sections, then Voice and the macros M1–M7), the selected section's parameters in the framed list with the current one outlined, its value as the bar on the right, and Save, Save As, the section name and Back along the bottom.</li><li>theseus declares seven sections: <b>Kit</b> (Decay, Punch, Cutoff, FM, Noise, Tune), <b>Hit LFO</b> (LFO, Rate), and one per drum, <b>Kick, Tom, Snare, Hats, Metal</b>, each with Tune, Decay, Tone and Level.</li><li>Hitting a pad selects that drum's section in the grid. Here a snare hit has Snare selected.</li><li>Notes between two drum types blend their settings, so there are no steps at the edges.</li></ul>
         <p class="mini"><b>Original Tracker:</b> it has no synth parts today. The plan is one synth part for built-in engines only, with these same screens, if it fits in the spare flash and RAM. If it doesn't, theseus becomes a drum instrument whose screens copy this layout button for button.</p></div></div>
+  </section>
+
+  <section class="section" id="padedit">
+    <div class="intro"><h2>Pads in the patch editor</h2><p>Original and Tracker+, every engine. Hold a button and press a pad to choose, the habit the Tracker already uses for picking a pattern number. Spec §8.</p></div>
+    <div class="pads" id="padeditsvg"></div>
+    <div class="notes"><ul>
+      <li><b>Hold Parameter</b> (the wide label naming the section): the top row selects section tiles 1–12; the other three rows select the current section's parameters, in list order.</li>
+      <li><b>Hold Shift</b>: the 48 pads set the selected parameter's value, pad 1 lowest and pad 48 highest, as pads set FX values in the pattern editor. The LEDs show the value as a bar.</li>
+      <li><b>Nothing held</b>: pads play notes, as now. On theseus a hit also selects that drum's section.</li>
+      <li>Snare brighter in four moves: hold Parameter, tap Snare, tap Tone, let go; hold Shift and press a high pad. Then fine-tune with the encoder.</li>
+    </ul></div>
   </section>
 
   <section class="section" id="perf">
@@ -430,6 +441,20 @@ svg text { font-family: var(--f-screen); }
     s += labels([{ n: "Tape A", v: "pat 3", nc: K.white, sel: true }, { n: "Tape B", v: "pat 3" }, { n: "Track 3", v: "pat 3" }, { n: "Track 4", v: "pat 3" }, {}, {}, {}, {}]);
     return svg(s, "Performance mode with five tape FX added; the Speed 0 % pad is held");
   };
+
+  (function () {
+    var W = 980, H = 330, cw = 74, ch = 52, gx = 24, gy = 34, o = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Pad map while Parameter is held in the patch editor">';
+    var secs = ["Kit", "Hit LFO", "Kick", "Tom", "Snare", "Hats", "Metal", "Voice", "M1", "M2", "M3", "M4"], prm = ["Tune", "Decay", "Tone", "Level"];
+    o += '<text x="' + gx + '" y="20" font-size="13" fill="var(--muted)" font-family="IBM Plex Mono, monospace">PARAMETER HELD · theseus, Snare section</text>';
+    for (var row = 0; row < 4; row++) for (var c = 0; c < 12; c++) { var x = gx + c * (cw + 6), y = gy + row * (ch + 6), lab = "", lvl = 0;
+      if (row === 0) { lab = secs[c]; lvl = c === 4 ? 2 : 1; } else if (row === 1 && c < 4) { lab = prm[c]; lvl = c === 2 ? 2 : 1; }
+      var fill = lvl === 2 ? "var(--fg)" : "var(--bg)", stroke = lvl ? "var(--fg)" : "var(--line)", tc = lvl === 2 ? "var(--bg)" : "var(--fg)";
+      o += '<rect x="' + x + '" y="' + y + '" width="' + cw + '" height="' + ch + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + (lvl ? 1.5 : 1) + '"' + (lvl ? '' : ' stroke-dasharray="3 3"') + '/>';
+      if (lab) o += '<text x="' + (x + cw / 2) + '" y="' + (y + 31) + '" text-anchor="middle" font-size="13" font-weight="600" fill="' + tc + '" font-family="IBM Plex Sans Condensed, sans-serif">' + lab + '</text>';
+    }
+    o += '<text x="' + gx + '" y="' + (gy + 4 * (ch + 6) + 18) + '" font-size="13" fill="var(--muted)" font-family="IBM Plex Sans, sans-serif">Top row: section tiles 1–12 (Snare bright). Rows below: the section\'s parameters in list order (Tone bright); pads with nothing behind them stay dark (dashed).</text>';
+    var el = document.getElementById("padeditsvg"); if (el) el.innerHTML = o + "</svg>";
+  })();
 
   document.querySelectorAll("[data-screen]").forEach(function (el) { var f = S[el.getAttribute("data-screen")]; if (f) el.innerHTML = f(); });
 })();
