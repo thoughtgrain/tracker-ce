@@ -56,17 +56,21 @@ Position positionAt(const Playback& playback, float seconds);
 // Level 0..255 of the peak cache at `frame`.
 uint8_t levelAt(const Playback& playback, uint32_t frame);
 
-// One step of a track, as the model needs it.
-struct Step
+// One step of a track, as the model needs it. Only the kind is stored per step (1 byte, so a
+// 128-step track costs 128 bytes); how a note plays is fetched on demand for the few notes the
+// visible rows need.
+enum class StepKind : uint8_t
 {
-    enum class Kind : uint8_t
-    {
-        kEmpty,
-        kNote, // a note starts here; `playback` says how it plays
-        kOff,  // note off: whatever was playing stops
-    };
-    Kind kind = Kind::kEmpty;
-    Playback playback;
+    kEmpty,
+    kNote, // a note starts here
+    kOff,  // note off: whatever was playing stops
+};
+
+// Returns how the note on `step` plays. Called only for steps whose kind is kNote.
+struct PlaybackSource
+{
+    Playback (*get)(void* context, int step) = nullptr;
+    void* context = nullptr;
 };
 
 struct Row
@@ -87,7 +91,8 @@ struct Options
 // Fills `out[i]` for the pattern step `firstStep + i`, i = 0..rowCount-1. Steps outside
 // 0..patternLength-1 wrap, the way the pattern loops, so a note near the end carries over into the
 // rows shown before step 0. `steps` holds patternLength entries.
-void computeRows(const Step* steps,
+void computeRows(const StepKind* steps,
+                 const PlaybackSource& playbacks,
                  int patternLength,
                  int firstStep,
                  int rowCount,

@@ -186,6 +186,13 @@ const char* const patternInfoTexts[3] = {
     "Off",
 };
 
+// Order matches SampleStripsMode (mtStructs.h).
+const char* const sampleStripsTexts[3] = {
+    "All notes",
+    "Long samples",
+    "Off",
+};
+
 // metronome
 
 const char* const metroTimeSig[12] = {
@@ -329,6 +336,8 @@ const char hexModeDesc[] = { "Enable the throwback hex goodness: pattern step nu
 const char patternArraDesc[] = { "Pattern arrangement type" };
 
 const char patternInfo[] = { "Pattern info" };
+
+const char sampleStripsDesc[] = { "Waveform beside each track in the pattern" };
 
 const char lineInChannelDesc[] = {
 #ifdef PLATFORM_IMX

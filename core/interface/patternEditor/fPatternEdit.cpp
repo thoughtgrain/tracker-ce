@@ -215,6 +215,16 @@ void cPatternEditor::update()
 
     patternRefreshTimer = 0;
 
+    if (sampleStripsDeferred)
+    {
+        sampleStripsDeferred = false;
+        refreshSampleStrips(sampleStripsPosition);
+        if (!mtMenuPopup.isPopupVisible())
+        {
+            display.refreshControl(patternControl);
+        }
+    }
+
     if (refreshAfterReleaseFx == true)
     {
         refreshAfterReleaseFx = false;
@@ -481,7 +491,9 @@ void cPatternEditor::refreshPatternFromOutsideModule()
     if (sequencer.isRec())
         return;
 
+    deferSampleStrips = true;
     refreshPattern();
+    deferSampleStrips = false;
 }
 
 //==============================================================================================================
@@ -848,6 +860,16 @@ void cPatternEditor::refreshPattern()
                 }
             }
         }
+    }
+
+    if (deferSampleStrips)
+    {
+        sampleStripsPosition = patternPosition;
+        sampleStripsDeferred = true;
+    }
+    else
+    {
+        refreshSampleStrips(patternPosition);
     }
 
     if (mtMenuPopup.isPopupVisible())

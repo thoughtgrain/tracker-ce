@@ -412,6 +412,8 @@ void checkConfig()
         mtConfig.general.patternArrangement = 0;
     if (mtConfig.general.patternInfo > 2)
         mtConfig.general.patternInfo = 0;
+    if (mtConfig.general.sampleStrips >= kSampleStripsModeCount)
+        mtConfig.general.sampleStrips = kSampleStripsAllNotes;
 
     if (mtConfig.general.lineInOutType > 2)
     {
@@ -555,6 +557,7 @@ void resetConfig()
     mtConfig.general.padPreviewInPatternEdit = padPreviewModePattern;
     mtConfig.general.patternArrangement = 0;
     mtConfig.general.patternInfo = 0;
+    mtConfig.general.sampleStrips = kSampleStripsAllNotes;
     mtConfig.general.lineInOutType = 0;
     mtConfig.general.previewVolume = PREVIEW_VOLUME_DEFAULT;
     mtConfig.general.recThreshold = recThreshold_default;

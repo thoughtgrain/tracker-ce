@@ -21,12 +21,12 @@ int wrapStep(int step, int patternLength)
 
 // The step at or before `step` (searching back up to a full pattern) that holds a note or an off,
 // and how many steps back it is. Returns -1 when the track holds neither.
-int findLastEvent(const Step* steps, int patternLength, int step, int& distance)
+int findLastEvent(const StepKind* steps, int patternLength, int step, int& distance)
 {
     for (int d = 0; d < patternLength; d++)
     {
         int s = wrapStep(step - d, patternLength);
-        if (steps[s].kind != Step::Kind::kEmpty)
+        if (steps[s] != StepKind::kEmpty)
         {
             distance = d;
             return s;
@@ -36,11 +36,11 @@ int findLastEvent(const Step* steps, int patternLength, int step, int& distance)
 }
 
 // Steps from `step` to the next note or off after it (a full pattern if there is none).
-int stepsToNextEvent(const Step* steps, int patternLength, int step)
+int stepsToNextEvent(const StepKind* steps, int patternLength, int step)
 {
     for (int d = 1; d < patternLength; d++)
     {
-        if (steps[wrapStep(step + d, patternLength)].kind != Step::Kind::kEmpty)
+        if (steps[wrapStep(step + d, patternLength)] != StepKind::kEmpty)
         {
             return d;
         }
@@ -49,10 +49,13 @@ int stepsToNextEvent(const Step* steps, int patternLength, int step)
 }
 
 // How many steps a note sounds: until the next event on the track, or until a one-shot runs out.
-float soundingSteps(const Step* steps, int patternLength, int step, const Options& options)
+float soundingSteps(const StepKind* steps,
+                    int patternLength,
+                    int step,
+                    const Playback& pb,
+                    const Options& options)
 {
     float untilNext = (float)stepsToNextEvent(steps, patternLength, step);
-    const Playback& pb = steps[step].playback;
     if (pb.mode == Mode::kOneShot && pb.framesPerSecond > 0.0f && options.stepSeconds > 0.0f)
     {
         float frames = (pb.end > pb.start) ? (float)(pb.end - pb.start) : 0.0f;
@@ -153,7 +156,8 @@ uint8_t levelAt(const Playback& pb, uint32_t frame)
     return (uint8_t)((level > 255) ? 255 : level);
 }
 
-void computeRows(const Step* steps,
+void computeRows(const StepKind* steps,
+                 const PlaybackSource& playbacks,
                  int patternLength,
                  int firstStep,
                  int rowCount,
@@ -164,28 +168,41 @@ void computeRows(const Step* steps,
     {
         out[i] = Row();
     }
-    if (steps == nullptr || patternLength <= 0 || options.stepSeconds <= 0.0f)
+    if (steps == nullptr || playbacks.get == nullptr || patternLength <= 0 ||
+        options.stepSeconds <= 0.0f)
     {
         return;
     }
+
+    // Consecutive rows usually belong to the same note, so its playback is fetched once.
+    int cachedStep = -1;
+    Playback cached;
+    bool cachedHidden = false;
 
     for (int i = 0; i < rowCount; i++)
     {
         int step = wrapStep(firstStep + i, patternLength);
         int distance = 0;
         int eventStep = findLastEvent(steps, patternLength, step, distance);
-        if (eventStep < 0 || steps[eventStep].kind != Step::Kind::kNote)
+        if (eventStep < 0 || steps[eventStep] != StepKind::kNote)
         {
             continue;
         }
 
-        if (options.minSteps > 0 &&
-            soundingSteps(steps, patternLength, eventStep, options) < (float)options.minSteps)
+        if (eventStep != cachedStep)
+        {
+            cachedStep = eventStep;
+            cached = playbacks.get(playbacks.context, eventStep);
+            cachedHidden = options.minSteps > 0 &&
+                           soundingSteps(steps, patternLength, eventStep, cached, options) <
+                             (float)options.minSteps;
+        }
+        if (cachedHidden)
         {
             continue;
         }
+        const Playback& pb = cached;
 
-        const Playback& pb = steps[eventStep].playback;
         out[i].noteStart = (distance == 0);
 
         for (int q = 0; q < kQuartersPerRow; q++)
