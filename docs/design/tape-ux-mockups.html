@@ -95,13 +95,13 @@ svg text { font-family: var(--f-screen); }
   </section>
 
   <section class="section" id="strips">
-    <div class="intro"><h2>Sample strips in a Default project</h2><p>Every project type, not only tapes: a looping break, a synth pad and a one-shot vocal each get a strip, and short drum hits don't. Spec §5.</p></div>
+    <div class="intro"><h2>Sample strips in a Default project</h2><p>Every project type, not only tapes: drums, a looping break, a synth pad and a one-shot vocal each get a strip. Spec §5.</p></div>
     <div class="fig"><div class="bezel" data-screen="strips"></div>
       <div class="notes"><span class="ref">pattern editor · Config: Sample strips</span>
         <dl><dt>Loop</dt><dd>Track 2: a break started on step 0, wrapping at its loop end every eight steps (dashed line). It keeps going across the pattern end.</dd>
           <dt>Synth</dt><dd>Track 3: a synth has no stored sample, so its strip is the part's real output, captured as it plays. Rows already heard on this pass are bright; rows ahead are dim, from the last pass. The attack of each note and the release after OFF show as the waveform swelling and fading.</dd>
           <dt>One-shot</dt><dd>Track 4: a vocal starting on step 2. The strip ends where the sample does.</dd>
-          <dt>Drums</dt><dd>Track 1: hits shorter than a beat get no strip, so the grid stays clean. <b>All notes</b> in Config shows them too.</dd><dt>Cost</dt><dd>A primitive sketch: four short lines per row, drawn from a 128-byte peak table per sample, or 1 captured byte per quarter-step for synths. It's drawn only on the redraws the pattern editor already makes, and it drops to fewer lines before notes or FX would. <b>Config → Sample strips: Off</b> captures nothing, allocates nothing and draws nothing.</dd></dl></div></div>
+          <dt>Drums</dt><dd>Track 1: each hit draws as a short burst that dies away, so the beat reads as a column of hits beside its notes. Config's <b>Long samples</b> hides strips for short notes if you want a cleaner grid.</dd><dt>Cost</dt><dd>A primitive sketch: four short lines per row, drawn from a 128-byte peak table per sample, or 1 captured byte per quarter-step for synths. It's drawn only on the redraws the pattern editor already makes, and it drops to fewer lines before notes or FX would. <b>Config → Sample strips: Off</b> captures nothing, allocates nothing and draws nothing.</dd></dl></div></div>
   </section>
 
   <section class="section" id="tape">
@@ -332,12 +332,14 @@ svg text { font-family: var(--f-screen); }
       wraps.forEach(function (wr) { o += l(x - 4, y0 + wr * rh + 2, x + 24, y0 + wr * rh + 2, K.white, 1.5, "3 2"); });
       return o;
     }
+    var hits = [0, 2, 4, 6, 8, 10, 12, 14];
+    s += strip(gx + 166, function (rw, q) { var last = -1; hits.forEach(function (h) { if (h <= rw) last = h; }); if (last < 0) return 0; var age = (rw - last) * 4 + q; return age > 5 ? 0 : 1 - age / 6; }, 9, hits, [], false);
     s += strip(gx + tw + 166, function () { return 1; }, 31, [0], [8], false);
     s += strip(gx + 2 * tw + 166, function (rw, q) { var p = rw * 4 + q; if (rw >= 14) return Math.max(0, 0.6 - q * 0.2); var n = p % 32; return Math.min(1, n / 6) * (n < 32 ? 0.85 : 1); }, 5, [0, 8], [], true);
     s += strip(gx + 3 * tw + 166, function (rw) { return rw >= 2 && rw < 8 ? 1 - (rw - 2) * 0.08 : 0; }, 13, [2], [], false);
     s += newTag(gx + tw + 140, 38) + newTag(gx + 2 * tw + 140, 38) + newTag(gx + 3 * tw + 140, 38);
     s += labels([{ n: "Pattern", v: "1" }, { n: "Length", v: "16" }, { n: "Step jump", v: "1" }, { n: "Fill" }, { n: "Preview" }, { n: "Undo" }, { n: "Redo" }, { n: "More", v: "•··" }]);
-    return svg(s, "Default project: strips on a looping break, a synth pad and a one-shot vocal, none on short drum hits");
+    return svg(s, "Default project: strips on drums, a looping break, a synth pad and a one-shot vocal");
   };
 
   S.tape = function () {
