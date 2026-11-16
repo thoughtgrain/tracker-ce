@@ -90,7 +90,7 @@ svg text { font-family: var(--f-screen); }
     <div class="intro"><h2>Pattern editor: lanes are FX columns</h2><p>Tape 4. Tape A shows its FX3·4 pair; tracks 3 and 4 are ordinary. Spec §5.</p></div>
     <div class="fig"><div class="bezel" data-screen="pattern"></div>
       <div class="notes"><span class="ref">fPatternEdit.cpp · Fx pressed again</span>
-        <p>A tape track has six FX columns where an ordinary track has two. Pressing <kbd>Fx</kbd> again pages the visible pair, FX1·2 → 3·4 → 5·6, the way <kbd>Note</kbd> pressed again swaps in Micro-move and Volume. The header shows which pair is up.</p>
+        <p>A tape track has four FX columns where an ordinary track has two. Pressing <kbd>Fx</kbd> again swaps the visible pair between FX1·2 and FX3·4, the way <kbd>Note</kbd> pressed again swaps in Micro-move and Volume. The header shows which pair is up.</p>
         <ul><li>They're the same FX list, entry, Fill, Copy and Undo you already use. The new tape FX are new entries in that list.</li><li>Here, FX3 holds a <b>Fill</b> of Speed from 100 down to −100 over steps 9–14, and FX4 holds a <b>Roll</b>, an existing FX.</li><li>Ending a stutter works as it does today: write the FX again with 0.</li><li><b>The tape strip</b>: a thin waveform beside each tape track runs down with the steps, showing the stretch of tape each step plays. Orange lines mark where a note jumps to a slice. Here it narrows and goes flat as the Speed fill slows the tape to a stop.</li></ul>
         <p class="mini"><b>Mini:</b> the same, with the Fx button and ±1/±10.</p></div></div>
   </section>
@@ -218,7 +218,7 @@ svg text { font-family: var(--f-screen); }
     s += r(1, 31, 798, 391, "#0e0e10");
     rows.forEach(function (rw, j) { var y = 60 + j * 52, on = j === 2;
       s += r(12, y, 776, 44, on ? "#3a3a3e" : "none") + t(28, y + 28, rw[0], { s: 17, w: 700, c: on ? K.white : K.txt }) + t(150, y + 28, rw[1], { s: 15, c: on ? K.white : K.txt }); });
-    s += l(12, 290, 788, 290, K.faint) + t(28, 320, "A tape track has a tape, six FX columns and Grain · Ripple · Echo.", { s: 14, c: K.dim }) + t(28, 342, "Tapes can be longer the fewer tracks a project has.", { s: 14, c: K.dim });
+    s += l(12, 290, 788, 290, K.faint) + t(28, 320, "A tape track has a tape, four FX columns and Grain · Ripple · Echo.", { s: 14, c: K.dim }) + t(28, 342, "Tapes can be longer the fewer tracks a project has.", { s: 14, c: K.dim });
     s += r(1, 31, 798, 391, "none", { st: K.red, sw: 2.5 });
     s += labels([{ n: "Project type", v: "Tape 4", span: 2, sel: true }, {}, {}, {}, {}, { n: "Cancel" }, { n: "Create", nc: K.white }]);
     return svg(s, "New project type list with Tape 4 highlighted");

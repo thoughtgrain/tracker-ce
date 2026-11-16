@@ -4,7 +4,7 @@
 
 > **UX first.** How this works in your hands is in [`tape-ux.md`](tape-ux.md) (version 2), with screens in [`tape-ux-mockups.html`](tape-ux-mockups.html). Version 2 puts every idea in the Tracker screen that already does that job, so parts of this plan are out of date until I fold them in:
 > - **No Tape module.** The tape is play mode Tape in Sample Playback. Grain, Ripple and Echo are sub-pages of Params → More on the tape instrument. Color is dropped: Overdrive and Bit depth already exist on every instrument.
-> - **Lanes are FX columns.** Tape tracks have FX1–FX6, paged by pressing Fx again, and the tape and chain controls are new FX types. The lane files, lane groups and lane modes in §5 go away. Where FX3–FX6 are stored is open (a sidecar, or the step slots of the tracks a tape project hides).
+> - **Lanes are FX columns.** Tape tracks have FX1–FX4, swapped in pairs by pressing Fx again, and the tape and chain controls are new FX types. The lane files, lane groups and lane modes in §5 go away. Where FX3–FX4 are stored is open (a sidecar, or the step slots of the tracks a tape project hides).
 > - **Modulation is Automation**, with new destinations and a Follow type. The modulator slots and depth tables in §6 go away.
 > - **One voice per tape track.** Another instrument on a tape step plays instead of the tape, and the tape keeps time underneath (its position comes from the song position), so no second player is needed.
 > - **Sends:** Tape A and Tape B sends on every instrument and synth part, beside Reverb and Delay. Scenes and the synth Output setting are dropped.
