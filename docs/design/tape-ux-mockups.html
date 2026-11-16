@@ -91,7 +91,7 @@ svg text { font-family: var(--f-screen); }
     <div class="fig"><div class="bezel" data-screen="pattern"></div>
       <div class="notes"><span class="ref">fPatternEdit.cpp · Fx pressed again</span>
         <p>A tape track has six FX columns where an ordinary track has two. Pressing <kbd>Fx</kbd> again pages the visible pair, FX1·2 → 3·4 → 5·6, the way <kbd>Note</kbd> pressed again swaps in Micro-move and Volume. The header shows which pair is up.</p>
-        <ul><li>They're the same FX list, entry, Fill, Copy and Undo you already use. The new tape FX are new entries in that list.</li><li>Here, FX3 holds a <b>Fill</b> of Speed from 100 down to −100 over steps 9–14, and FX4 holds a <b>Roll</b>, an existing FX.</li><li>Ending a stutter works as it does today: write the FX again with 0.</li></ul>
+        <ul><li>They're the same FX list, entry, Fill, Copy and Undo you already use. The new tape FX are new entries in that list.</li><li>Here, FX3 holds a <b>Fill</b> of Speed from 100 down to −100 over steps 9–14, and FX4 holds a <b>Roll</b>, an existing FX.</li><li>Ending a stutter works as it does today: write the FX again with 0.</li><li><b>The tape strip</b>: a thin waveform beside each tape track runs down with the steps, showing the stretch of tape each step plays. Orange lines mark where a note jumps to a slice. Here it narrows and goes flat as the Speed fill slows the tape to a stop.</li></ul>
         <p class="mini"><b>Mini:</b> the same, with the Fx button and ±1/±10.</p></div></div>
   </section>
 
@@ -252,6 +252,19 @@ svg text { font-family: var(--f-screen); }
         s += cell(xx + 6, y, e ? e[0] : "---", e ? K.note : K.faint) + cell(xx + 44, y, e ? e[1] : "--", e ? K.instr : K.faint) + cell(xx + 76, y, e && e[2] ? e[2] : "----", e && e[2] ? K.fx1 : K.faint) + cell(xx + 128, y, "----", K.faint); });
     }
     s += r(gx + 76 - 3, y0 + cur * rh + 3, 44, rh - 4, "none", { st: K.red, sw: 2 });
+    // Tape strip: the tape that plays under each step, running top to bottom beside the track's columns.
+    function tapeStrip(x, seed, slow, startRows) {
+      var o = r(x, y0 + 2, 20, 15 * rh - 2, "#0c0c0e"), rnd = seed;
+      for (var row = 0; row < 15; row++) { for (var q = 0; q < 4; q++) {
+        rnd = (rnd * 9301 + 49297) % 233280; var v = rnd / 233280, yy = y0 + row * rh + 5 + q * 5;
+        var damp = slow && slow[row] !== undefined ? slow[row] : 1, a = (2 + 7 * v) * damp;
+        o += l(x + 10 - a, yy, x + 10 + a, yy, row === play ? K.white : (damp < 1 ? K.dim : K.txt), 2); } }
+      startRows.forEach(function (sr) { o += l(x - 2, y0 + sr * rh + 2, x + 22, y0 + sr * rh + 2, K.nw, 2); });
+      return o;
+    }
+    s += tapeStrip(gx + 166, 7, { 9: 0.85, 10: 0.7, 11: 0.55, 12: 0.4, 13: 0.25, 14: 0.05 }, [0, 4, 8]);
+    s += tapeStrip(gx + tw + 166, 19, null, [0, 8]);
+    s += newTag(gx + 96, 38);
     s += labels([{ n: "Pattern", v: "3" }, { n: "Length", v: "16" }, { n: "Step jump", v: "1" }, { n: "Fill" }, { n: "Preview" }, { n: "Undo" }, { n: "Redo" }, { n: "More", v: "•··" }]);
     return svg(s, "Pattern editor in Tape 4 with Tape A showing FX columns 3 and 4");
   };

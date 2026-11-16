@@ -112,6 +112,13 @@ A tape track has **six FX columns** where an ordinary track has two. They *are* 
 **Paging.** Pressing **Note** again already swaps a track's FX columns for Micro-move and Volume. On a tape track, pressing **Fx** again pages the two visible FX columns: FX1·2 → FX3·4 → FX5·6 → FX1·2. The track's header shows which pair is up (`FX 3·4`). Nothing changes width, so the 4-track view, scrolling and the 8,172-byte frame budget behave as they do now.
 - **Tape 2** has width to spare. Track 1 shows all six FX columns at once, and track 2 sits beside it.
 
+**The tape strip.** Beside each tape track's columns, in the space to the right of FX2 (about 20 px, so no column moves), a thin waveform runs **top to bottom with the steps**. Each row shows the stretch of tape that plays on that step, so you can read the tape the way you read the notes:
+- **It follows what's written.** A note that jumps to a slice draws a short orange line where the jump happens, and the strip shows the slice's audio from there. Speed, Reverse and Position FX bend it: a slowdown narrows the waveform as fewer seconds pass per step, a stop goes flat, and reverse runs the audio backwards.
+- **The playhead row** is drawn brighter, like the rest of the playing row.
+- **It's quiet when there's nothing to say.** A blank tape draws an empty strip, and Config's "Pattern info" Off hides it along with the track names.
+- **Cost.** It's four short lines per row, about 60 lines per tape, drawn from a peak table I keep per tape (min/max per 1/64 of the loop), not from the audio. That's well under a kilobyte of display list for two tapes, but it comes out of the 8,172-byte frame budget, so I'll count it in phase 4 and fall back to two lines per row if it's tight.
+- **Mini:** the same; it's part of the pattern editor.
+
 **New FX types**, appended to the FX list. They're listed only on tape tracks except for the two sends, which work on any track:
 
 | FX | Value | What it does |
