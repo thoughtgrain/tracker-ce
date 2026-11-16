@@ -64,7 +64,7 @@ svg text { font-family: var(--f-screen); }
   <header>
     <div class="eyebrow">Tracker CE fork · tape projects · UI and UX mockups v2 · 800 × 480</div>
     <h1>Tape Project Screens</h1>
-    <p class="lede">These are the screens a Tracker user already knows, with what a tape project adds to each. There's no new module. The tape is a play mode in Sample Playback, Grain, Ripple and Echo are send effects in Master, modulation is Automation, lanes are extra FX columns, and recording happens in the Sample Recorder. The notes beside each screen say what a tape project adds to it. The written spec is <code>docs/design/tape-ux.md</code>.</p>
+    <p class="lede">These are the screens a Tracker user already knows, with what a tape project adds to each. There's no new module. The tape is a play mode in Sample Playback, Grain, Ripple and Echo are send effects in Master, modulation is Automation, lanes are extra FX columns, and recording happens in the pattern editor. The notes beside each screen say what a tape project adds to it. The written spec is <code>docs/design/tape-ux.md</code>.</p>
     <div class="legend" aria-label="Colour key">
       <span><i class="sw red"></i>selection frame, record</span>
       <span><i class="sw note"></i>note column</span>
@@ -72,7 +72,7 @@ svg text { font-family: var(--f-screen); }
       <span><i class="sw fx1"></i><i class="sw fx2"></i>FX columns</span>
     </div>
     <nav class="toc" aria-label="Screens">
-      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Master Tape</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">theseus · synth screens</a><a href="#padedit">Pads in the patch editor</a><a href="#perf">Performance</a>
+      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Master Tape</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Recording in the pattern</a><a href="#drum">theseus · synth screens</a><a href="#padedit">Pads in the patch editor</a><a href="#perf">Performance</a>
     </nav>
   </header>
 
@@ -145,10 +145,16 @@ svg text { font-family: var(--f-screen); }
   </section>
 
   <section class="section" id="rec">
-    <div class="intro"><h2>Sample Recorder, recording onto Tape A</h2><p>The recorder you know, with a Target. It records while the song plays, waits for the bar line, and loops the take in time. Spec §7.</p></div>
+    <div class="intro"><h2>Recording onto a tape, in the pattern editor</h2><p>Recording a tape is part of writing the pattern, so it uses what the pattern editor already has: arm with Shift + Rec, record with Rec + Play. Tape A is armed and a 4-bar take is running. Spec §7.</p></div>
     <div class="fig"><div class="bezel" data-screen="rec"></div>
-      <div class="notes"><span class="ref">gSampleRec.cpp · Source · Level · Gain · … · Record</span>
-        <ul><li>Source adds Tracks (resample the ordinary tracks), Track n, and Grain A/B, which freezes the grain buffer to tape.</li><li>Bar takes skip the trim step; Undo restores the tape. Free takes go through the usual trim and Save.</li><li>Bounce is <b>Render Selection</b> with a new destination, Tape A or Tape B.</li><li><b>From the pattern:</b> the step FX <b>Tape Rec</b> (1–16 bars, 0 stops) starts a take on its step, using the Source and Dub set here. It only records while the tape track is armed (<kbd>Shift</kbd> + <kbd>Rec</kbd>, the arm row the pattern editor already has), so a song plays back without recording over the tapes.</li></ul></div></div>
+      <div class="notes"><span class="ref">fPatternEdit.cpp · arm (Shift + Rec) · live REC · page 3</span>
+        <ul><li><b>Arm</b>: Shift + Rec shows each track Armed or Unarmed, tape tracks included. Only an armed tape records, so playing a song back never records over it.</li>
+        <li><b>Live</b>: Rec + Play records onto armed tapes from their Rec Source. With Bars set, the take waits for the bar line, records that many bars and stops itself; Rec punches out early.</li>
+        <li><b>Written</b>: the step FX <b>Tape Rec</b> (here <kbd>Tr04</kbd> on step 0) starts a 4-bar take on its step, so takes can be placed in a song.</li>
+        <li><b>Settings</b> on the pattern editor's third page, next to Pattern Name and Track Name: Rec Source, Bars, Dub, Undo Take.</li>
+        <li>While it records, the header shows <kbd>REC 2/4</kbd> blinking red, and the strip shows the record head as a red line.</li>
+        <li><b>Bounce</b> stays Render Selection (page 2), with Tape A or Tape B as a destination.</li></ul>
+        <p class="mini">The Sample Recorder doesn't change. It still records samples into instrument slots.</p></div></div>
   </section>
 
   <section class="section" id="drum">
@@ -398,12 +404,31 @@ svg text { font-family: var(--f-screen); }
   };
 
   S.rec = function () {
-    var s = titleBar("Sample Recorder", "bar 8.3.2");
-    s += bars([{ list: ["Line in", "Mic", "Radio", "Tracks", "Track 3", "Track 4", "Grain A"], at: 3 }, { v: 0.62 }, { v: 0.5, tx: "0 dB" }, { list: ["New instr", "Tape A", "Tape B"], at: 1 }, { list: ["Free", "1", "2", "4", "8", "16"], at: 3 }, { v: 0.5, tx: "0" }]);
-    [0, 3, 4, 5].forEach(function (i) { s += newTag(100 * i + 66, 404); });
-    s += r(604, 60, 190, 120, "#2a0d0d") + '<circle cx="626" cy="86" r="7" fill="' + K.red + '"/>' + t(642, 91, "WAITING", { s: 15, w: 700, c: K.white }) + t(612, 118, "starts on bar 9,", { s: 14 }) + t(612, 140, "records 4 bars,", { s: 14 }) + t(612, 162, "then Tape A loops it", { s: 14 });
-    s += labels([{ n: "Source", v: "Tracks", nw: true }, { n: "Level" }, { n: "Gain", v: "0 dB" }, { n: "Target", v: "Tape A", nw: true }, { n: "Bars", v: "4", nw: true }, { n: "Dub", v: "0", nw: true }, { n: "Metronome", v: "Off" }, { n: "Record", v: "waiting", vc: "#ff6b6b", sel: true }]);
-    return svg(s, "Sample Recorder recording onto Tape A, waiting for bar 9");
+    var s = titleBar("Pattern", "FX1  Tape Rec  4 bars");
+    var gx = 34, tw = 191, y0 = 60, rh = 24, play = 6;
+    var heads = ["1 TAPE A", "2 TAPE B", "3", "4"];
+    for (var i = 0; i < 4; i++) { var x = gx + i * tw;
+      s += r(x, 31, tw - 4, 26, i === 0 ? "#3a0f0f" : (i < 2 ? "#232326" : K.boxDim)) + t(x + 8, 49, heads[i], { s: 14, w: 700, c: i < 2 ? K.white : K.txt });
+      if (i === 0) s += '<circle cx="' + (x + 112) + '" cy="44" r="5" fill="' + K.red + '"/>' + t(x + tw - 12, 49, "REC 2/4", { a: "end", s: 13, w: 700, c: "#ff6b6b" }); }
+    for (var row = 0; row < 15; row++) { var y = y0 + row * rh;
+      if (row === play) s += r(0, y + 2, 800, rh - 2, "#122a24");
+      if (row % 4 === 0) s += r(0, y + 2, gx - 4, rh - 2, "#161618");
+      s += t(gx - 8, y + 18, (row < 10 ? "0" : "") + row, { a: "end", s: 13, c: row % 4 === 0 ? K.txt : K.dim, mono: true }); }
+    function cell(x, y, str, c) { return t(x, y, str, { s: 14, c: c, mono: true, w: 500 }); }
+    var t3 = { 0: ["C-2", "01"], 2: ["F#2", "01"], 4: ["D-3", "01"], 6: ["F#2", "01"], 8: ["C-2", "01"], 10: ["C-2", "01"], 12: ["D-3", "01"], 14: ["F#2", "01"] };
+    for (row = 0; row < 15; row++) { var yy = y0 + row * rh + 18;
+      s += cell(gx + 6, yy, row === 0 ? "C-4" : "---", row === 0 ? K.note : K.faint) + cell(gx + 44, yy, row === 0 ? "TA" : "--", row === 0 ? K.instr : K.faint) + cell(gx + 76, yy, row === 0 ? "Tr04" : "----", row === 0 ? K.fx1 : K.faint) + cell(gx + 128, yy, "----", K.faint);
+      s += cell(gx + tw + 6, yy, row === 0 ? "A-3" : "---", row === 0 ? K.note : K.faint) + cell(gx + tw + 44, yy, row === 0 ? "TB" : "--", row === 0 ? K.instr : K.faint) + cell(gx + tw + 76, yy, "----", K.faint) + cell(gx + tw + 128, yy, "----", K.faint);
+      var e = t3[row]; s += cell(gx + 2 * tw + 6, yy, e ? e[0] : "---", e ? K.note : K.faint) + cell(gx + 2 * tw + 44, yy, e ? e[1] : "--", e ? K.instr : K.faint) + cell(gx + 2 * tw + 76, yy, row === 0 ? "Ta64" : "----", row === 0 ? K.fx1 : K.faint) + cell(gx + 2 * tw + 128, yy, "----", K.faint);
+      s += cell(gx + 3 * tw + 6, yy, "---", K.faint) + cell(gx + 3 * tw + 44, yy, "--", K.faint) + cell(gx + 3 * tw + 76, yy, "----", K.faint) + cell(gx + 3 * tw + 128, yy, "----", K.faint); }
+    // Tape A strip: written rows above the record head bright, rows still to come empty, head as a red line.
+    var sx = gx + 166, rnd = 21; s += r(sx, y0 + 2, 20, 15 * rh - 2, "#0c0c0e");
+    for (row = 0; row < 15; row++) for (var q = 0; q < 4; q++) { rnd = (rnd * 9301 + 49297) % 233280; var v = rnd / 233280, a = 2 + 7 * v, yq = y0 + row * rh + 5 + q * 5;
+      if (row < play || (row === play && q < 2)) s += l(sx + 10 - a, yq, sx + 10 + a, yq, K.txt, 2); }
+    s += l(sx - 4, y0 + play * rh + 13, sx + 24, y0 + play * rh + 13, K.red, 2.5);
+    s += r(gx + 76 - 3, y0 + 3, 44, rh - 4, "none", { st: K.red, sw: 2 });
+    s += labels([{ n: "Pattern Name" }, { n: "Track Name" }, { n: "Rec Source", v: "Tracks", sel: true }, { n: "Bars", v: "4" }, { n: "Dub", v: "0" }, { n: "Undo Take" }, {}, { n: "More", v: "··•" }]);
+    return svg(s, "Pattern editor with Tape A armed and recording a 4-bar take started by a Tape Rec FX; page 3 shows the take's settings");
   };
 
   S.drum = function () {

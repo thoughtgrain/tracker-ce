@@ -10,7 +10,7 @@
 > - **Sends:** Tape A and Tape B sends on every instrument and synth part, beside Reverb and Delay. Scenes and the synth Output setting are dropped.
 > - **theseus is a synth engine** (`tape-ux.md` §8): chosen as a Model in a synth part and edited in the patch editor, not a sample play mode. On the Original, that needs one synth part for built-in engines only (to be measured), or a drum instrument that copies the synth screens. The `playModeDrum` design in §7a and phase 7a is replaced. theseus also gains per-drum trims (Tune, Decay, Tone, Level for Kick, Tom, Snare, Hats, Metal), interpolated across its zone range, with its host tests extended.
 > - **Sample strip** (`tape-ux.md` §5): a vertical waveform beside any track whose sample plays across steps, in every project type. It's independent of tape mode, so it becomes its own early phase: a peak table per instrument, the strip drawing, a Config setting, and a measured display-list cost.
-> - **Recording** is the Sample Recorder with a tape Target, Bars and Dub. Bounce is Render Selection to a tape.
+> - **Recording** happens in the pattern editor: arm with Shift + Rec, record with Rec + Play or the Tape Rec FX, with Rec Source, Bars and Dub on the pattern editor's third page. The Sample Recorder is unchanged. Bounce is Render Selection to a tape.
 
 ## What I'm building, in one paragraph
 
