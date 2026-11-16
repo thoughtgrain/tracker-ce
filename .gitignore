@@ -9,6 +9,7 @@ platforms/mk66/build/
 platforms/imx/build-*/
 editor-fx-sdk/build/
 synth-plugin-sdk/build/
+synth-plugin-sdk/build-portable/
 *.axf
 *.elf
 *.lss
