@@ -155,7 +155,7 @@ svg text { font-family: var(--f-screen); }
         <ul><li><b>Theseus</b> joins the Model list. The note picks the drum, the pads are the kit, and step velocity is the hit's velocity.</li><li>In tape projects, pressing <b>Reverb send</b> again steps it to <b>Tape A send</b>, and <b>Delay send</b> to <b>Tape B send</b>. Here the drum part sends 64 into Tape A's FX.</li></ul></div></div>
     <div class="fig"><div class="bezel" data-screen="drumpatch"></div>
       <div class="notes"><span class="ref">SynthPatchEditor.cpp · Edit</span>
-        <ul><li>The patch editor you know: Save, Save As, Init, Parameter, Back. The Parameter list holds theseus's eight values, with the bar beside it.</li><li>Patches save, load and map to macros like any engine's.</li></ul>
+        <ul><li>The patch editor you know: Save, Save As, Init, Parameter, Back.</li><li>The Parameter list starts with the eight kit-wide values, then a section per drum type, Kick, Tom, Snare, Hats and Metal, each with Tune, Decay, Tone and Level.</li><li>Hitting a pad jumps the list to that drum. Here a snare hit opened the Snare section.</li><li>Notes between two types blend their settings, so there are no steps at the edges.</li><li>Patches save, load and map to macros like any engine's.</li></ul>
         <p class="mini"><b>Original Tracker:</b> it has no synth parts today. The plan is one synth part for built-in engines only, with these same screens, if it fits in the spare flash and RAM. If it doesn't, theseus becomes a drum instrument whose screens copy this layout button for button.</p></div></div>
   </section>
 
@@ -388,14 +388,21 @@ svg text { font-family: var(--f-screen); }
   };
 
   S.drumpatch = function () {
-    var s = titleBar("Synth B · Theseus", "Patch: Kit 1");
-    var params = ["Decay", "Punch", "Cutoff", "FM", "Noise", "LFO", "Rate", "Tune"], vals = ["320 ms", "43 %", "49 %", "24 %", "12 %", "0 %", "8 hits", "+2 st"];
-    s += r(301, 31, 397, 391, "#0e0e10");
-    params.forEach(function (p, j) { var y = 60 + j * 40, on = j === 1;
-      s += r(312, y, 375, 34, on ? "#3a3a3e" : "none") + t(324, y + 23, p, { s: 15, w: on ? 700 : 500, c: on ? K.white : K.txt }) + t(676, y + 23, vals[j], { a: "end", s: 15, c: on ? K.white : K.txt }); });
-    s += r(301, 31, 397, 391, "none", { st: K.red, sw: 2.5 }) + newTag(640, 36);
-    s += labels([{ n: "Save" }, { n: "Save As" }, { n: "Init", v: "Patch" }, {}, {}, { n: "Parameter", v: "Punch 43 %", sel: true }, {}, { n: "Back" }]);
-    return svg(s, "Patch editor for Theseus with its eight parameters in the Parameter list");
+    var s = titleBar("Synth B · Theseus", "D-3 → Snare");
+    var items = [["h", "KIT"], ["p", "Decay", "320 ms"], ["p", "Punch", "43 %"], ["p", "…6 more", ""],
+      ["h", "KICK"], ["c", "Tune · Decay · Tone · Level", "0 st · 0 · 0 · 0"], ["h", "TOM"], ["c", "Tune · Decay · Tone · Level", "0 st · 0 · 0 · 0"],
+      ["h", "SNARE"], ["p", "Tune", "+3 st"], ["p", "Decay", "−20"], ["p", "Tone", "+15", true], ["p", "Level", "0"],
+      ["h", "HATS"], ["h", "METAL"]];
+    s += r(201, 31, 597, 391, "#0e0e10");
+    var y = 38;
+    items.forEach(function (it) {
+      if (it[0] === "h") { s += t(214, y + 17, it[1], { s: 13, w: 700, c: K.dim, ls: 1 }) + l(260 + it[1].length * 6, y + 12, 785, y + 12, K.faint); y += 24; return; }
+      var on = !!it[3];
+      s += r(210, y, 578, 24, on ? "#3a3a3e" : "none") + t(224, y + 17, it[1], { s: 14, w: on ? 700 : 500, c: on ? K.white : K.txt }) + t(776, y + 17, it[2], { a: "end", s: 14, c: on ? K.white : K.txt });
+      y += 25; });
+    s += r(201, 31, 597, 391, "none", { st: K.red, sw: 2.5 });
+    s += labels([{ n: "Save" }, { n: "Save As" }, { n: "Init", v: "Patch" }, {}, {}, { n: "Parameter", v: "Snare Tone", sel: true }, {}, { n: "Back" }]);
+    return svg(s, "Theseus patch editor with kit-wide values and a section per drum type; the snare section is open after hitting a snare pad");
   };
 
   S.perf = function () {
