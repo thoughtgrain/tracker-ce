@@ -155,7 +155,7 @@ svg text { font-family: var(--f-screen); }
         <ul><li><b>Theseus</b> joins the Model list. The note picks the drum, the pads are the kit, and step velocity is the hit's velocity.</li><li>In tape projects, pressing <b>Reverb send</b> again steps it to <b>Tape A send</b>, and <b>Delay send</b> to <b>Tape B send</b>. Here the drum part sends 64 into Tape A's FX.</li></ul></div></div>
     <div class="fig"><div class="bezel" data-screen="drumpatch"></div>
       <div class="notes"><span class="ref">SynthPatchEditor.cpp · Edit</span>
-        <ul><li>The patch editor you know: Save, Save As, Init, Parameter, Back.</li><li>The Parameter list starts with the eight kit-wide values, then a section per drum type, Kick, Tom, Snare, Hats and Metal, each with Tune, Decay, Tone and Level.</li><li>Hitting a pad jumps the list to that drum. Here a snare hit opened the Snare section.</li><li>Notes between two types blend their settings, so there are no steps at the edges.</li><li>Patches save, load and map to macros like any engine's.</li></ul>
+        <ul><li>The patch editor as it is: the engine's sections as a grid of icons on the left, the selected section's parameters on the right, Save, Save As, Init, Parameter and Back along the bottom.</li><li>theseus declares seven sections: <b>Kit</b> (Decay, Punch, Cutoff, FM, Noise, Tune), <b>Hit LFO</b> (LFO, Rate), and one per drum, <b>Kick, Tom, Snare, Hats, Metal</b>, each with Tune, Decay, Tone and Level.</li><li>Hitting a pad selects that drum's section in the grid. Here a snare hit has Snare selected.</li><li>Notes between two drum types blend their settings, so there are no steps at the edges.</li></ul>
         <p class="mini"><b>Original Tracker:</b> it has no synth parts today. The plan is one synth part for built-in engines only, with these same screens, if it fits in the spare flash and RAM. If it doesn't, theseus becomes a drum instrument whose screens copy this layout button for button.</p></div></div>
   </section>
 
@@ -380,29 +380,35 @@ svg text { font-family: var(--f-screen); }
   };
 
   S.drum = function () {
-    var s = titleBar("Synth B", "Patch: Kit 1");
+    var s = titleBar("Synth B", "") + t(625, 50, "Patch:", { s: 14, c: K.txt }) + t(680, 50, "Kit 1", { s: 17, w: 700, c: K.white });
     s += bars([{ list: ["ACD", "DIRT", "FAT", "PERC", "VAP", "WTFM", "CHIP", "Theseus"], at: 7 }, { v: 0.5, tx: "4" }, { v: 0.7, tx: "−2 dB" }, { v: 0.5, tx: "C" }, { v: 0.64, tx: "64", sel: true }, { v: 0.15, tx: "15" }]);
     s += newTag(60, 270);
     s += labels([{ n: "Model", v: "Theseus", nw: true }, { n: "Polyphony", v: "4" }, { n: "Gain", v: "−2 dB" }, { n: "Panning", v: "C" }, { n: "Tape A send", v: "64", sel: true, nw: true }, { n: "Delay send", v: "15" }, { n: "Load" }, { n: "Edit" }]);
     return svg(s, "Synth part screen with Theseus chosen as the model and the send stepped to Tape A");
   };
 
+  // The real patch editor (SynthPatchEditor.cpp): a 4x4 grid of the engine's sections (icon + name) over
+  // columns 1-4, the selected section's parameter list over columns 5-7, Save / Save As / Init / Parameter / Back.
   S.drumpatch = function () {
     var s = titleBar("Synth B · Theseus", "D-3 → Snare");
-    var items = [["h", "KIT"], ["p", "Decay", "320 ms"], ["p", "Punch", "43 %"], ["p", "…6 more", ""],
-      ["h", "KICK"], ["c", "Tune · Decay · Tone · Level", "0 st · 0 · 0 · 0"], ["h", "TOM"], ["c", "Tune · Decay · Tone · Level", "0 st · 0 · 0 · 0"],
-      ["h", "SNARE"], ["p", "Tune", "+3 st"], ["p", "Decay", "−20"], ["p", "Tone", "+15", true], ["p", "Level", "0"],
-      ["h", "HATS"], ["h", "METAL"]];
-    s += r(201, 31, 597, 391, "#0e0e10");
-    var y = 38;
-    items.forEach(function (it) {
-      if (it[0] === "h") { s += t(214, y + 17, it[1], { s: 13, w: 700, c: K.dim, ls: 1 }) + l(260 + it[1].length * 6, y + 12, 785, y + 12, K.faint); y += 24; return; }
-      var on = !!it[3];
-      s += r(210, y, 578, 24, on ? "#3a3a3e" : "none") + t(224, y + 17, it[1], { s: 14, w: on ? 700 : 500, c: on ? K.white : K.txt }) + t(776, y + 17, it[2], { a: "end", s: 14, c: on ? K.white : K.txt });
-      y += 25; });
-    s += r(201, 31, 597, 391, "none", { st: K.red, sw: 2.5 });
-    s += labels([{ n: "Save" }, { n: "Save As" }, { n: "Init", v: "Patch" }, {}, {}, { n: "Parameter", v: "Snare Tone", sel: true }, {}, { n: "Back" }]);
-    return svg(s, "Theseus patch editor with kit-wide values and a section per drum type; the snare section is open after hitting a snare pad");
+    var secs = ["Kit", "Hit LFO", "Kick", "Tom", "Snare", "Hats", "Metal"], sel = 4;
+    var gx0 = 50, gy0 = 97, cw = 75, chh = 77;
+    secs.forEach(function (nm, i) { var c = i % 4, rw = Math.floor(i / 4), cx = gx0 + c * cw + cw / 2, cy = gy0 + rw * chh;
+      var on = i === sel;
+      if (on) s += r(cx - 34, cy - 4, 68, 72, "#3a3a3e");
+      s += r(cx - 20, cy + 2, 40, 40, "none", { st: on ? K.white : K.txt, sw: 1.5 });
+      // simple pictograms: a drum head for drums, a wave for the LFO, a stack for the kit
+      if (i >= 2) s += '<ellipse cx="' + cx + '" cy="' + (cy + 16) + '" rx="13" ry="5" fill="none" stroke="' + (on ? K.white : K.txt) + '" stroke-width="1.5"/>' + l(cx - 13, cy + 16, cx - 13, cy + 30, on ? K.white : K.txt, 1.5) + l(cx + 13, cy + 16, cx + 13, cy + 30, on ? K.white : K.txt, 1.5);
+      else if (i === 1) s += pth("M" + (cx - 14) + " " + (cy + 22) + " Q " + (cx - 7) + " " + (cy + 8) + " " + cx + " " + (cy + 22) + " T " + (cx + 14) + " " + (cy + 22), on ? K.white : K.txt, 1.5);
+      else { for (var k = 0; k < 3; k++) s += r(cx - 12, cy + 10 + k * 8, 24, 5, on ? K.white : K.txt); }
+      s += t(cx, cy + 60, nm, { a: "middle", s: 13, w: on ? 700 : 500, c: on ? K.white : K.txt }); });
+    var params = [["Tune", "+3 st"], ["Decay", "−20"], ["Tone", "+15"], ["Level", "0"]], at = 2;
+    s += r(401, 29, 297, 394, "#0e0e10");
+    params.forEach(function (p, j) { var y = 40 + j * 30, on = j === at;
+      s += r(406, y, 287, 26, on ? "#3a3a3e" : "none") + t(416, y + 18, p[0], { s: 14, w: on ? 700 : 500, c: on ? K.white : K.txt }) + t(684, y + 18, p[1], { a: "end", s: 14, c: on ? K.white : K.txt }); });
+    s += r(401, 29, 297, 394, "none", { st: K.red, sw: 2.5 });
+    s += labels([{ n: "Save" }, { n: "Save As" }, { n: "Init", v: "Patch" }, {}, {}, { n: "Parameter", v: "Tone +15", sel: true }, { n: "▲ ▼" }, { n: "Back" }]);
+    return svg(s, "Theseus patch editor: a grid of sections (Kit, Hit LFO, Kick, Tom, Snare, Hats, Metal) with Snare selected and its four parameters listed on the right");
   };
 
   S.perf = function () {
