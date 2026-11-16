@@ -138,10 +138,10 @@ svg text { font-family: var(--f-screen); }
   </section>
 
   <section class="section" id="drum">
-    <div class="intro"><h2>Sample Playback, play mode Drum</h2><p>theseus, on every device. The zone strip stands where the waveform would be. Spec §8.</p></div>
+    <div class="intro"><h2>Sample Playback, play mode Drum</h2><p>theseus, on every device. A drum has no sample, so the screen shows parameter bars like every other Tracker parameter page. Spec §8.</p></div>
     <div class="fig"><div class="bezel" data-screen="drum"></div>
       <div class="notes"><span class="ref">Sample Loader → New Drum</span>
-        <ul><li>More: Noise · LFO · Rate · Tune · Back.</li><li>The note picks the drum, the pads are the kit, and the volume column is velocity. Params is the usual instrument editor.</li></ul></div></div>
+        <ul><li>More: Noise · LFO · Rate · Tune · Back.</li><li>The note picks the drum, the pads are the kit, and the volume column is velocity. The title bar names the drum the last note played (<kbd>D-3 → Snare</kbd>), the way it already shows the current instrument.</li><li>Params is the usual instrument editor.</li></ul></div></div>
   </section>
 
   <section class="section" id="perf">
@@ -315,13 +315,11 @@ svg text { font-family: var(--f-screen); }
   };
 
   S.drum = function () {
-    var s = titleBar("Sample Playback", "01  Kit");
-    var x0 = 24, w = 752 / 48, zones = [["KICK", 0, 10], ["TOM", 10, 18], ["SNARE", 18, 27], ["TOM", 27, 33], ["HATS", 33, 42], ["METAL", 42, 48]];
-    for (var i = 0; i < 48; i++) { var x = x0 + i * w, blk = [1, 3, 6, 8, 10].indexOf(i % 12) >= 0; s += r(x + 1, 70, w - 2, blk ? 90 : 140, blk ? "#2a2a2c" : "#4a4a4e"); }
-    zones.forEach(function (z, j) { var a = x0 + z[0 + 1] * w, b = x0 + z[2] * w; s += r(a, 230, b - a - 3, 30, j % 2 ? "#2a2a2c" : "#3a3a3e") + t((a + b) / 2, 250, z[0], { a: "middle", s: 13, w: 700, c: K.white }); });
-    s += t(x0, 290, "The note picks the drum. Tune on More shifts the zones.", { s: 13, c: K.dim }) + newTag(x0, 304);
-    s += labels([{ n: "Preview" }, { n: "Decay", v: "320 ms", sel: true, nw: true }, { n: "Punch", v: "43 %", nw: true }, { n: "Cutoff", v: "49 %", nw: true }, { n: "FM", v: "24 %", nw: true }, { n: "More", v: "•·" }, { n: "Play Mode", v: "▲ Drum ▼", span: 2, nw: true }]);
-    return svg(s, "Sample Playback with play mode Drum and the zone strip");
+    var s = titleBar("Sample Playback", "01 Kit   D-3 → Snare");
+    s += bars([null, { v: 0.27, tx: "320 ms", sel: true }, { v: 0.43, tx: "43 %" }, { v: 0.49, tx: "49 %" }, { v: 0.24, tx: "24 %" }]);
+    [1, 2, 3, 4].forEach(function (i) { s += newTag(100 * i + 36, 404); });
+    s += labels([{ n: "Preview" }, { n: "Decay", v: "320 ms", sel: true }, { n: "Punch", v: "43 %" }, { n: "Cutoff", v: "49 %" }, { n: "FM", v: "24 %" }, { n: "More", v: "•·" }, { n: "Play Mode", v: "▲ Drum ▼", span: 2, nw: true }]);
+    return svg(s, "Sample Playback with play mode Drum as parameter bars");
   };
 
   S.perf = function () {

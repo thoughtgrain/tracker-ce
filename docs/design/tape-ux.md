@@ -160,7 +160,7 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 ## 8. Drums: theseus as a play mode
 
 - **Making one:** in the Sample Loader, with an empty slot selected, **New Drum** makes an instrument with play mode **Drum** and no sample, so it takes no sample memory.
-- **SamplePlay** on a drum instrument shows the zone strip instead of a waveform: which notes make kick, tom, snare, hats and metal, and how Tune shifts them. Its values:
+- **SamplePlay** on a drum instrument shows parameter bars, like every Tracker parameter page, since there's no waveform. The title bar names the drum the last note played (`D-3 → Snare`), the way it already shows the current instrument. Its values:
 
 | | 1 | 2 | 3 | 4 | 5 | 6 | 7–8 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
