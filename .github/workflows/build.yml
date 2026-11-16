@@ -241,6 +241,9 @@ jobs:
         with:
           name: Polyend Tracker CE ${{ github.ref_name }}
           generate_release_notes: true
+          # A tag with a suffix (v0.1.0-alpha.1, v1.2.0-beta.2) is a test build: publish it as a
+          # pre-release so it's never shown as the latest release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             build/*.ptf
             build/PolyendTracker_CE_Effects.zip
