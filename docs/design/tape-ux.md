@@ -30,7 +30,7 @@ That leaves **two** new pieces of UI: the project-type choice, and paging throug
 
 - **A tape is an instrument** (Tape A, Tape B) with a new play mode, **Tape**. While the transport runs it keeps rolling in sync, whether or not a note is playing on it, so coming back to it lands where the music is.
 - **A tape track** is the track the tape lives on. It's an ordinary track in every way you already know, one voice and the same columns, with two additions:
-  - **more FX columns** (FX1–FX6 instead of FX1–FX2);
+  - **more FX columns** (FX1–FX4 instead of FX1–FX2);
   - **its own chain**, Grain → Ripple → Echo, through which its sound and every send into it pass.
 - **Its fader is the chain's output.** Muting Tape A mutes Tape A's chain, including what other tracks send into it. There's no separate return channel to learn.
 - **Ordinary tracks** are exactly today's tracks. Their instruments have two new sends, **Tape A send** and **Tape B send**, beside Reverb send and Delay send. That's how drums, synths and samples flow into the effects.
@@ -107,10 +107,10 @@ Choose Tape A as the instrument and press **SamplePlay**. The screen is the one 
 
 ## 5. Lanes: more FX columns on tape tracks
 
-A tape track has **six FX columns** where an ordinary track has two. They *are* FX columns: the same FX list, the same entry, the same Fill, Copy and Undo, with no new rules. That's the lanes you asked for, in the form a Tracker user already writes.
+A tape track has **four FX columns** where an ordinary track has two. They *are* FX columns: the same FX list, the same entry, the same Fill, Copy and Undo, with no new rules. That's the lanes you asked for, in the form a Tracker user already writes.
 
-**Paging.** Pressing **Note** again already swaps a track's FX columns for Micro-move and Volume. On a tape track, pressing **Fx** again pages the two visible FX columns: FX1·2 → FX3·4 → FX5·6 → FX1·2. The track's header shows which pair is up (`FX 3·4`). Nothing changes width, so the 4-track view, scrolling and the 8,172-byte frame budget behave as they do now.
-- **Tape 2** has width to spare. Track 1 shows all six FX columns at once, and track 2 sits beside it.
+**Paging.** Pressing **Note** again already swaps a track's FX columns for Micro-move and Volume. On a tape track, pressing **Fx** again swaps the two visible FX columns between FX1·2 and FX3·4. The track's header shows which pair is up (`FX 3·4`). Nothing changes width, so the 4-track view, scrolling and the 8,172-byte frame budget behave as they do now.
+- **Tape 2** has width to spare. Track 1 shows all four FX columns at once, and track 2 sits beside it.
 
 **The tape strip.** Beside each tape track's columns, in the space to the right of FX2 (about 20 px, so no column moves), a thin waveform runs **top to bottom with the steps**. Each row shows the stretch of tape that plays on that step, so you can read the tape the way you read the notes:
 - **It follows what's written.** A note that jumps to a slice draws a short orange line where the jump happens, and the strip shows the slice's audio from there. Speed, Reverse and Position FX bend it: a slowdown narrows the waveform as fewer seconds pass per step, a stop goes flat, and reverse runs the audio backwards.
