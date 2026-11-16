@@ -204,7 +204,14 @@ Recording onto a tape happens in the pattern editor, where the tape lives, using
 - **Dub** works as it did in Bryo: 0 adds the new sound to the old (sound on sound), +100 keeps the old loop, −100 replaces it, and values between fade the old loop each pass.
 - **Undo Take** brings back the tape as it was before the last take.
 
-**5. Bounce** is **Render Selection** (pattern editor, page 2), which already renders a selection to a sample. It gains a destination: New instrument, **Tape A** or **Tape B**. Select an ordinary track's steps, render to Tape A, and the part is on tape.
+**5. Bounce: Render Selection, in real time.** **Render Selection** (pattern editor, page 2) already renders a selection offline into a new instrument. With **Tape A** or **Tape B** as the destination it renders **in real time** instead: it plays the selected steps and records them straight onto the tape, with the same tape writer as a take. That allows things an offline render can't do:
+- **No render-buffer limit.** It writes straight into the tape's memory, so the only limit is the tape's length (a 128-step pattern at a slow tempo can exceed it, and the render is refused with the length that fits).
+- **Seamless loops.** **Loop seam: On** (the default) plays the selection twice and keeps the second pass, so the reverb, delay and releases from the end are already sounding at the start. The tape then loops with no gap or click where it wraps.
+- **Only the selected tracks, without muting anything.** It records the selected tracks from the per-track taps the engine already has for stem export. Choose **Dry** (just those tracks, no Reverb or Delay) or **Mix** (the whole output, Reverb and Delay included, which is what Loop seam's tails need). The Tracker's Reverb and Delay are shared returns, so there's no way to take only the selected tracks' share of them. You keep hearing the whole mix while it renders.
+- **Performing into it.** Because it plays in real time, filter moves, mutes and performance FX you play during the render are printed onto the tape.
+- **Printing synths** this way frees their CPU: render the synth's track to Tape B, then turn the part off.
+
+How it runs: select the steps (and tracks) and choose Render Selection → Tape A. If the song is stopped, it starts from the selection's first step; if it's playing, it waits for the selection's next start, blinking red like a queued pattern. The tape track's header shows `RENDER 1/2`, then `2/2`, and it stops by itself. Undo Take brings the tape back. Nothing is written to the SD card while it runs; the tape is saved with the project, as any take is.
 
 **While a take runs,** the tape track's header blinks red with the bar count (`REC 2/4`), and the sample strip shows the record head as a red line moving down with the steps. A take never stops the song.
 

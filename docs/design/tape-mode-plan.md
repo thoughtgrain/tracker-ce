@@ -59,7 +59,7 @@ I looked at streaming recordings to the SD card ("reels") to get past RAM limits
 
 ### 2.7 Synths: print offline, not by streaming
 
-The synth parts share a hard real-time budget (`kMaxSynthRealtimeBudgetUs`, 2.1 ms of the 2.9 ms block) that the tape buses compete with. The way to free it is already in the Tracker: **Render Selection** renders offline, outside the audio interrupt's timing, into a new instrument, and phase 5 adds Tape A or Tape B as destinations. Printing a synth part that way and playing the result as a sample frees its CPU, without any real-time SD writing. Its length is limited by the render buffer (`externalRamScratchBuff`, 768 KB) and sample memory, which is fine for loops and phrases.
+The synth parts share a hard real-time budget (`kMaxSynthRealtimeBudgetUs`, 2.1 ms of the 2.9 ms block) that the tape buses compete with. The way to free it is **Render Selection to a tape, in real time** (phase 5): the selection plays and is recorded straight into the tape's RAM from the per-track taps stem export already uses. It isn't limited by the 768 KB offline render buffer, it can keep the second pass so loop seams carry their tails, and it writes nothing to the card while it runs. Then the synth part can be turned off.
 
 Streamed sample slots for sample-based engines (WAVS, GRAIN, DWA) remain a possible separate project, because streaming *playback* is already proven in `VoiceStreamManager`. It's a plugin ABI change and outside tapes.
 
@@ -157,7 +157,7 @@ Each phase is one PR. Fences are a starting point; I re-grep the blast radius ri
   - Tape tracks in the Shift + Rec arm row; Rec + Play punch in and out; bar-quantised takes.
   - The Tape Rec FX.
   - Page 3 settings (Rec Source, Bars, Dub, Undo Take).
-  - Render Selection → Tape A/B.
+  - Render Selection → Tape A/B **in real time**: it plays the selection (twice with Loop seam on, keeping the second pass), records into the tape through `TapeWriter`, and stops by itself. **Dry** sums the selected voices (and synth parts) from the same nodes stem export taps (`connectVoiceToExportQueue`, `connectSynthToExportQueue`), through new connections into the writer, not through the export queues, which buffer for the main loop. **Mix** takes the final output. Reverb and Delay are only available as whole returns (`stem_reverb`, `stem_delay`), so there's no per-track share of them.
   - Saving dirty tapes.
 - **Fence:** play_memory tape files, `Sequencer` (Tape Rec), `fPatternEdit.cpp`/`gPatternEdit.cpp`, the render code, the platform input tap (read only).
 - **Invariant:** the Sample Recorder unchanged; live note recording unchanged.
