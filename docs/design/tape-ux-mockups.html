@@ -91,7 +91,7 @@ svg text { font-family: var(--f-screen); }
     <div class="fig"><div class="bezel" data-screen="pattern"></div>
       <div class="notes"><span class="ref">fPatternEdit.cpp · Fx pressed again</span>
         <p>A tape track has four FX columns where an ordinary track has two. Pressing <kbd>Fx</kbd> again swaps the visible pair between FX1·2 and FX3·4, the way <kbd>Note</kbd> pressed again swaps in Micro-move and Volume. The header shows which pair is up.</p>
-        <ul><li>They're the same FX list, entry, Fill, Copy and Undo you already use. The new tape FX are new entries in that list.</li><li>Here, FX3 holds a <b>Fill</b> of Speed from 100 down to −100 over steps 9–14, and FX4 holds a <b>Roll</b>, an existing FX.</li><li>Ending a stutter works as it does today: write the FX again with 0.</li><li><b>The tape strip</b>: a thin waveform beside each tape track runs down with the steps, showing the stretch of tape each step plays. Orange lines mark where a note jumps to a slice. Here it narrows and goes flat as the Speed fill slows the tape to a stop.</li></ul>
+        <ul><li>They're the same FX list, entry, Fill, Copy and Undo you already use. The new tape FX are new entries in that list.</li><li>Here, FX3 holds a <b>Fill</b> of Speed from 100 down to −100 over steps 9–14, and FX4 holds a <b>Roll</b>, an existing FX.</li><li>Ending a stutter works as it does today: write the FX again with 0.</li><li><b>The sample strip</b>: a thin waveform beside a track runs down with the steps, showing the stretch of sample each step plays. It appears on any track whose sample keeps playing across steps, in Default projects too, not only on tapes. Orange lines mark a note starting or jumping to a slice; dashed white lines mark a loop wrapping. On Tape A it narrows and goes flat as the Speed fill slows the tape to a stop; on track 4, a looping pad started on step 0 wraps every six steps.</li></ul>
         <p class="mini"><b>Mini:</b> the same, with the Fx button and ±1/±10.</p></div></div>
   </section>
 
@@ -241,7 +241,7 @@ svg text { font-family: var(--f-screen); }
     var speed = { 9: "Sp83", 10: "Sp67", 11: "Sp50", 12: "Sp33", 13: "Sp17", 14: "Sp-0" }, roll = { 12: "Ro16", 13: "Ro16", 14: "Ro32" };
     var tB = { 0: ["A-3", "TB", "Gw40"], 8: ["A-3", "TB", ""] };
     var t3 = { 0: ["C-2", "01", "Ta64"], 2: ["F#2", "01"], 4: ["D-3", "01"], 6: ["F#2", "01"], 8: ["C-2", "01"], 10: ["C-2", "01"], 12: ["D-3", "01"], 14: ["A#4", "01"] };
-    var t4 = { 0: ["C-2", "02"], 3: ["C-2", "02"], 7: ["G-1", "02"], 10: ["A#1", "02"] };
+    var t4 = { 0: ["C-4", "03"] };
     for (row = 0; row < 15; row++) { y = y0 + row * rh + 18;
       var x = gx, a = tA[row];
       s += cell(x + 6, y, a ? a[0] : "---", a ? K.note : K.faint) + cell(x + 44, y, a ? a[1] : "--", a ? K.instr : K.faint);
@@ -265,6 +265,9 @@ svg text { font-family: var(--f-screen); }
     s += tapeStrip(gx + 166, 7, { 9: 0.85, 10: 0.7, 11: 0.55, 12: 0.4, 13: 0.25, 14: 0.05 }, [0, 4, 8]);
     s += tapeStrip(gx + tw + 166, 19, null, [0, 8]);
     s += newTag(gx + 96, 38);
+    // Track 4 is ordinary: a looping pad sample (03) started on step 0. Its strip wraps at the loop points.
+    s += tapeStrip(gx + 3 * tw + 166, 31, null, [0]);
+    [6, 12].forEach(function (lr) { s += l(gx + 3 * tw + 162, y0 + lr * rh + 2, gx + 3 * tw + 190, y0 + lr * rh + 2, K.white, 1.5, "3 2"); });
     s += labels([{ n: "Pattern", v: "3" }, { n: "Length", v: "16" }, { n: "Step jump", v: "1" }, { n: "Fill" }, { n: "Preview" }, { n: "Undo" }, { n: "Redo" }, { n: "More", v: "•··" }]);
     return svg(s, "Pattern editor in Tape 4 with Tape A showing FX columns 3 and 4");
   };

@@ -8,6 +8,7 @@
 > - **Modulation is Automation**, with new destinations and a Follow type. The modulator slots and depth tables in §6 go away.
 > - **One voice per tape track.** Another instrument on a tape step plays instead of the tape, and the tape keeps time underneath (its position comes from the song position), so no second player is needed.
 > - **Sends:** Tape A and Tape B sends on every instrument and synth part, beside Reverb and Delay. Scenes and the synth Output setting are dropped.
+> - **Sample strip** (`tape-ux.md` §5): a vertical waveform beside any track whose sample plays across steps, in every project type. It's independent of tape mode, so it becomes its own early phase: a peak table per instrument, the strip drawing, a Config setting, and a measured display-list cost.
 > - **Recording** is the Sample Recorder with a tape Target, Bars and Dub. Bounce is Render Selection to a tape.
 
 ## What I'm building, in one paragraph
