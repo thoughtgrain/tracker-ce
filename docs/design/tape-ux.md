@@ -46,15 +46,18 @@ That leaves **two** new pieces of UI: the project-type choice, and paging throug
 
 ## 2. Making a tape project (new)
 
-**File → New Project**, after today's stop and save prompts, shows a choice page laid out like Export's: screen-button options, a description above them, and Cancel / Create on 7 and 8.
+**File → New Project**, after today's stop and save prompts, opens a list of the four types, each with a one-line summary. It looks like the file and Config lists: no pictures, just the choice and what it means. Turn the encoder or use Up/Down to pick, then press **Create** (button 8); **Cancel** is button 7.
 
-| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Default / 16 tracks | Tape 2 | Tape 4 | Tape 6 | | | Cancel | Create |
+| Type | Summary in the list |
+| :--- | :--- |
+| Default | 16 tracks: 8 sample + 8 MIDI. No tape. Today's project. |
+| Tape 2 | 2 tracks. Track 1 is a tape track; track 2 is ordinary. |
+| Tape 4 | 4 tracks. Tracks 1–2 are tape tracks; 3–4 are ordinary. |
+| Tape 6 | 6 tracks. Tracks 1–2 are tape tracks; 3–6 are ordinary. |
 
-- **Default is preselected**, so the old path is one extra press.
+- **Default is highlighted when the list opens**, so the old path is one extra press.
 - Create makes the tape instruments (blank, 8 bars at the project tempo) and writes **`C-4 TA`** on step 1 of pattern 1 for each tape. That note starts the tape, the same way a looping break starts in any Tracker project. It's an ordinary note you can see, move or delete.
-- **On the Mini,** ±1 moves between the types and button 8 creates.
+- **On the Mini,** ±1 or Up/Down moves through the list and button 8 creates.
 
 ---
 

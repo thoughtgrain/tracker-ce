@@ -80,9 +80,10 @@ svg text { font-family: var(--f-screen); }
   <section class="section" id="new">
     <div class="intro"><h2>File → New Project → type</h2><p>One of the two new pieces of UI. Spec §2.</p></div>
     <div class="fig"><div class="bezel" data-screen="newproject"></div>
-      <div class="notes"><span class="ref">fProjEdit.cpp · laid out like Export's choices</span>
-        <ul><li><b>Default</b> is preselected, so <kbd>Create</kbd> makes today's 16-track project with one extra press.</li><li>Create writes <kbd>C-4 TA</kbd> on step 1 of pattern 1 for each tape. It's an ordinary note that starts the tape, the way a looping break starts in any project.</li></ul>
-        <p class="mini"><b>Mini:</b> ±1 moves between the types and button 8 creates.</p></div></div>
+      <div class="notes"><span class="ref">fProjEdit.cpp · a list, like the file and Config lists</span>
+        <p>Press <kbd>New Project</kbd> and a list of the four types opens, each with a one-line summary. Turn the encoder or use Up/Down to pick, then press <kbd>Create</kbd>.</p>
+        <ul><li><b>Default</b> is highlighted when the list opens, so <kbd>Create</kbd> makes today's 16-track project with one extra press.</li><li>Create writes <kbd>C-4 TA</kbd> on step 1 of pattern 1 for each tape. It's an ordinary note that starts the tape.</li></ul>
+        <p class="mini"><b>Mini:</b> ±1 or Up/Down moves through the list, and button 8 creates.</p></div></div>
   </section>
 
   <section class="section" id="pattern">
@@ -209,20 +210,18 @@ svg text { font-family: var(--f-screen); }
   var S = {};
 
   S.newproject = function () {
-    var s = titleBar("File", "New project");
-    s += t(40, 80, "Project type", { s: 17, w: 700, c: K.white }) + newTag(160, 68);
-    s += t(40, 106, "4 tracks. Tracks 1–2 are tape tracks: a tape, six FX columns, Grain · Ripple · Echo.", { s: 15 });
-    s += t(40, 128, "Tracks 3–4 are ordinary tracks. Tapes up to 60 s each.", { s: 15, c: K.dim });
-    for (var i = 0; i < 4; i++) { var x = 70 + i * 175, tape = i < 2;
-      s += r(x, 160, 140, 230, "none", { st: tape ? K.txt : K.dim, sw: 1.5 });
-      s += t(x + 70, 186, tape ? "TAPE " + "AB"[i] : "TRACK " + (i + 1), { a: "middle", s: 15, w: 700, c: tape ? K.white : K.txt });
-      var cols = tape ? ["NOTE", "INS", "FX1·2", "FX3·4", "FX5·6"] : ["NOTE", "INS", "FX1·2"];
-      cols.forEach(function (c, j) { s += r(x + 14, 204 + j * 26, 112, 22, tape && j > 2 ? "#3a2a1a" : K.box) + t(x + 70, 220 + j * 26, c, { a: "middle", s: 12, w: 600, c: tape && j > 2 ? K.nw : K.txt }); });
-      if (tape) s += t(x + 70, 368, "Grain · Ripple · Echo", { a: "middle", s: 12, c: K.nw });
-      else s += t(x + 70, 368, "samples · drums · synths", { a: "middle", s: 12, c: K.dim });
-    }
-    s += labels([{ n: "Default", v: "16 tracks" }, { n: "Tape 2", v: "1 tape" }, { n: "Tape 4", v: "2 tapes", sel: true }, { n: "Tape 6", v: "2 tapes" }, {}, {}, { n: "Cancel" }, { n: "Create", nc: K.white }]);
-    return svg(s, "New project type choice with Tape 4 selected");
+    var s = titleBar("File", "New project") + newTag(760, 34);
+    var rows = [["Default", "16 tracks: 8 sample + 8 MIDI. No tape. Today's project."],
+      ["Tape 2", "2 tracks. Track 1 is a tape track; track 2 is ordinary."],
+      ["Tape 4", "4 tracks. Tracks 1–2 are tape tracks; 3–4 are ordinary."],
+      ["Tape 6", "6 tracks. Tracks 1–2 are tape tracks; 3–6 are ordinary."]];
+    s += r(1, 31, 798, 391, "#0e0e10");
+    rows.forEach(function (rw, j) { var y = 60 + j * 52, on = j === 2;
+      s += r(12, y, 776, 44, on ? "#3a3a3e" : "none") + t(28, y + 28, rw[0], { s: 17, w: 700, c: on ? K.white : K.txt }) + t(150, y + 28, rw[1], { s: 15, c: on ? K.white : K.txt }); });
+    s += l(12, 290, 788, 290, K.faint) + t(28, 320, "A tape track has a tape, six FX columns and Grain · Ripple · Echo.", { s: 14, c: K.dim }) + t(28, 342, "Tapes can be longer the fewer tracks a project has.", { s: 14, c: K.dim });
+    s += r(1, 31, 798, 391, "none", { st: K.red, sw: 2.5 });
+    s += labels([{ n: "Project type", v: "Tape 4", span: 2, sel: true }, {}, {}, {}, {}, { n: "Cancel" }, { n: "Create", nc: K.white }]);
+    return svg(s, "New project type list with Tape 4 highlighted");
   };
 
   S.pattern = function () {
