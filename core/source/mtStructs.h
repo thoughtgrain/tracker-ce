@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "mtEnvelopeGenerator.h"
+#include "waveformPeak.h"
 #include <stdint.h>
 
 //=====================================================================
@@ -780,7 +781,6 @@ const strInstrument defaultInstrumentParams = {
 //----------------------------------------------------------------------------------
 static constexpr uint32_t kStreamThresholdBytes = 256 * 1024; // 256 KB hybrid streaming threshold
 static constexpr uint32_t kStreamPreCacheFrames = 32768;      // 32768 frames (~743 ms at 44.1 kHz)
-static constexpr uint32_t kWaveformPeakPoints = 600;
 static constexpr uint32_t kClmtElementCount = 64;
 
 inline bool isPlayModeStreamable(uint8_t playMode)
@@ -797,12 +797,6 @@ inline bool isPlayModeStreamable(uint8_t playMode)
 #endif
     return true;
 }
-
-struct WaveformPeakPoint
-{
-    int16_t minVal;
-    int16_t maxVal;
-};
 
 struct strSampleMemory
 {
