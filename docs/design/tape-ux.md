@@ -74,6 +74,15 @@ Choose Tape A as the instrument and press **SamplePlay**. The screen is the one 
 - **The waveform** shows the loop window, the slice markers and the play head, as Slice mode already draws them. Tape mode adds a **bar ruler** under it and, while recording, a red record head.
 - **Notes jump slices.** On a tape step, the note picks the slice (C-4 = slice 1, chromatic up), as in Beat Slice. The difference is that the tape keeps rolling after the jump.
 - **Instruments take turns on a track, as they always do.** Another instrument on a tape track plays instead of the tape; the tape keeps time underneath, and the next TA note picks it back up in place.
+**From the pattern screen**, step by step:
+1. **Starting it.** A `C-4 TA` note starts the tape. A new tape project already has one on step 1 of pattern 1. With Sync on, the tape's position follows the song position, so it carries on across pattern changes and pattern loops without restarting. A `C-4 TA` on step 1 of every pattern just lines it up again; it doesn't retrigger audibly.
+2. **Jumping around.** Every other TA note is a slice jump: C-4 is slice 1 up to D#5 for slice 16, as in Beat Slice. With the cursor in the Note column and TA as the instrument, the pads audition the slices, and in edit mode they write them, the same as any instrument's notes.
+3. **Stopping and starting.** `OFF` on a TA step stops the tape. The next TA note starts it again where the song position says it should be, so it comes back in time.
+4. **Shaping it per step.** FX in FX1–FX4 act on the tape from their step: Speed and Wow (new), Roll, Reverse, Position, Tune and Slide (existing). Fill writes ramps, such as Speed sliding down to a stop.
+5. **Playing something else on the track.** Another instrument on a tape step plays instead of the tape, and the tape keeps time underneath. The next TA note picks it back up in place.
+6. **Seeing it.** The sample strip beside the track (§5) shows which part of the tape each step plays, where it jumps and where it slows.
+7. **Going deeper.** With the cursor on a TA step, TA is the current instrument, so **SamplePlay** opens this screen for the tape, **Params** its instrument settings, and **SampleRec** records onto it, as for any instrument.
+
 - **The Tracker's existing FX already do most of Bryo's tape moves.** They work on a tape exactly as their names say:
 
 | Bryo | The Tracker FX |
