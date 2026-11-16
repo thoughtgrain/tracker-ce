@@ -73,7 +73,7 @@ svg text { font-family: var(--f-screen); }
       <span><i class="sw fx1"></i><i class="sw fx2"></i>FX columns</span>
     </div>
     <nav class="toc" aria-label="Screens">
-      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Master · Tape FX</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">Sample Playback · Drum</a><a href="#perf">Performance</a>
+      <a href="#new">New project</a><a href="#pattern">Pattern · FX 3·4</a><a href="#strips">Sample strips</a><a href="#tape">Sample Playback · Tape</a><a href="#more">Master · Tape FX</a><a href="#grain">Grain sub-page</a><a href="#auto">Automation · Follow</a><a href="#sends">Sends on any instrument</a><a href="#rec">Sample Recorder → Tape</a><a href="#drum">theseus · synth screens</a><a href="#perf">Performance</a>
     </nav>
   </header>
 
@@ -148,10 +148,14 @@ svg text { font-family: var(--f-screen); }
   </section>
 
   <section class="section" id="drum">
-    <div class="intro"><h2>Sample Playback, play mode Drum</h2><p>theseus, on every device. A drum has no sample, so the screen shows parameter bars like every other Tracker parameter page. Spec §8.</p></div>
+    <div class="intro"><h2>theseus in the synth screens</h2><p>theseus is a synth, so it's a <b>Model</b> in a synth part, edited like every other engine. Spec §8.</p></div>
     <div class="fig"><div class="bezel" data-screen="drum"></div>
-      <div class="notes"><span class="ref">Sample Loader → New Drum</span>
-        <ul><li>More: Noise · LFO · Rate · Tune · Back.</li><li>The note picks the drum, the pads are the kit, and the volume column is velocity. The title bar names the drum the last note played (<kbd>D-3 → Snare</kbd>), the way it already shows the current instrument.</li><li>Params is the usual instrument editor.</li></ul></div></div>
+      <div class="notes"><span class="ref">SynthEditor.cpp · Model · Polyphony · … · Load · Edit</span>
+        <ul><li><b>Theseus</b> joins the Model list. The note picks the drum, the pads are the kit, and step velocity is the hit's velocity.</li><li>In tape projects, pressing <b>Reverb send</b> again steps it to <b>Tape A send</b>, and <b>Delay send</b> to <b>Tape B send</b>. Here the drum part sends 64 into Tape A's FX.</li></ul></div></div>
+    <div class="fig"><div class="bezel" data-screen="drumpatch"></div>
+      <div class="notes"><span class="ref">SynthPatchEditor.cpp · Edit</span>
+        <ul><li>The patch editor you know: Save, Save As, Init, Parameter, Back. The Parameter list holds theseus's eight values, with the bar beside it.</li><li>Patches save, load and map to macros like any engine's.</li></ul>
+        <p class="mini"><b>Original Tracker:</b> it has no synth parts today. The plan is one synth part for built-in engines only, with these same screens, if it fits in the spare flash and RAM. If it doesn't, theseus becomes a drum instrument whose screens copy this layout button for button.</p></div></div>
   </section>
 
   <section class="section" id="perf">
@@ -375,11 +379,22 @@ svg text { font-family: var(--f-screen); }
   };
 
   S.drum = function () {
-    var s = titleBar("Sample Playback", "01 Kit   D-3 → Snare");
-    s += bars([null, { v: 0.27, tx: "320 ms", sel: true }, { v: 0.43, tx: "43 %" }, { v: 0.49, tx: "49 %" }, { v: 0.24, tx: "24 %" }]);
-    [1, 2, 3, 4].forEach(function (i) { s += newTag(100 * i + 36, 404); });
-    s += labels([{ n: "Preview" }, { n: "Decay", v: "320 ms", sel: true }, { n: "Punch", v: "43 %" }, { n: "Cutoff", v: "49 %" }, { n: "FM", v: "24 %" }, { n: "More", v: "•·" }, { n: "Play Mode", v: "▲ Drum ▼", span: 2, nw: true }]);
-    return svg(s, "Sample Playback with play mode Drum as parameter bars");
+    var s = titleBar("Synth B", "Patch: Kit 1");
+    s += bars([{ list: ["ACD", "DIRT", "FAT", "PERC", "VAP", "WTFM", "CHIP", "Theseus"], at: 7 }, { v: 0.5, tx: "4" }, { v: 0.7, tx: "−2 dB" }, { v: 0.5, tx: "C" }, { v: 0.64, tx: "64", sel: true }, { v: 0.15, tx: "15" }]);
+    s += newTag(60, 270);
+    s += labels([{ n: "Model", v: "Theseus", nw: true }, { n: "Polyphony", v: "4" }, { n: "Gain", v: "−2 dB" }, { n: "Panning", v: "C" }, { n: "Tape A send", v: "64", sel: true, nw: true }, { n: "Delay send", v: "15" }, { n: "Load" }, { n: "Edit" }]);
+    return svg(s, "Synth part screen with Theseus chosen as the model and the send stepped to Tape A");
+  };
+
+  S.drumpatch = function () {
+    var s = titleBar("Synth B · Theseus", "Patch: Kit 1");
+    var params = ["Decay", "Punch", "Cutoff", "FM", "Noise", "LFO", "Rate", "Tune"], vals = ["320 ms", "43 %", "49 %", "24 %", "12 %", "0 %", "8 hits", "+2 st"];
+    s += r(301, 31, 397, 391, "#0e0e10");
+    params.forEach(function (p, j) { var y = 60 + j * 40, on = j === 1;
+      s += r(312, y, 375, 34, on ? "#3a3a3e" : "none") + t(324, y + 23, p, { s: 15, w: on ? 700 : 500, c: on ? K.white : K.txt }) + t(676, y + 23, vals[j], { a: "end", s: 15, c: on ? K.white : K.txt }); });
+    s += r(301, 31, 397, 391, "none", { st: K.red, sw: 2.5 }) + newTag(640, 36);
+    s += labels([{ n: "Save" }, { n: "Save As" }, { n: "Init", v: "Patch" }, {}, {}, { n: "Parameter", v: "Punch 43 %", sel: true }, {}, { n: "Back" }]);
+    return svg(s, "Patch editor for Theseus with its eight parameters in the Parameter list");
   };
 
   S.perf = function () {

@@ -180,24 +180,22 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 
 ---
 
-## 8. Drums: theseus as a play mode
+## 8. Drums: theseus is a synth engine
 
-- **Making one:** in the Sample Loader, with an empty slot selected, **New Drum** makes an instrument with play mode **Drum** and no sample, so it takes no sample memory.
-- **SamplePlay** on a drum instrument shows parameter bars, like every Tracker parameter page, since there's no waveform. The title bar names the drum the last note played (`D-3 → Snare`), the way it already shows the current instrument. Its values:
+theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner already knows, not a sample screen.
 
-| | 1 | 2 | 3 | 4 | 5 | 6 | 7–8 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| Drum mode | Preview | Decay | Punch | Cutoff | FM | More | Play Mode |
-| More | Noise | LFO | Rate | Tune | | | Back |
+- **Choosing it:** in a synth part's screen (Model, Polyphony, Gain, Panning, Reverb send, Delay send, Load, Edit), **Model** lists **Theseus** beside the other engines. Notes for it go on any track with the synth instrument, as for any synth.
+- **Its sound:** **Edit** opens the patch editor (Save, Save As, Init, Parameter, Back). Its parameters are theseus's eight: Decay, Punch, Cutoff, FM, Noise, LFO, Rate, Tune. Patches save and load like every other engine's, and the macros map to them the same way.
+- **Playing it:** the note picks the drum (low kicks, then toms and snare, then hats and metal). The 48 pads are the kit, and the step's velocity is the hit's velocity, which synth notes already carry. **Polyphony** sets how many hits overlap.
+- **Into the effects:** a synth part's screen has no free button, so in tape projects **Reverb send** and **Delay send** each step on when pressed again, following the Tracker's rule that pressing a selected list again steps it: Reverb send → **Tape A send**, and Delay send → **Tape B send**. The label shows which send the encoder is setting.
 
-- **Params** is the usual instrument editor (volume, pan, filter, envelopes), and **More** has its Tape A and Tape B sends. That's how drums flow into the effects.
-- **The note picks the drum,** the 48 pads are the kit, and the volume column is velocity. It works on every track in every project type, on all three devices.
-
----
+**On the Original Tracker.** There are no synth parts on the Original today (`FEATURE_SYNTH` and `GUI_HANDLE_SYNTH` are IMX only), so this needs one of two things:
+1. **One synth part on the Original, for built-in engines only.** It would be the same synth screens and the same `synthPart` settings, which the project file already stores on every device, with theseus as the only engine and no `.psyn` loading (that needs the M7). This is the consistent answer. The cost is building the synth host and its screens for the M4, and I don't know yet whether they fit in the Original's spare flash (about 153 KB) and RAM. Phase 0 measures it.
+2. **If they don't fit:** the Original gets theseus as a drum instrument whose screens copy the synth part and patch editor layout button for button, so the same muscle memory works. Projects move between devices with the kit's eight values intact.
 
 ## 9. Synths, performance mode and song
 
-- **Synths (Tracker+ and Mini):** the synth part settings already have Reverb and Delay sends. They gain **Tape A send** and **Tape B send**. There's no new routing concept: a synth reaches a tape the same way a sample does.
+- **Synths (Tracker+ and Mini):** a synth part reaches a tape's FX the same way a sample does, through Tape A send and Tape B send, reached by pressing Reverb send or Delay send again (§8).
 - **Performance mode** gains these FX: Speed (rows: 50 %, −100 %, 200 %, 0 %), Grain Freeze, Grain Wet, Ripple Wet, Echo Throw (feedback). The FX it already has (filter, volume and the rest) work on tape tracks as on any track.
 - **Song mode** is unchanged. Patterns carry their FX columns, so the tape's moves arrange like any other part.
 
@@ -255,4 +253,4 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 2. **Scenes dropped.** Patterns and performance mode cover them on a tracker. Do you still want them?
 3. **Colour folded into Overdrive and Bit depth.** That drops Bryo's noise and tilt. Acceptable, or should Color be a fourth Tape FX sub-page?
 4. **Tape FX only on tape tracks** (except the sends). Or should they be available, and do nothing, on any track?
-5. **New Drum in the Sample Loader.** Or would you rather drums were a choice in Sample Playback's Play Mode list on an empty slot?
+5. **theseus on the Original.** Is one built-in synth part on the Original worth the flash and RAM, if it fits, or is a drum instrument that copies the synth screens enough?
