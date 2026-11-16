@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      prerelease_tag:
+        description: "Publish this run as a pre-release with this tag (e.g. v0.1.0-alpha.1). Leave empty to only build."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -223,27 +228,31 @@ jobs:
               });
             }
 
+      # A release is published for a pushed v* tag, or for a manual run given a prerelease_tag
+      # (which creates that tag on the run's commit).
       - name: Package .ptfx Effects for GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.prerelease_tag != ''
         run: |
           cd editor-fx-sdk/build
           zip -r ../../build/PolyendTracker_CE_Effects.zip Effects README.txt
 
       - name: Package .psyn Synth Engines for GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.prerelease_tag != ''
         run: |
           cd synth-plugin-sdk/build/package
           zip -r ../../../build/PolyendTracker_CE_Synths.zip Synths README.txt LICENSE-PROPRIETARY.txt
 
       - name: Publish GitHub Release on Version Tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.prerelease_tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          name: Polyend Tracker CE ${{ github.ref_name }}
+          tag_name: ${{ inputs.prerelease_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: Polyend Tracker CE ${{ inputs.prerelease_tag || github.ref_name }}
           generate_release_notes: true
-          # A tag with a suffix (v0.1.0-alpha.1, v1.2.0-beta.2) is a test build: publish it as a
-          # pre-release so it's never shown as the latest release.
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          # A test build is never shown as the latest release: a manual pre-release run, or a tag
+          # with a suffix (v0.1.0-alpha.1, v1.2.0-beta.2).
+          prerelease: ${{ inputs.prerelease_tag != '' || contains(github.ref_name, '-') }}
           files: |
             build/*.ptf
             build/PolyendTracker_CE_Effects.zip
