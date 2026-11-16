@@ -47,6 +47,16 @@ const uint8_t PATTERN_FILE_VERSION = 6;
 
 const uint8_t CONFIG_STRUCT_VER = 10;
 
+// Config > Sample strips (docs/design/tape-ux.md §5). Stored in mtConfig.general.sampleStrips; the
+// order is the menu's, and 0 must stay the default because older configs don't have the field.
+enum SampleStripsMode : uint8_t
+{
+    kSampleStripsAllNotes = 0,
+    kSampleStripsLongSamples = 1,
+    kSampleStripsOff = 2,
+    kSampleStripsModeCount
+};
+
 static constexpr float DEFAULT_TEMPO = 130.0f;
 static constexpr float kMinExternalBPM = 10.0f;
 static constexpr float kMaxExternalBPM = 999.0f;
@@ -1114,6 +1124,8 @@ struct strMtConfig
         uint8_t font;
         uint8_t previewVolume;
         uint8_t recThreshold;
+        // Appended: configs written before it read 0, which is the default.
+        uint8_t sampleStrips; // SampleStripsMode
     } general;
 
     struct strInterfaceState

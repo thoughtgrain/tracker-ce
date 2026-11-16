@@ -104,6 +104,7 @@ const strItemTypeListText setupHexMode{ &mtConfig.general.numberingMode, std::si
 const strItemTypeListText setupPadPreviewInPatternEdit{ &mtConfig.general.padPreviewInPatternEdit, 3, padPreviewInPatternEditTexts };
 const strItemTypeListText setupPatternArrangement{ &mtConfig.general.patternArrangement, 3, patternArrangementTexts };
 const strItemTypeListText setupPatternInfo{ &mtConfig.general.patternInfo, 3, patternInfoTexts };
+const strItemTypeListText setupSampleStrips{ &mtConfig.general.sampleStrips, 3, sampleStripsTexts };
 const strItemTypeListTextWithAction setupLineInOutType{ &mtConfig.general.lineInOutType, 3,  lineInOutType, setLineInOutType };
 
 #ifndef TRACKER_MINI
@@ -166,6 +167,11 @@ cMenuItem melPatternInfo(menuGeneral,
                          patternInfo,
                          menuTypeItemListText,
                          &setupPatternInfo);
+cMenuItem melSampleStrips(menuGeneral,
+                          "Sample strips",
+                          sampleStripsDesc,
+                          menuTypeItemListText,
+                          &setupSampleStrips);
 cMenuItem melLinInOutType(menuGeneral,
                           "Line in channel",
                           lineInChannelDesc,

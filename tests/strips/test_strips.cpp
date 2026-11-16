@@ -117,31 +117,60 @@ static void testLevels()
     CHECK(levelAt(none, 10) == 0, "no peak cache: nothing drawn");
 }
 
+// The tests describe a track as a full Step per step, and hand the model only the kinds plus a
+// source that looks the playback up.
+struct Step
+{
+    StepKind kind = StepKind::kEmpty;
+    Playback playback;
+};
+
+static Playback lookUp(void* context, int step)
+{
+    return static_cast<const Step*>(context)[step].playback;
+}
+
+static void rowsOf(const Step* steps,
+                   int length,
+                   int first,
+                   int count,
+                   const Options& opt,
+                   Row* out)
+{
+    StepKind kinds[128];
+    for (int s = 0; s < length; s++)
+        kinds[s] = steps[s].kind;
+    PlaybackSource source;
+    source.get = lookUp;
+    source.context = const_cast<Step*>(steps);
+    computeRows(kinds, source, length, first, count, opt, out);
+}
+
 static void testRows()
 {
     // 16 steps, 0.125 s each. A 0.5 s one-shot on step 0 sounds for 4 steps.
     Step steps[16];
-    steps[0].kind = Step::Kind::kNote;
+    steps[0].kind = StepKind::kNote;
     steps[0].playback = oneShot(0, 500, 1000.0f, s_full, 500);
     Options opt;
     opt.stepSeconds = 0.125f;
     Row rows[16];
-    computeRows(steps, 16, 0, 16, opt, rows);
+    rowsOf(steps, 16, 0, 16, opt, rows);
     CHECK(rows[0].noteStart && !rows[1].noteStart, "note start marked on its row only");
     CHECK(rows[0].level[0] > 0 && rows[3].level[3] > 0, "sounding for four steps");
     CHECK(rows[4].level[0] == 0 && rows[10].level[2] == 0, "silent once the one-shot ends");
 
     // An off on step 2 stops it.
-    steps[2].kind = Step::Kind::kOff;
-    computeRows(steps, 16, 0, 16, opt, rows);
+    steps[2].kind = StepKind::kOff;
+    rowsOf(steps, 16, 0, 16, opt, rows);
     CHECK(rows[1].level[3] > 0 && rows[2].level[0] == 0, "note off stops the strip");
-    steps[2].kind = Step::Kind::kEmpty;
+    steps[2].kind = StepKind::kEmpty;
 
     // A long loop on step 14 carries over the pattern's end into the rows before step 0.
     Step loop[16];
-    loop[14].kind = Step::Kind::kNote;
+    loop[14].kind = StepKind::kNote;
     loop[14].playback = looped(Mode::kLoopForward, 0, 0, 250, 250, 1000.0f, 250);
-    computeRows(loop, 16, -2, 6, opt, rows); // shows steps 14, 15, 0, 1, 2, 3
+    rowsOf(loop, 16, -2, 6, opt, rows); // shows steps 14, 15, 0, 1, 2, 3
     CHECK(rows[0].noteStart, "the loop starts on the first row shown");
     CHECK(rows[2].level[1] > 0 && rows[5].level[3] > 0, "the loop keeps going across step 0");
     bool sawWrap = false;
@@ -154,14 +183,14 @@ static void testRows()
     Step hits[16];
     for (int s = 0; s < 16; s += 2)
     {
-        hits[s].kind = Step::Kind::kNote;
+        hits[s].kind = StepKind::kNote;
         hits[s].playback = oneShot(0, 100, 1000.0f, s_full, 100);
     }
     Options longOnly = opt;
     longOnly.minSteps = 4;
-    computeRows(hits, 16, 0, 16, longOnly, rows);
+    rowsOf(hits, 16, 0, 16, longOnly, rows);
     CHECK(rows[0].level[0] == 0, "short hits hidden with Long samples");
-    computeRows(hits, 16, 0, 16, opt, rows);
+    rowsOf(hits, 16, 0, 16, opt, rows);
     CHECK(rows[0].level[0] > 0 && rows[0].level[3] == 0, "short hits shown and dying away");
 }
 
@@ -169,19 +198,19 @@ static void testRows()
 static uint32_t scenarioHash()
 {
     Step steps[32];
-    steps[0].kind = Step::Kind::kNote;
+    steps[0].kind = StepKind::kNote;
     steps[0].playback = looped(Mode::kPingPong, 100, 300, 2900, 3000, 9000.0f, 3000);
     steps[0].playback.peaks = s_ramp;
-    steps[12].kind = Step::Kind::kNote;
+    steps[12].kind = StepKind::kNote;
     steps[12].playback = oneShot(500, 2500, 12000.0f, s_ramp, 3000);
-    steps[20].kind = Step::Kind::kOff;
-    steps[28].kind = Step::Kind::kNote;
+    steps[20].kind = StepKind::kOff;
+    steps[28].kind = StepKind::kNote;
     steps[28].playback = looped(Mode::kLoopBackward, 0, 1000, 2000, 3000, 7000.0f, 3000);
     steps[28].playback.peaks = s_ramp;
     Options opt;
     opt.stepSeconds = 60.0f / (128.0f * 4.0f);
     Row rows[40];
-    computeRows(steps, 32, -4, 40, opt, rows);
+    rowsOf(steps, 32, -4, 40, opt, rows);
     uint32_t h = 2166136261u;
     for (const Row& r : rows)
     {

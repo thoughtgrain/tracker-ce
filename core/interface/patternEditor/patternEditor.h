@@ -59,6 +59,13 @@ class cPatternEditor : public ModuleBase
 
     void refreshPatternFromOutsideModule();
     void refreshPattern();
+    // Sample strips beside the visible tracks (patternStrips.cpp). Main loop only.
+    void refreshSampleStrips(int16_t patternPosition);
+    // refreshPatternFromOutsideModule is reached from MIDI handlers, which run in the audio
+    // interrupt, so on that path the strips are only marked stale and update() computes them.
+    volatile bool deferSampleStrips = false;
+    volatile bool sampleStripsDeferred = false;
+    volatile int16_t sampleStripsPosition = 0;
     void readPatternState();
     void setPlayheadRangeFromSelection();
 

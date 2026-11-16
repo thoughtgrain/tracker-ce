@@ -57,6 +57,20 @@ struct strTrackerPattern
     bool showTrackNames;
     const char* tracksNames[kTrackCount];
 
+    // Sample strips (docs/design/tape-ux.md §5), one per visible column of the 4-track view. The
+    // pattern editor fills them from core/source/sampleStrip.cpp; cTracker draws them.
+    static constexpr uint8_t kStripColumns = 4;
+    static constexpr uint8_t kStripRows = 15;
+    static constexpr uint8_t kStripFlagNoteStart = 0x01;
+    static constexpr uint8_t kStripFlagWrapShift = 1; // bits 1..4: the loop wrapped in quarter 0..3
+    struct strStripRow
+    {
+        uint8_t level[4]; // 0..255 per quarter-row, 0 = nothing drawn
+        uint8_t flags;
+    };
+    bool showStrips;
+    strStripRow strip[kStripColumns][kStripRows];
+
     void init()
     {
         for (uint8_t t = 0; t < kTrackCount; t++)
@@ -97,6 +111,14 @@ struct strTrackerPattern
         selectColumn = 0;
         popupMode = 0;
         showTrackNames = false;
+        showStrips = false;
+        for (uint8_t c = 0; c < kStripColumns; c++)
+        {
+            for (uint8_t r = 0; r < kStripRows; r++)
+            {
+                strip[c][r] = strStripRow{};
+            }
+        }
     }
 };
 
@@ -141,6 +163,10 @@ class cTracker : public cDisplayControl
 
     void notes();
     void instruments();
+    void strips();
+    // How far a 4-track column's field moves left to make room for its sample strip (0 when off).
+    int16_t stripShift(uint8_t param) const;
+    bool stripsActive = false;
     void fxes1();
     void fxes2();
 

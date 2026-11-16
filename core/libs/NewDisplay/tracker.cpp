@@ -12,6 +12,14 @@ static void Number2HexBitmaps(int16_t x, int16_t y, uint8_t font_x, uint8_t font
 #define ROW_NUM 1
 
 static constexpr uint8_t text_font = 1;
+
+// Sample strips (docs/design/tape-ux.md §5). With strips on in the 4-track view, the note,
+// instrument and FX fields move left by these amounts (gaps of 14 px become 8 px), which frees
+// kStripWidth px at the right of each column for the strip. With strips off nothing moves.
+static constexpr int16_t kStripFieldShift[4] = { -2, -8, -14, -20 };
+static constexpr int16_t kStripLeft = 166;      // from the column's left edge
+static constexpr int16_t kStripWidth = 16;      // the widest a strip line is drawn
+static constexpr uint16_t kStripLineWidth = 24; // 1.5 px, in 1/16 px
 static int16_t s_lastCell = -1;
 
 #if ROW_NUM
@@ -312,6 +320,8 @@ void cTracker::update()
 
     stepHight = height / 15;
 
+    stripsActive = tracks->showStrips && displayMode == 0;
+
     if (displayMode > 0)
     {
         tracksWidth = (800 - (rightOffset + leftOffset)) / 8;
@@ -413,6 +423,8 @@ void cTracker::update5()
     {
         fxes2();
     }
+
+    strips();
 
     tracksNumbers();
 }
@@ -690,8 +702,8 @@ void cTracker::selection()
         {
             for (uint8_t i = 0; i < 8; i++)
             {
-                uint16_t SelPosX =
-                  select1_x + fourParamsSelOffset[tracks->selectedParam] + (tracksWidth * i);
+                uint16_t SelPosX = select1_x + fourParamsSelOffset[tracks->selectedParam] +
+                                   stripShift(tracks->selectedParam) + (tracksWidth * i);
                 if (SelPosX < select2_x && SelPosX > select1_x)
                 {
                     API_VERTEX2F(SelPosX, select1_y + 1);
@@ -765,7 +777,8 @@ void cTracker::selection()
         }
         else if (paramCount == 4)
         {
-            rect_select_x = select_x + fourParamsSelOffset[tracks->selectedParam];
+            rect_select_x = select_x + fourParamsSelOffset[tracks->selectedParam] +
+                            stripShift(tracks->selectedParam);
             rect_select_width = fourParamsSelWidth[tracks->selectedParam];
         }
 
@@ -1008,7 +1021,7 @@ void cTracker::notes()
     API_BEGIN(BITMAPS);
 
     uint8_t offset_y = posY + 12;
-    uint8_t offset_x = rightOffset + fourParamsOffset[0];
+    uint8_t offset_x = rightOffset + fourParamsOffset[0] + stripShift(0);
 
     // if(paramCount == 1) 		offset_x = 27 + ((tracksSpace/2)-(param_length[1]*12)/2);
     if (paramCount == 1)
@@ -1065,7 +1078,7 @@ void cTracker::instruments()
     API_BEGIN(BITMAPS);
 
     uint8_t offset_y = posY + 12;
-    uint8_t offset_x = rightOffset + fourParamsOffset[1]; // 59
+    uint8_t offset_x = rightOffset + fourParamsOffset[1] + stripShift(1); // 59
     if (paramCount == 1)
         offset_x = rightOffset + oneParamsOffset[1];
     else if (paramCount == 2)
@@ -1132,7 +1145,7 @@ void cTracker::fxes1()
     API_BEGIN(BITMAPS);
 
     uint8_t offset_y = posY + 12;
-    uint8_t offset_x = rightOffset + fourParamsOffset[2]; // 99
+    uint8_t offset_x = rightOffset + fourParamsOffset[2] + stripShift(2); // 99
     if (paramCount == 1)
         offset_x = rightOffset + oneParamsOffset[2];
     else if (paramCount == 2)
@@ -1187,7 +1200,7 @@ void cTracker::fxes2()
     API_BEGIN(BITMAPS);
 
     uint8_t offset_y = posY + 12;
-    uint8_t offset_x = rightOffset + fourParamsOffset[3];
+    uint8_t offset_x = rightOffset + fourParamsOffset[3] + stripShift(3);
     if (paramCount == 1)
         offset_x = rightOffset + oneParamsOffset[3];
     else if (paramCount == 2)
@@ -1231,6 +1244,99 @@ void cTracker::fxes2()
     API_END();
     API_RESTORE_CONTEXT();
 }
+int16_t cTracker::stripShift(uint8_t param) const
+{
+    return (stripsActive && param < 4) ? kStripFieldShift[param] : 0;
+}
+
+// Sample strips: four short lines per row, each as wide as the sample is loud in that quarter of
+// the step. A line across marks a note starting, a broken line a loop wrapping. Drawn only from
+// what the pattern editor computed; nothing here reads the sample.
+void cTracker::strips()
+{
+    if (!stripsActive)
+    {
+        return;
+    }
+
+    int16_t playRow = -1;
+    if (tracks->showPlayhead)
+    {
+        playRow = tracks->playheadPosition - tracks->actualStep + 7;
+    }
+
+    uint8_t columns = columnsCount < strTrackerPattern::kStripColumns
+                        ? columnsCount
+                        : strTrackerPattern::kStripColumns;
+
+    API_SAVE_CONTEXT();
+    API_LINE_WIDTH(kStripLineWidth);
+    API_BEGIN(LINES);
+
+    uint32_t current = colors[16];
+    API_COLOR(current);
+
+    for (uint8_t c = 0; c < columns; c++)
+    {
+        int16_t center = rightOffset + c * tracksWidth + kStripLeft + kStripWidth / 2;
+
+        for (uint8_t r = 0; r < rowCount && r < strTrackerPattern::kStripRows; r++)
+        {
+            const strTrackerPattern::strStripRow& row = tracks->strip[c][r];
+            uint32_t want = (r == playRow) ? colors[14] : colors[16];
+            int16_t top = posY + r * stepHight;
+
+            for (uint8_t q = 0; q < 4; q++)
+            {
+                bool wrap = row.flags & (1 << (strTrackerPattern::kStripFlagWrapShift + q));
+                if (row.level[q] == 0 && !wrap)
+                {
+                    continue;
+                }
+                if (want != current)
+                {
+                    current = want;
+                    API_COLOR(current);
+                }
+                int16_t y = top + ((2 * q + 1) * stepHight) / 8;
+                int16_t half = (row.level[q] * (kStripWidth / 2)) / 255;
+                if (half < 1 && row.level[q] > 0)
+                {
+                    half = 1;
+                }
+                if (half > 0)
+                {
+                    API_VERTEX2F(center - half, y);
+                    API_VERTEX2F(center + half, y);
+                }
+                if (wrap)
+                {
+                    // A broken line: two short dashes either side of the strip's centre.
+                    int16_t yw = top + (q * stepHight) / 4;
+                    API_VERTEX2F(center - kStripWidth / 2 - 2, yw);
+                    API_VERTEX2F(center - 3, yw);
+                    API_VERTEX2F(center + 3, yw);
+                    API_VERTEX2F(center + kStripWidth / 2 + 2, yw);
+                }
+            }
+
+            if (row.flags & strTrackerPattern::kStripFlagNoteStart)
+            {
+                if (current != colors[14])
+                {
+                    current = colors[14];
+                    API_COLOR(current);
+                }
+                API_VERTEX2F(center - kStripWidth / 2 - 2, top + 1);
+                API_VERTEX2F(center + kStripWidth / 2 + 2, top + 1);
+            }
+        }
+    }
+
+    API_END();
+    API_RESTORE_CONTEXT();
+}
+
 //===============================================================================================================================
 //===============================================================================================================================
 //===============================================================================================================================

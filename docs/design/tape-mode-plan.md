@@ -111,6 +111,7 @@ Each phase is one PR. Fences are a starting point; I re-grep the blast radius ri
 - **Verify:** rung 5. The numbers go into §3 and replace the estimates.
 
 ### Phase 1: Sample strips (every project type)
+- **Status:** 1a (the model and its host tests) and 1b (the pattern editor, the drawing, the Config setting) are written and syntax-checked for MK66, Tracker+ and Mini; not built for ARM or run on hardware yet. Still to do: captured strips for synths and other generated sound (1c), and the rung-5 measurements of frame bytes and MK66 redraw time.
 - **Do:**
   - Peak table per instrument, built at load.
   - Captured peaks per track: one compare per block in the ISR, written at quarter-step boundaries.
