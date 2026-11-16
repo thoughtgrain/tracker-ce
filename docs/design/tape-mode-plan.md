@@ -86,19 +86,48 @@ The Original is where this design can fail. Here is every issue I found, how bad
 | 13 | **Sequencer in the ISR.** Each step now also handles FX3/FX4 on two tracks, tape positions and Tape Rec. | Low | That's a few more branches per step. Check with the timing invariant (ticks per block unchanged, MIDI clock jitter within ±1 µs). |
 | 14 | **Old firmware.** Many Original owners stay on older releases. A tape project opened there plays as Default, with FX3/FX4 acting on MIDI tracks 9–10 (§2.1). | Low | Say so in the release notes. Default projects are untouched. |
 
-### 3.1 theseus on the Original: the decision
+### 3.1 Synths on the Original: measured, and the plan
 
-1. **A built-in host for one engine (preferred if it fits).** I'd write a `BuiltinSynthHost` for MK66 that implements the part of `Synth`'s interface the synth screens actually call: model list, patch metadata (sections, parameters, values), set and get a parameter, note on and off, render. It would have one part and theseus compiled in, with no PsynLoader, no 6 MB pool and no SamplePool. If `SynthEditor.cpp` and `SynthPatchEditor.cpp` compile against it with `GUI_HANDLE_SYNTH` turned on for MK66, the Original gets the same screens. The project file already stores `synthPart[3]` on every device, so patches and parts load across devices.
-   - **Cost to check first:** what else `GUI_HANDLE_SYNTH` pulls in (macros, sample slots, `.psyn` file browsing), and the flash size of the two screens. If they need more of the host than the subset above, this option is too expensive.
-2. **Otherwise, a drum instrument.** theseus runs as a play mode on the sample track's voice, as in the earlier plan. Its two screens are new code that copies the synth part screen and the patch editor (section grid, parameter list, value bar, pad shortcuts) button for button. Same muscle memory, more code to keep in sync. Patches save as a small file per instrument.
+The Original is the device testing happens on, so synths have to reach it before synth strips, theseus or the patch-editor pads can be tried. Measured on 2026-11-16 with the pinned GNU Arm 10.3-2021.10 (`agt/10.3`), on this branch:
 
-The decision gate is in phase 10, after measuring the flash cost of option 1 with a stub build.
+| | Original (MK66) | Tracker+ (IMX) |
+| :--- | :--- | :--- |
+| Flash used / free | 952,036 B / **about 96.6 KB** | QSPI 1,447,444 B / 14.5 MB |
+| Internal RAM used / free | 167,520 B / about 88.6 KB | SRAM_DTC 350,196 B / about 10 KB |
+| External RAM free | about 1.07 MB | about 20 KB |
+| Sample strips' cost (vs `main`) | +3,760 B flash, +1,468 B RAM | not measured yet |
+
+The free figures are smaller than the developer guide's (153 KB flash on MK66, 21 KB SRAM_DTC on IMX); the code has grown since it was written.
+
+**What the synth stack costs in flash** (Tracker+, attributed from debug info): PolySynth library 101.8 KB, `core/synth` host 27.7 KB, synth screens and audio glue 29.4 KB, util (fmt, nanopb) 16.5 KB, about **175 KB** in all. That doesn't fit the Original's 96.6 KB.
+
+**Can `.psyn` engines run on the M4?** The same Thumb-2 instruction set, but not the same FPU. CHIP built with the SDK's M7 flags contains 55 FPv5-only instructions (`vrinta`, `vmaxnm`, `vminnm`, `vsel`, `vcvta`), which fault on the M4. Built with `-mcpu=cortex-m4 -mfpu=fpv4-sp-d16` it contains none, at the same size (42,632 B of code against 42,648 B), and that build also runs on the M7. So:
+- **Engines built for the M4 run everywhere.** The SDK gains an M4 (portable) build target, and the open engines (CHIP, theseus, community engines) ship that way.
+- **The factory engines (ACD, DIRT, FAT, PERC, VAP, WTFM) can't run on the Original.** They're proprietary binaries built for the M7, and only Polyend could rebuild them. The Original gets the open engines only.
+
+**The plan: a slim synth host for the Original (`SynthLite`).** Engines carry their own engine classes inside the `.psyn` (`psyn_cpp_bridge.h`), so the host needs only the C ABI in `psyn_plugin.h` (about 15 callbacks each way), not the PolySynth library:
+1. **Loader**: the relocation and ABI parts of `PsynLoader.cpp`, factored out so both hosts share them, with an arena sized for one or two small engines (CHIP's footprint is 42.9 KB) in internal RAM, which is fast and executable on the M4. Executing from external SDRAM is possible but untested for speed.
+2. **Patches, metadata and voices**: parameter values per part, the metadata builder (sections, parameters, macros), voice allocation over a small voice count, and a render node in the audio graph like `PolySynth`.
+3. **The same screens**: `SynthEditor.cpp`, `SynthPatchEditor.cpp` and `SynthMacros.cpp` compiled for the Original against a `Synth` facade that `SynthLite` implements, so the Original shows the synth screens Tracker+ users know.
+4. **One synth part** at first (`synthPart[0]`), since the project file already stores three parts on every device.
+
+**Budget, estimated:** loader and host 25–40 KB, screens about 29 KB: **55–70 KB of the 96.6 KB free**. That leaves 25–40 KB for everything tape projects add, against my earlier 60–110 KB estimate, so flash has to be reclaimed too. The candidates found so far are the C++ demangler pulled in by the default terminate handler (`d_print_comp_inner`, 8.5 KB and friends), `scanf` if nothing needs it (about 6 KB plus `strtod`), and the random-name word tables (14.7 KB, which could move to the SD card). Each is its own small PR with a measured before and after.
+
+**Not settled:** CPU. A CHIP or theseus voice on the M4 hasn't been measured; that's the first thing to measure once `SynthLite` plays a note.
 
 ---
 
 ## 4. Phases
 
 Each phase is one PR. Fences are a starting point; I re-grep the blast radius right before each phase.
+
+### Phase S: Synths on the Original (`SynthLite`), first
+Testing happens on the Original, so this comes before the synth-dependent phases (1c captured strips, 10 theseus and pads). See §3.1.
+- **S1:** SDK portable (M4) build target; CHIP built that way; a host test that scans a `.psyn` for FPv5-only instructions.
+- **S2:** factor the loader and ABI out of `PsynLoader.cpp` so IMX keeps working unchanged (IMX bit-exact, plugins load as before).
+- **S3:** `SynthLite` on MK66: loader, patches, metadata, voices, audio node, one part. Verify: a CHIP note plays on the Original; rung 5 CPU per voice.
+- **S4:** the synth screens on MK66 through a `Synth` facade.
+- **S0 (alongside):** flash reclamation PRs, each measured.
 
 ### Phase 0: Measure and set up tests (no user-visible change)
 - **Do:**
@@ -209,7 +238,7 @@ Phases 1 (strips) and 10's theseus engine work don't depend on tape projects. Ph
 ## 6. Open items
 
 
-1. **theseus on the Original**: option 1 or 2 (§3.1), decided by a measured stub build.
+1. **Synths on the Original**: `SynthLite` (§3.1, phase S). The factory engines can't run there; only open engines rebuilt for the M4.
 2. **Original memory caps** (#4): 12 s tapes and a 2-bar grain buffer. Acceptable as starting caps?
 3. **Old firmware and FX3/FX4** (§2.1): document it, or store the columns in a sidecar and accept the extra file handling?
 4. **Automation destinations' storage** (phase 9): sidecar or spare instrument bytes, decided after a grep of every reader.
