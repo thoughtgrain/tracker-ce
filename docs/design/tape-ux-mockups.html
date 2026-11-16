@@ -108,7 +108,9 @@ svg text { font-family: var(--f-screen); }
     <div class="intro"><h2>Sample Playback, play mode Tape</h2><p>Tape A as the instrument, then <kbd>SamplePlay</kbd>. The screen you know, with one new play mode. Spec §3.</p></div>
     <div class="fig"><div class="bezel" data-screen="tape"></div>
       <div class="notes"><span class="ref">gSamplePlay.cpp · Play Mode on 7–8</span>
-        <ul><li>Loop Start and Loop End set the window, as in the loop modes. The slice markers are drawn as Slice mode draws them.</li><li>New in Tape mode: <b>Speed</b>, a bar ruler under the waveform, and on More: Sync (bars), Wow, Flutter, Rotate, Xfade, Slices.</li><li>A note on a tape step jumps to a slice, and the tape keeps rolling. Reverse, Position, Slice, Tune and Roll are existing FX and work on a tape as named.</li></ul></div></div>
+        <ul><li>Loop Start and Loop End set the window, as in the loop modes. The slice markers are drawn as Slice mode draws them.</li><li>New in Tape mode: <b>Speed</b>, a bar ruler under the waveform, and on More: Sync (bars), Wow, Flutter, Rotate, Xfade, Slices.</li><li>A note on a tape step jumps to a slice, and the tape keeps rolling. Reverse, Position, Slice, Tune and Roll are existing FX and work on a tape as named.</li></ul>
+        <p><b>From the pattern screen:</b></p>
+        <ul><li><kbd>C-4 TA</kbd> starts it, and with Sync on it carries across patterns and loops without restarting.</li><li>Other TA notes jump slices: C-4 is slice 1, D#5 is slice 16. The pads audition and write them.</li><li><kbd>OFF</kbd> stops it, and the next TA note brings it back in time.</li><li>FX1–FX4 shape it per step, and Fill writes ramps.</li><li>With the cursor on a TA step, <kbd>SamplePlay</kbd> opens this screen.</li></ul></div></div>
   </section>
 
   <section class="section" id="more">
