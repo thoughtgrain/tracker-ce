@@ -145,7 +145,7 @@ svg text { font-family: var(--f-screen); }
     <div class="intro"><h2>Sample Recorder, recording onto Tape A</h2><p>The recorder you know, with a Target. It records while the song plays, waits for the bar line, and loops the take in time. Spec §7.</p></div>
     <div class="fig"><div class="bezel" data-screen="rec"></div>
       <div class="notes"><span class="ref">gSampleRec.cpp · Source · Level · Gain · … · Record</span>
-        <ul><li>Source adds Tracks (resample the ordinary tracks), Track n, and Grain A/B, which freezes the grain buffer to tape.</li><li>Bar takes skip the trim step; Undo restores the tape. Free takes go through the usual trim and Save.</li><li>Bounce is <b>Render Selection</b> with a new destination, Tape A or Tape B.</li></ul></div></div>
+        <ul><li>Source adds Tracks (resample the ordinary tracks), Track n, and Grain A/B, which freezes the grain buffer to tape.</li><li>Bar takes skip the trim step; Undo restores the tape. Free takes go through the usual trim and Save.</li><li>Bounce is <b>Render Selection</b> with a new destination, Tape A or Tape B.</li><li><b>From the pattern:</b> the step FX <b>Tape Rec</b> (1–16 bars, 0 stops) starts a take on its step, using the Source and Dub set here. It only records while the tape track is armed (<kbd>Shift</kbd> + <kbd>Rec</kbd>, the arm row the pattern editor already has), so a song plays back without recording over the tapes.</li></ul></div></div>
   </section>
 
   <section class="section" id="drum">

@@ -159,6 +159,7 @@ A tape track has **four FX columns** where an ordinary track has two. They *are*
 | Grain Freeze | on / off | hold the grain buffer |
 | Ripple Wet / Pitch / Decay | 0–100, semitones | |
 | Echo Level / Feedback | 0–100 | |
+| Tape Rec | 1–16 bars, 0 = stop | start a take onto this track's tape on this step (§7) |
 | Tape A send / Tape B send | 0–100 | **any track**: this note's send into a tape's FX, like Reverb send |
 
 **Ramps and sweeps** use **Fill**, which already offers an FX Type with From and To. Fill Speed from 100 to −100 across steps 9–16 and the tape slows into reverse.
@@ -187,6 +188,11 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 - **Bars** (Free, 1, 2, 4, 8, 16) and **Dub** (−100…+100), shown only when the target is a tape.
 
 **Recording onto a tape doesn't stop the song.** Press Record and the label blinks until the next bar line, the way a queued pattern blinks. It records for the set bars and stops itself, and the tape loops the take in time. Bar takes skip the trim step, because they're already the right length; **Undo** brings back the tape as it was. A **Free** take goes through the trim screen you know (Preview, Start, End, Zoom, Crop, Undo, Cancel, Save), and Save writes it onto the tape.
+
+**Triggering a take from the pattern.** The step FX **Tape Rec** on a tape track starts a take on its step, exactly there rather than at the next bar line. The value is the number of bars (1–16), and `0` stops a take early. It records from the Source and with the Dub set for that tape in the Sample Recorder, so you set up the take once and the pattern decides when it happens. Takes can then be placed in a song: print the drums onto Tape A at bar 17, overdub at bar 33.
+- **Arming keeps it safe.** A pattern replays every time it loops, and a song every time you play it, so a Tape Rec FX only records while its tape track is **armed**. That's the arm the pattern editor already has: hold **Shift + Rec** and the bottom labels show each track's Armed or Unarmed state, now including the tape tracks. Disarmed, Tape Rec FX are skipped and shown dimmed, so you can play the song back without recording over the tapes.
+- **Looping patterns.** While armed, a Tape Rec on a looping pattern records on every pass. With Dub at 0 that builds up layers, sound on sound, which can be what you want; with Dub at −100 each pass replaces the last. The take's bar count still ends it, and Undo restores the tape as it was before the last take.
+- **Feedback:** while a take is running, the tape track's header blinks red, the way a queued pattern's number blinks, and the sample strip shows the record head as a red line moving down with the steps.
 
 **Dub** works as it did in Bryo: 0 adds the new sound to the old (sound on sound), +100 keeps the old loop, −100 replaces it, and values between fade the old loop each pass.
 
