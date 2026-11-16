@@ -13,7 +13,7 @@ I asked one question for each Bryo idea: **where would a Tracker user look for t
 | Set where a sample starts, loops and slices | **Sample Playback** | the tape is a play mode there |
 | Trim, normalise or process audio | **Sample Editor** | the tape's audio is edited there, unchanged |
 | Shape an instrument's sound, set its sends | **Params** (and its **More** window) | Tape A send and Tape B send sit beside Reverb send and Delay send |
-| Set up a send effect, like Reverb or Delay | **Master** | each tape's Grain, Ripple and Echo are set up there |
+| Set up a send effect, like Reverb or Delay | **Master** | each tape's Grain and Ripple are set up there |
 | Move a parameter with an envelope or LFO | **Params** pressed again: **Automation** | the tape FX values are new automation destinations |
 | Change something on a step | an **FX column** in the pattern | tape tracks get more FX columns, and the tape FX are FX |
 | Record audio while the song plays | **the pattern editor**: arm with Shift + Rec, record with Rec + Play | an armed tape track records onto its tape |
@@ -32,7 +32,7 @@ That leaves **two** new pieces of UI: the project-type choice, and paging throug
 - **A tape is an instrument** (Tape A, Tape B) with a new play mode, **Tape**. While the transport runs it keeps rolling in sync, whether or not a note is playing on it, so coming back to it lands where the music is.
 - **A tape track** is the track the tape lives on. It's an ordinary track in every way you already know, one voice and the same columns, with two additions:
   - **more FX columns** (FX1–FX4 instead of FX1–FX2);
-  - **its own send effect**, Tape A FX or Tape B FX: Grain → Ripple → Echo in series. It works like Reverb and Delay: instruments send into it, and it's set up in **Master**.
+  - **its own send effect**, Tape A FX or Tape B FX: Grain → Ripple in series. It works like Reverb and Delay: instruments send into it, and it's set up in **Master**.
 - **The tape sends to its own FX** at 100 by default, so a fresh tape is heard dry plus through its effects, and you turn either down independently: the track fader for the dry tape, the Tape FX level in Global Mixer for the effects.
 - **Every instrument**, on any track, has two new sends, **Tape A send** and **Tape B send**, beside Reverb send and Delay send. That's how drums, synths and samples flow into the effects.
 
@@ -98,7 +98,7 @@ Choose Tape A as the instrument and press **SamplePlay**. The screen is the one 
 
 ## 4. The effects: send effects, set up in Master
 
-Grain, Ripple and Echo are **send effects**, one set per tape, the same kind of thing as the Tracker's Reverb and Delay. Instruments send into them (Params → More: Tape A send, Tape B send), and you set them up in **Master**, where Reverb and Delay are set up today.
+Grain and Ripple are **send effects**, one set per tape, the same kind of thing as the Tracker's Reverb and Delay. Instruments send into them (Params → More: Tape A send, Tape B send), and you set them up in **Master**, where Reverb and Delay are set up today.
 
 It fits the Master screens the way Reverb and Delay already do. On the Tracker today, **Master 1/3** has Reverb and Delay as buttons that open their own pages (Master Reverb, Master Delay, with Back on 8), and their return levels sit in **Global Mixer 3/3** beside Dry Mix, Line in and the synths. The tape effects copy that exactly:
 
@@ -106,9 +106,9 @@ It fits the Master screens the way Reverb and Delay already do. On the Tracker t
 
   | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
   | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-  | A Grain | A Ripple | A Echo | | B Grain | B Ripple | B Echo | |
+  | A Grain | A Ripple | | | B Grain | B Ripple | | |
 
-  Above each button, the page shows that effect's main values as text (Wet, and two or three settings), and a line across the top of each half reads **Tape A send → Grain → Ripple → Echo → Tape A FX level**, so the order the sound goes through is on screen.
+  Above each button, the page shows that effect's main values as text (Wet, and two or three settings), and a line across the top of each half reads **Tape A send → Grain → Ripple → Tape A FX level**, so the order the sound goes through is on screen.
 - **Each button opens its page** (Master Tape A Grain, and so on): bars, with **More** on 7 for the rest and **Back** on 8, as the Reverb and Delay pages have Back.
 - **The return levels go in Global Mixer 3/4**, beside Delay and Reverb. On Tracker+ and Mini that mixer has one free column, so it's one **Tape FX** column that shows Tape A's level and steps to Tape B's when pressed again, the Tracker's rule for a selected list. On the Original there's room for both as two columns.
 
@@ -120,10 +120,9 @@ The pages:
 | Grain, More | Spread | Position | Warp | Feedback | Freeze | | More | Back |
 | **Ripple** | Wet | Mode (strings, comb, reso) | Pitch | Decay | Tone | Chord | More | Back |
 | Ripple, More | Pluck (own notes, + sends) | Cutoff | Resonance | Drive | Spread | | More | Back |
-| **Echo** | Wet | Time | Sync | Feedback | Tone | Age | More | Back |
-| Echo, More | Spread | Duck | Diffuse | Reverb send | | | More | Back |
 
 - **Wet is on button 1 and selected when the sub-page opens.** Inside a tape's FX the three run in series, and each block's Wet sets how much of its own sound passes on to the next, so Grain, then a turn of the encoder, brings the grains in. That's the one Bryo habit worth keeping, and it costs nothing on the Tracker.
+- **No Echo.** Bryo's CHRONOS had a delay and a room. The Tracker already has both as send effects, Delay and Reverb, on every instrument and in Master, so a tape's FX are Grain and Ripple only. For echoes on the grains or strings, the tape instrument's own Delay and Reverb sends do it.
 - **No insert or send switch per block.** The whole set is a send, so Bryo's ROUT goes away; the dry sound always stays on its track.
 - **Automation and FX columns reach it.** The tape instrument's Automation can target its own FX's values (Grain Size and so on), and tape FX in a tape track's FX columns act on that tape's FX.
 - **Colour isn't a separate block.** The Tracker already has Overdrive and Bit depth on every instrument, which is what Bryo's COLOR mostly did. Each source gets coloured by its own settings before it reaches the chain.
@@ -164,7 +163,6 @@ A tape track has **four FX columns** where an ordinary track has two. They *are*
 | Grain Wet / Size / Position | 0–100 | |
 | Grain Freeze | on / off | hold the grain buffer |
 | Ripple Wet / Pitch / Decay | 0–100, semitones | |
-| Echo Level / Feedback | 0–100 | |
 | Tape Rec | 1–16 bars, 0 = stop | start a take onto this track's tape on this step, when the track is armed (§7) |
 | Tape A send / Tape B send | 0–100 | **any track**: this note's send into a tape's FX, like Reverb send |
 
@@ -178,7 +176,7 @@ A tape track has **four FX columns** where an ordinary track has two. They *are*
 
 Press **Params** again on Tape A for **Automation**, the existing page: Destination, Type, then that type's values and Amount.
 
-- **New destinations** for tapes: Speed, Grain Wet, Grain Size, Grain Position, Grain Pitch, Ripple Wet, Ripple Pitch, Ripple Decay, Echo Time, Echo Feedback. They join Volume, Panning, Cutoff and the rest, so an LFO on grain size is chosen the same way as an LFO on cutoff.
+- **New destinations** for tapes: Speed, Grain Wet, Grain Size, Grain Position, Grain Pitch, Ripple Wet, Ripple Pitch, Ripple Decay. They join Volume, Panning, Cutoff and the rest, so an LFO on grain size is chosen the same way as an LFO on cutoff.
 - **The existing types all apply:** Envelope, LFO (including Random), WT Env and WT LFO, with tempo sync.
 - **One new type, Follow:** an envelope follower. Its values are Source (a track, or the input), Rise, Fall and Amount. It's the one thing Bryo's modulators did that the Tracker can't: let the kick on track 3 pump Tape A's grains.
 - Bryo's step-sequencer modulator isn't needed. FX columns already sequence any destination per step, and Random-shape LFOs cover the rest.
@@ -249,7 +247,7 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 ## 9. Synths, performance mode and song
 
 - **Synths (Tracker+ and Mini):** a synth part reaches a tape's FX the same way a sample does, through Tape A send and Tape B send, reached by pressing Reverb send or Delay send again (§8).
-- **Performance mode** gains these FX: Speed (rows: 50 %, −100 %, 200 %, 0 %), Grain Freeze, Grain Wet, Ripple Wet, Echo Throw (feedback). The FX it already has (filter, volume and the rest) work on tape tracks as on any track.
+- **Performance mode** gains these FX: Speed (rows: 50 %, −100 %, 200 %, 0 %), Grain Freeze, Grain Wet, Ripple Wet. The FX it already has (filter, volume and the rest) work on tape tracks as on any track.
 - **Song mode** is unchanged. Patterns carry their FX columns, so the tape's moves arrange like any other part.
 
 ---
@@ -296,7 +294,7 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 1. Synth part B's settings: **Tape B send** up. Its notes stay on whichever track they're on.
 
 **J6. Live**
-1. **Perform**: put Speed, Grain Freeze and Echo Throw in three slots, then hold their pads over the song.
+1. **Perform**: put Speed, Grain Freeze and the existing Delay in three slots, then hold their pads over the song.
 
 ---
 

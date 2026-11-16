@@ -64,7 +64,7 @@ svg text { font-family: var(--f-screen); }
   <header>
     <div class="eyebrow">Tracker CE fork · tape projects · UI and UX mockups v2 · 800 × 480</div>
     <h1>Tape Project Screens</h1>
-    <p class="lede">These are the screens a Tracker user already knows, with what a tape project adds to each. There's no new module. The tape is a play mode in Sample Playback, Grain, Ripple and Echo are send effects in Master, modulation is Automation, lanes are extra FX columns, and recording happens in the pattern editor. The notes beside each screen say what a tape project adds to it. The written spec is <code>docs/design/tape-ux.md</code>.</p>
+    <p class="lede">These are the screens a Tracker user already knows, with what a tape project adds to each. There's no new module. The tape is a play mode in Sample Playback, Grain and Ripple are send effects in Master, modulation is Automation, lanes are extra FX columns, and recording happens in the pattern editor. The notes beside each screen say what a tape project adds to it. The written spec is <code>docs/design/tape-ux.md</code>.</p>
     <div class="legend" aria-label="Colour key">
       <span><i class="sw red"></i>selection frame, record</span>
       <span><i class="sw note"></i>note column</span>
@@ -117,7 +117,7 @@ svg text { font-family: var(--f-screen); }
     <div class="intro"><h2>Master Tape: the effects are sends, like Reverb and Delay</h2><p>On Master 1/3 today, Reverb and Delay are buttons that open their own pages, and their return levels live in Global Mixer. The tape effects copy that. Spec §4.</p></div>
     <div class="fig"><div class="bezel" data-screen="more"></div>
       <div class="notes"><span class="ref">fMasterParams.cpp · Master pressed: 1/4 → 2/4 → 3/4 → 4/4</span>
-        <ul><li>A fourth Master page, in tape projects only. Its six buttons open each tape's Grain, Ripple and Echo pages, the way Reverb and Delay open theirs.</li><li>Above each button, the effect's main values as text. A dimmed column means that effect is off.</li><li>The line across the top shows the order sound takes: into the tape's FX by its send, through Grain, Ripple and Echo, out at the Tape FX level.</li><li>Instruments send in from Params → More: Tape A send and Tape B send, beside Reverb and Delay send. A tape sends to its own FX at 100.</li></ul></div></div>
+        <ul><li>A fourth Master page, in tape projects only. Its four buttons open each tape's Grain and Ripple pages, the way Reverb and Delay open theirs.</li><li>Above each button, the effect's main values as text. A dimmed column means that effect is off.</li><li>The line across the top shows the order sound takes: into the tape's FX by its send, through Grain and Ripple, out at the Tape FX level.</li><li>Instruments send in from Params → More: Tape A send and Tape B send, beside Reverb and Delay send. A tape sends to its own FX at 100.</li></ul></div></div>
     <div class="fig"><div class="bezel" data-screen="gmix"></div>
       <div class="notes"><span class="ref">gMasterParams.cpp · Global Mixer</span>
         <ul><li>The return level sits beside Delay and Reverb, where those returns already are.</li><li>Tracker+ and Mini have one free column, so <b>Tape FX</b> shows Tape A's level and steps to Tape B's when pressed again. The Original has room for two columns.</li><li>The track fader sets the dry tape; this sets the effects.</li></ul></div></div>
@@ -127,14 +127,14 @@ svg text { font-family: var(--f-screen); }
     <div class="intro"><h2>Master Tape A Grain</h2><p>A page of bars like Master Reverb, with More on 7 and Back on 8. Wet is on button 1 and selected when the page opens: one press, one turn. Spec §4.</p></div>
     <div class="fig"><div class="bezel" data-screen="grain"></div>
       <div class="notes"><span class="ref">Master Tape 4/4 → A Grain</span>
-        <ul><li>More: Spread · Position · Warp · Feedback · Freeze.</li><li>Ripple: Wet · Mode · Pitch · Decay · Tone · Chord · More · Back. On More, Pluck (own notes, or + sends) lets a kick that sends here strike the strings.</li><li>Echo: Wet · Time · Sync · Feedback · Tone · Age · More · Back.</li></ul></div></div>
+        <ul><li>More: Spread · Position · Warp · Feedback · Freeze.</li><li>Ripple: Wet · Mode · Pitch · Decay · Tone · Chord · More · Back. On More, Pluck (own notes, or + sends) lets a kick that sends here strike the strings.</li><li>No Echo: the Tracker's own Delay and Reverb sends do that job.</li></ul></div></div>
   </section>
 
   <section class="section" id="auto">
     <div class="intro"><h2>Automation, with a Follow type</h2><p><kbd>Params</kbd> pressed again. It's the existing page: Destination, Type, values, Amount. Spec §6.</p></div>
     <div class="fig"><div class="bezel" data-screen="auto"></div>
       <div class="notes"><span class="ref">gInstrEdit.cpp · envelopesLabels · envStateLabels</span>
-        <ul><li>New destinations on a tape: Speed, Grain Wet, Size, Position and Pitch, Ripple Wet, Pitch and Decay, Echo Time and Feedback.</li><li>New type <b>Follow</b>: an envelope follower on another track or the input. Here the kick on track 3 pulls Grain Size down.</li><li>Envelope, LFO (Random included), WT Env and WT LFO work on the new destinations unchanged.</li></ul></div></div>
+        <ul><li>New destinations on a tape: Speed, Grain Wet, Size, Position and Pitch, Ripple Wet, Pitch and Decay.</li><li>New type <b>Follow</b>: an envelope follower on another track or the input. Here the kick on track 3 pulls Grain Size down.</li><li>Envelope, LFO (Random included), WT Env and WT LFO work on the new destinations unchanged.</li></ul></div></div>
   </section>
 
   <section class="section" id="sends">
@@ -180,10 +180,10 @@ svg text { font-family: var(--f-screen); }
   </section>
 
   <section class="section" id="perf">
-    <div class="intro"><h2>Performance mode</h2><p>Unchanged, with five tape FX added to its list. Spec §9.</p></div>
+    <div class="intro"><h2>Performance mode</h2><p>Unchanged, with four tape FX added to its list. Spec §9.</p></div>
     <div class="fig"><div class="bezel" data-screen="perf"></div>
       <div class="notes"><span class="ref">fPerformance.cpp</span>
-        <ul><li>New: Speed, Grain Freeze, Grain Wet, Ripple Wet, Echo Throw. The existing FX work on tape tracks as on any track.</li></ul>
+        <ul><li>New: Speed, Grain Freeze, Grain Wet, Ripple Wet. The existing FX work on tape tracks as on any track.</li></ul>
         <p class="mini"><b>Mini:</b> ±10, +1, −1 and −10 play rows 1–4, as now.</p></div></div>
   </section>
 
@@ -253,7 +253,7 @@ svg text { font-family: var(--f-screen); }
     s += r(1, 31, 798, 391, "#0e0e10");
     rows.forEach(function (rw, j) { var y = 60 + j * 52, on = j === 2;
       s += r(12, y, 776, 44, on ? "#3a3a3e" : "none") + t(28, y + 28, rw[0], { s: 17, w: 700, c: on ? K.white : K.txt }) + t(150, y + 28, rw[1], { s: 15, c: on ? K.white : K.txt }); });
-    s += l(12, 290, 788, 290, K.faint) + t(28, 320, "A tape track has a tape, four FX columns and Grain · Ripple · Echo.", { s: 14, c: K.dim }) + t(28, 342, "Tapes can be longer the fewer tracks a project has.", { s: 14, c: K.dim });
+    s += l(12, 290, 788, 290, K.faint) + t(28, 320, "A tape track has a tape, four FX columns and Grain · Ripple.", { s: 14, c: K.dim }) + t(28, 342, "Tapes can be longer the fewer tracks a project has.", { s: 14, c: K.dim });
     s += r(1, 31, 798, 391, "none", { st: K.red, sw: 2.5 });
     s += labels([{ n: "Project type", v: "Tape 4", span: 2, sel: true }, {}, {}, {}, {}, { n: "Cancel" }, { n: "Create", nc: K.white }]);
     return svg(s, "New project type list with Tape 4 highlighted");
@@ -358,15 +358,15 @@ svg text { font-family: var(--f-screen); }
   // Master Tape 4/4: laid out like Master 1/3, where Reverb and Delay are buttons that open their own pages.
   S.more = function () {
     var s = titleBar("Master Tape 4/4", "");
-    var fx = [["A Grain", ["Wet 60 %", "Size 120 ms", "Scan Stretch"]], ["A Ripple", ["Wet 45 %", "Chord Min7", "Decay 2.4 s"]], ["A Echo", ["Wet 30 %", "Time 1/8", "Feedback 55 %"]], null,
-      ["B Grain", ["Wet 0 %", "off"]], ["B Ripple", ["Wet 0 %", "off"]], ["B Echo", ["Wet 25 %", "Time 3/16", "Feedback 40 %"]], null];
+    var fx = [["A Grain", ["Wet 60 %", "Size 120 ms", "Scan Stretch"]], ["A Ripple", ["Wet 45 %", "Chord Min7", "Decay 2.4 s"]], null, null,
+      ["B Grain", ["Wet 0 %", "off"]], ["B Ripple", ["Wet 0 %", "off"]], null, null];
     [0, 4].forEach(function (c0, h) { var x0 = c0 * 100 + 8, w = 384, y = 46;
-      s += r(x0, y - 14, w, 26, "#17171a") + t(x0 + 10, y + 4, "Tape " + "AB"[h] + " send  →  Grain  →  Ripple  →  Echo  →  Tape " + "AB"[h] + " FX level", { s: 13, w: 600, c: K.txt }); });
+      s += r(x0, y - 14, w, 26, "#17171a") + t(x0 + 10, y + 4, "Tape " + "AB"[h] + " send  →  Grain  →  Ripple  →  Tape " + "AB"[h] + " FX level", { s: 13, w: 600, c: K.txt }); });
     fx.forEach(function (f, i) { if (!f) return; var x = 100 * i + 1;
       s += r(x, 80, 97, 342, "#0e0e10");
       f[1].forEach(function (ln, j) { s += t(x + 48.5, 120 + j * 26, ln, { a: "middle", s: 13, c: f[1][0] === "Wet 0 %" ? K.dim : K.txt }); }); });
-    s += labels([{ n: "A Grain", sel: true }, { n: "A Ripple" }, { n: "A Echo" }, {}, { n: "B Grain" }, { n: "B Ripple" }, { n: "B Echo" }, {}]);
-    return svg(s, "Master Tape page: buttons that open each tape's Grain, Ripple and Echo pages, with the signal order across the top");
+    s += labels([{ n: "A Grain", sel: true }, { n: "A Ripple" }, {}, {}, { n: "B Grain" }, { n: "B Ripple" }, {}, {}]);
+    return svg(s, "Master Tape page: buttons that open each tape's Grain and Ripple pages, with the signal order across the top");
   };
 
   // Global Mixer 3/4: today's columns (Delay, Reverb, Dry Mix, Line in, Synth 1-3) plus one Tape FX return.
@@ -386,7 +386,7 @@ svg text { font-family: var(--f-screen); }
 
   S.auto = function () {
     var s = titleBar("Instrument Automation", "TA  Tape A");
-    var dest = ["Volume", "Panning", "Cutoff", "Finetune", "Speed", "Grain Wet", "Grain Size", "Grain Pos", "Ripple Pitch", "Ripple Decay", "Echo Time"];
+    var dest = ["Volume", "Panning", "Cutoff", "Finetune", "Speed", "Grain Wet", "Grain Size", "Grain Pos", "Ripple Wet", "Ripple Pitch", "Ripple Decay"];
     s += r(1, 31, 197, 391, "#0e0e10");
     dest.forEach(function (d, j) { var y = 44 + j * 31, on = j === 6, nw = j >= 4;
       s += r(8, y, 183, 27, on ? "#3a3a3e" : "none") + t(16, y + 19, d, { s: 14, w: on ? 700 : 500, c: on ? K.white : K.txt }); if (nw) s += newTag(156, y + 7); });
@@ -473,16 +473,16 @@ svg text { font-family: var(--f-screen); }
 
   S.perf = function () {
     var s = titleBar("Performance FX", "");
-    var fx = ["Speed", "Grain Freeze", "Grain Wet", "Ripple Wet", "Echo Throw", "Filter LP", "Reverb", "Delay", "Volume", "Tune", "Reverse", "Position"],
-      vals = [["50 %", "−100", "200 %", "0 %"], ["on", "on", "on", "on"], ["25", "50", "75", "100"], ["25", "50", "75", "100"], ["40", "60", "80", "95"]];
-    for (var i = 0; i < 12; i++) { var x = 4 + i * 66, nw = i < 5;
+    var fx = ["Speed", "Grain Freeze", "Grain Wet", "Ripple Wet", "Delay", "Filter LP", "Reverb", "Delay", "Volume", "Tune", "Reverse", "Position"],
+      vals = [["50 %", "−100", "200 %", "0 %"], ["on", "on", "on", "on"], ["25", "50", "75", "100"], ["25", "50", "75", "100"]];
+    for (var i = 0; i < 12; i++) { var x = 4 + i * 66, nw = i < 4;
       s += r(x, 34, 62, 386, nw ? "#17171a" : K.boxDim);
       s += '<text transform="translate(' + (x + 22) + ' 404) rotate(-90)" fill="' + (nw ? K.white : K.txt) + '" font-size="14" font-weight="700">' + esc(fx[i]) + "</text>";
       if (nw) s += newTag(x + 30, 254);
       for (var k = 0; k < 4; k++) { var y = 60 + k * 44, v = vals[i] ? vals[i][k] : "·", lit = (i === 0 && k === 3);
         s += r(x + 22, y, 38, 32, lit ? K.white : "#2a2a2c") + t(x + 41, y + 21, v, { a: "middle", s: 12, w: 700, c: lit ? "#000" : K.txt }); } }
     s += labels([{ n: "Tape A", v: "pat 3", nc: K.white, sel: true }, { n: "Tape B", v: "pat 3" }, { n: "Track 3", v: "pat 3" }, { n: "Track 4", v: "pat 3" }, {}, {}, {}, {}]);
-    return svg(s, "Performance mode with five tape FX added; the Speed 0 % pad is held");
+    return svg(s, "Performance mode with four tape FX added; the Speed 0 % pad is held");
   };
 
   (function () {

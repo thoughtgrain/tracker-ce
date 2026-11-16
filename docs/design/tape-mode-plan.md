@@ -14,10 +14,10 @@ Numbers in this file are from the developer guide's memory table and the code as
 | **Hidden tracks** | Tracks beyond the type's count, and the MIDI tracks, hidden in every screen and skipped by the sequencer | interface + `Sequencer` | both |
 | **Tape instrument** | Sample instruments 46/47 (TA/TB) with new `playModeTape`; never streamed | `core/libs/Audio/play_memory_tape.cpp`, `isPlayModeStreamable` | ISR |
 | **Tape FX columns** | FX3/FX4 for each tape track, stored in hidden tracks' FX slots (§2.1) | `Sequencer`, pattern editor | ISR + UI |
-| **New step FX** | Speed, Wow, Tape Rec, Tape A send, Tape B send, Grain Wet/Size/Position/Freeze, Ripple Wet/Pitch/Decay, Echo Wet/Feedback (14) | `mtSequencer.h` enum (append), `interfaceDefs.h` names, `mtAudioSequencer.cpp` | ISR |
+| **New step FX** | Speed, Wow, Tape Rec, Tape A send, Tape B send, Grain Wet/Size/Position/Freeze, Ripple Wet/Pitch/Decay (12) | `mtSequencer.h` enum (append), `interfaceDefs.h` names, `mtAudioSequencer.cpp` | ISR |
 | **TapeWriter** | Records into a tape's own sample memory at the record head, with Dub | inside the tape player | ISR |
-| **Tape FX bus ×2** | Send bus per tape: Grain → Ripple → Echo, return into the mix | `core/AudioEngine/TapeFxBus.{h,cpp}`, nodes in `core/libs/Audio/` | ISR |
-| **Effects arena** | Grain buffer and echo line carved from sample memory, only in tape projects | `core/AudioEngine/` | main loop allocates, ISR reads |
+| **Tape FX bus ×2** | Send bus per tape: Grain → Ripple, return into the mix | `core/AudioEngine/TapeFxBus.{h,cpp}`, nodes in `core/libs/Audio/` | ISR |
+| **Effects arena** | Grain buffer carved from sample memory, only in tape projects | `core/AudioEngine/` | main loop allocates, ISR reads |
 | **Sample strips** | Peak table per instrument, captured peaks per track, a strip drawn in the pattern editor | `core/source/`, `core/interface/patternEditor/` | main loop (capture: one compare per block in ISR) |
 | **Automation additions** | New destinations for tape FX values, new type Follow | `envelopesLabels`, `playerEngine::update` | ISR |
 | **theseus** | Drum synth: `.psyn` engine on IMX; on MK66 see §3.1 | `synth-plugin-sdk/engines/theseus.cpp` (port) | ISR |
@@ -49,16 +49,9 @@ The UX keeps the Tracker's rule that a track has one voice, so the tape plays on
 
 Each tape bus gets its input from a new send mixer fed from every voice's filter output, the same tap the reverb and delay sends use (`preFxMixer`), plus synth parts on IMX. Each voice and synth part needs two more gain stages. The return goes into `tracksAndSendsMixer` like the reverb return.
 
-### 2.5 Proposal: one buffer per tape bus, shared by Grain and Echo
+### 2.5 Echo is dropped
 
-Grain needs a recording of the last bars it can read anywhere, and Echo needs a recording of the last second or so it reads at a fixed distance behind. Those are the same thing: a circular buffer the bus input is written into. So instead of a grain buffer *and* an echo line, each tape bus has **one buffer**, and both effects read it:
-
-- **Grain** reads grains anywhere in it, as designed.
-- **Echo** becomes taps at a fixed distance behind the write head, the way Bryo's GRAIN had a "trail the write head" granular-delay mode. Feedback mixes the echo back into what's written, so the grains also granulate the repeats, which is Bryo's GRAIN FDBK.
-- **The order changes** from Grain → Ripple → Echo to **buffer → Grain + Echo (in parallel) → Ripple**, because Echo now reads the same pre-Ripple recording. The repeats ring through the strings instead of the strings being echoed. That's a different sound, and I think a good one, but it's a design change, not an optimisation.
-- **Freeze** holds the buffer for both, so a frozen tape bus is a looper: the echo keeps repeating what's held.
-- **Memory per bus is the buffer alone.** On the Original, two 2-bar buffers at 90 BPM are about 0.94 MB together, with Echo costing nothing extra. On IMX it saves the separate echo line too.
-- **"Either Grain or Echo"** (a mode switch per bus) saves the same memory but takes away the combination. Sharing gets both for the price of one, so I'd do that.
+The Tracker already has Delay and Reverb as send effects on every device, so the tape buses don't get an echo of their own. Each bus is **Grain → Ripple**, with one buffer, Grain's. That removes an effect from every phase, a delay line per bus from memory and about 5 k cycles a block per bus from the CPU estimate. A tape's own Delay and Reverb sends put echoes and space on its sound.
 
 ### 2.6 Proposal: reels, recordings streamed to the SD card
 
@@ -91,11 +84,11 @@ The Original is where this design can fail. Here is every issue I found, how bad
 | # | Issue | Severity | What I'd do |
 | :--- | :--- | :--- | :--- |
 | 1 | **No synth host.** `FEATURE_SYNTH` and `GUI_HANDLE_SYNTH` are IMX only. The host (`synth/source`, about 10,600 lines) plus the `.psyn` loader need the M7 and a 6 MB pool. The MK66 has about 153 KB of flash and about 1.1 MB of external RAM free. | **Blocking** for "theseus in the synth screens" on the Original | §3.1: a small built-in host for one engine, reusing the synth screens if they compile without the full host; otherwise a drum instrument with screens copied from them. A decision gate in phase 10. |
-| 2 | **CPU is unmeasured.** 180 MHz M4F, 2.9 ms blocks (about 522 k cycles). There's no idle or busy figure today. My estimates per tape bus: Grain with 12 grains about 30–45 k cycles a block, Ripple about 10 k, Echo about 5 k. One theseus voice is about 30 k. **All estimates.** | **High** | Phase 0 measures first. Per-device caps: grain count, theseus voices and echo length, set from measurements. A tape project's at most 6 tracks also frees 2 voices' worth compared with Default. |
+| 2 | **CPU is unmeasured.** 180 MHz M4F, 2.9 ms blocks (about 522 k cycles). There's no idle or busy figure today. My estimates per tape bus: Grain with 12 grains about 30–45 k cycles a block, Ripple about 10 k. One theseus voice is about 30 k. **All estimates.** | **High** | Phase 0 measures first. Per-device caps: grain count and theseus voices, set from measurements. A tape project's at most 6 tracks also frees 2 voices' worth compared with Default. |
 | 3 | **No ITCM.** On MK66, `AUDIO_CORE_RAM` and `AUDIO_CORE_FLASH` both land in flash, so hot DSP runs from flash through the cache. Grain reads land at random addresses in external SDRAM, which misses the cache. | High | Keep inner loops small. Copy each grain's window into a stack buffer per block, the way Bryo decodes into a 128-sample window, so the SDRAM reads are sequential. Measure in phase 7. |
-| 4 | **Memory.** The sample pool is about 7.5 MB, mono. Two 20 s tapes are 3.5 MB. A 4-bar grain buffer at 90 BPM is about 10.7 s, 0.94 MB each, so 1.9 MB for two. Two 1 s echo lines are 0.18 MB. That's about 5.6 MB, which leaves about 1.9 MB for samples. | **High** | With the shared buffer (§2.5) and reels (§2.6): tapes 12 s each in RAM (2.1 MB together), long material on reels on the card, and one 2-bar buffer per bus serving Grain and Echo (about 0.94 MB together, only while either is on). That's about 3 MB in a full tape project, leaving about 4.5 MB for samples. Fixed caps, shown on the memory bar, refused with a popup when they don't fit. |
+| 4 | **Memory.** The sample pool is about 7.5 MB, mono. Two 20 s tapes are 3.5 MB. A 4-bar grain buffer at 90 BPM is about 10.7 s, 0.94 MB each, so 1.9 MB for two. That's about 5.4 MB, which leaves about 2.1 MB for samples. | **High** | With reels (§2.6): tapes 12 s each in RAM (2.1 MB together), long material on reels on the card, and one 2-bar grain buffer per bus (about 0.94 MB together, only while Grain is on). That's about 3 MB in a full tape project, leaving about 4.5 MB for samples. Fixed caps, shown on the memory bar, refused with a popup when they don't fit. |
 | 5 | **Internal RAM.** About 128 KB free. Ripple's 4 strings × about 1,056 floats × 2 buses is about 34 KB; peak tables for strips are 48 × 128 B, about 6 KB; captured strip peaks are 512 B × 6 tracks. | Low | Fits. Ripple lines go in internal RAM on MK66 for speed. On IMX, where internal RAM is tight, they come from the arena. |
-| 6 | **Mono.** `SAMPLE_CHANNELS = 1`; voices use `monoToStereo`. Grain Spread, Echo Spread and Ripple's panned strings have no effect. | Low | The bus processes mono on MK66, and the stereo-only parameters are shown dimmed with "mono" as the value, not hidden, so pages line up across devices. |
+| 6 | **Mono.** `SAMPLE_CHANNELS = 1`; voices use `monoToStereo`. Grain Spread and Ripple's panned strings have no effect. | Low | The bus processes mono on MK66, and the stereo-only parameters are shown dimmed with "mono" as the value, not hidden, so pages line up across devices. |
 | 7 | **Display and SPI time.** The developer guide measures 20–35 ms per step on MK66 for FT812 SPI pattern redraws. Sample strips add lines to that redraw. | **Medium-high** | Measure the frame bytes and the redraw time with strips on (phase 1). If the redraw grows past what fits between steps at 180 BPM 1/16 (about 83 ms), draw strips at two lines per row on MK66, or default to Long samples there. Strips are the first thing dropped (UX §5). |
 | 8 | **Audio block pool.** `AudioMemory(70)` on MK66. Each bus node that holds or transmits blocks draws from it. | Medium | Count blocks per bus (about 6 at peak) and raise the pool by the measured need; each block is about 260 B on MK66, so 12 blocks are about 3 KB. |
 | 9 | **Recording input.** Line in, radio and mic come through `updateInputBuffers` (`platforms/mk66/source/TrackerMain.cpp:28`). There's no USB audio. | Low | Rec Source lists only what the device has, as the Sample Recorder already does. |
@@ -193,22 +186,22 @@ Each phase is one PR. Fences are a starting point; I re-grep the blast radius ri
 - **Invariant:** existing streaming playback unchanged.
 - **Verify:** rung 5: sustained write rate during song playback with streamed samples, on a slow card, on MK66 and IMX.
 
-### Phase 6: Tape FX bus, Echo, sends, Master pages
+### Phase 6: Tape FX bus, Ripple, sends, Master pages
 - **Do:**
   - `TapeFxBus` and the effects arena.
-  - Echo (the cheapest effect, to prove the bus).
+  - Ripple (cheaper than Grain, so it proves the bus first).
   - Tape A/B sends in Params → More, and their step FX.
   - Master Tape 4/4 and its pages; the Global Mixer Tape FX column.
-- **Fence:** `core/AudioEngine/` (connections, new bus), `core/libs/Audio/` (Echo node), `instrumentEditor` More window, `masterParams/`.
+- **Fence:** `core/AudioEngine/` (connections, new bus), `core/libs/Audio/` (Ripple node), `instrumentEditor` More window, `masterParams/`.
 - **Invariant:** Default projects bit-exact; with all sends at 0, tape projects bit-exact with the bus absent.
 - **Verify:** rung 2 goldens; rung 5 CPU per device and block-pool high water (MK66 #8).
 
 ### Phase 7: Grain
-- **Do:** grain reads on the shared bus buffer (§2.5; Echo's taps already use it), grain pool with per-device grain counts, the Scan modes, Freeze, freeze to tape via Rec Source.
+- **Do:** the bus's grain buffer, grain pool with per-device grain counts, the Scan modes, Freeze, freeze to tape via Rec Source.
 - **Verify:** rung 2 goldens with fixed seeds; rung 5 CPU, which sets the MK66 grain count (#2, #3).
 
-### Phase 8: Ripple
-- **Do:** strings, comb, resonators; Pluck by own notes and by sends. Anything ported from an MIT original gets a `NOTICE.md` entry.
+### Phase 8: Ripple's pluck from sends
+- **Do:** Pluck by sends (notes on ordinary tracks that send into the bus pluck its strings). The strings themselves arrive in phase 6. Anything ported from an MIT original gets a `NOTICE.md` entry.
 - **Verify:** rung 2; rung 5.
 
 ### Phase 9: Automation
@@ -234,9 +227,9 @@ Phases 1 (strips) and 10's theseus engine work don't depend on tape projects. Ph
 
 ## 6. Open items
 
-0. **Shared buffer (§2.5) and reels (§2.6):** proposals, waiting on a yes. If they're accepted, the UX spec changes in three places: the effects order, Rec Target, and a Reel setting on Sample Playback.
+0. **Reels (§2.6):** a proposal, waiting on a yes. If accepted, the UX spec gains a Rec Target (Tape or Reel) and a Reel setting on Sample Playback.
 
 1. **theseus on the Original**: option 1 or 2 (§3.1), decided by a measured stub build.
-2. **Original memory caps** (#4): 12 s tapes, 2-bar grain buffer, 0.75 s echo. Acceptable as starting caps?
+2. **Original memory caps** (#4): 12 s tapes and a 2-bar grain buffer. Acceptable as starting caps?
 3. **Old firmware and FX3/FX4** (§2.1): document it, or store the columns in a sidecar and accept the extra file handling?
 4. **Automation destinations' storage** (phase 9): sidecar or spare instrument bytes, decided after a grep of every reader.
