@@ -38,7 +38,7 @@ That leaves **two** new pieces of UI: the project-type choice, and paging throug
 
 | Type | Tracks | Tape tracks | Ordinary |
 | :--- | :---: | :--- | :--- |
-| Default | 16 | — | today's 8 sample + 8 MIDI |
+| Default | 16 | — | today's project |
 | Tape 2 | 2 | track 1 | track 2 |
 | Tape 4 | 4 | tracks 1–2 | tracks 3–4 |
 | Tape 6 | 6 | tracks 1–2 | tracks 3–6 |
@@ -51,7 +51,7 @@ That leaves **two** new pieces of UI: the project-type choice, and paging throug
 
 | Type | Summary in the list |
 | :--- | :--- |
-| Default | 16 tracks: 8 sample + 8 MIDI. No tape. Today's project. |
+| Default | 16 tracks. No tape. Today's project. |
 | Tape 2 | 2 tracks. Track 1 is a tape track; track 2 is ordinary. |
 | Tape 4 | 4 tracks. Tracks 1–2 are tape tracks; 3–4 are ordinary. |
 | Tape 6 | 6 tracks. Tracks 1–2 are tape tracks; 3–6 are ordinary. |
@@ -125,15 +125,20 @@ A tape track has **four FX columns** where an ordinary track has two. They *are*
 
 **The sample strip (every project type).** Beside a track's columns, in the space to the right of FX2 (about 20 px, so no column moves), a thin waveform runs **top to bottom with the steps**. Each row shows the stretch of sample that plays on that step, so you can read a long sample the way you read the notes. It isn't only for tapes: any track whose sample keeps playing across steps gets one, in Default projects as well.
 - **When it shows:** on a track where a sample note keeps sounding for at least a beat (4 steps). That covers tapes, loops, long one-shots and held synth notes. Short drum hits don't clutter the grid with strips.
-- **It follows what's written.** A note draws a short orange line where the sample starts, or where it jumps to a slice, and the strip shows the audio from there. A looping sample wraps at its loop points, with a dashed line at each wrap, and keeps going for as long as the note does, across the pattern end and into the next pattern or the pattern's own repeat. A one-shot goes empty where the sample ends. Tune, Speed, Reverse and Position FX bend it: a slowdown narrows the waveform as less audio passes per step, a stop goes flat, and reverse runs the audio backwards.
+- **It follows what's written.** A note draws a short solid line across the strip where the sample starts, or where it jumps to a slice, and the strip shows the audio from there. A looping sample wraps at its loop points, with a dashed line at each wrap, and keeps going for as long as the note does, across the pattern end and into the next pattern or the pattern's own repeat. A one-shot goes empty where the sample ends. Tune, Speed, Reverse and Position FX bend it: a slowdown narrows the waveform as less audio passes per step, a stop goes flat, and reverse runs the audio backwards.
 - **Synths, drum instruments and other generated sound:** there's no stored sample to draw ahead, so the strip is the instrument's **real output, captured as it plays**: a peak per quarter-step, kept per track. Rows already heard on this pass are drawn bright; rows still ahead show the last pass, dimmed, until the playhead reaches them, so a looping pattern shows the synth's shape before it plays again. A synth note's strip swells with its attack and fades with its release after OFF. Synth parts mix outside the tracks, so a part's output is credited to the track whose note is holding it; where two tracks hold the same part, both show it. Granular and Wavetable sample instruments use the same captured view, since they don't play through a sample in order.
-- **Capture cost:** a running peak per track, compared once per audio block (no per-sample work beyond what the existing per-voice RMS node already does), written into 1 byte per quarter-step: 512 bytes per track for a 128-step pattern. That's fast RAM, which is tight on IMX, so it's counted in the phase that adds it, and only tracks with strips switched on capture.
 - **MIDI tracks** have no audio here, so no strip.
 - **The playhead row** is drawn brighter, like the rest of the playing row.
-- **Turning it off:** Config gets **Sample strips: Off / Long samples (default) / All notes**, and "Pattern info" Off hides strips along with the track names. The 8-track narrow view has no room, so it shows none.
-- **Cost.** A strip is four short lines per row, about 60 lines, drawn from a peak table kept per instrument (min/max per 1/64 of the sample, built when the sample loads), not from the audio. Four strips in the 4-track view is roughly 2 KB of display list, which comes out of the 8,172-byte frame budget. I'll measure it, and drop to two lines per row, or show strips only on the track under the cursor, if a full pattern runs tight.
 - **Mini:** the same; it's part of the pattern editor.
 - **It ships on its own.** Nothing in it depends on tape mode, so it can be the first pattern-editor change and be useful to everyone before tapes exist.
+
+**How the strip stays cheap, and how to turn it off.** The strip is a primitive picture, not a waveform display. It's built to cost almost nothing and to disappear entirely when you don't want it:
+- **It's a sketch, not the audio.** Each row is four short horizontal lines, one per quarter-step, each as wide as the loudest moment in that quarter. There's no curve, no fill, no colour coding and no animation beyond the playhead row getting brighter. That's about 60 lines per track for a 15-row screen.
+- **Samples are read from a peak table, never from the audio.** When a sample loads, I build a table of 64 peaks across it (min and max, 1 byte each, so 128 bytes per instrument) in the main loop, alongside the load. Drawing a strip looks up that table, scaled by tune, speed and loop points; the audio interrupt is never involved.
+- **Synths and other generated sound are captured as one byte per quarter-step.** The audio interrupt compares one running peak per track per 128-sample block, which is a few instructions next to the per-voice RMS node that already runs, and writes 1 byte at each quarter-step boundary. That's 512 bytes per track for a 128-step pattern, allocated only for tracks whose strip is on.
+- **It's drawn only when the screen changes.** The pattern editor already redraws when the playhead moves a row or when you edit; the strip rides on that redraw and doesn't add refreshes of its own.
+- **It has a budget.** Every line is display-list bytes from the 8,172-byte frame. Four strips in the 4-track view is about 2 KB by my estimate. If a busy pattern pushes the frame near its limit, strips drop first, to two lines per row and then to the cursor's track only, so notes and FX are never the thing that disappears.
+- **Off means off.** Config → **Sample strips: Off / Long samples (default) / All notes**. With Off, nothing is captured, no peak tables are built, no RAM is allocated and nothing is drawn: the pattern editor costs exactly what it costs today. "Pattern info" Off also hides the strips, along with the track names. The 8-track narrow view never shows strips, because it has no room.
 
 **New FX types**, appended to the FX list. They're listed only on tape tracks except for the two sends, which work on any track:
 
