@@ -16,7 +16,7 @@ I asked one question for each Bryo idea: **where would a Tracker user look for t
 | Set up a send effect, like Reverb or Delay | **Master** | each tape's Grain, Ripple and Echo are set up there |
 | Move a parameter with an envelope or LFO | **Params** pressed again: **Automation** | the tape FX values are new automation destinations |
 | Change something on a step | an **FX column** in the pattern | tape tracks get more FX columns, and the tape FX are FX |
-| Record audio | **Sample Recorder** | it can record onto a tape while the song plays |
+| Record audio while the song plays | **the pattern editor**: arm with Shift + Rec, record with Rec + Play | an armed tape track records onto its tape |
 | Turn a pattern into a sample | **Render Selection** | it can render onto a tape |
 | Play it live | **Performance mode** | a few tape FX join the list |
 | Arrange | **patterns and Song** | unchanged |
@@ -81,7 +81,7 @@ Choose Tape A as the instrument and press **SamplePlay**. The screen is the one 
 4. **Shaping it per step.** FX in FX1–FX4 act on the tape from their step: Speed and Wow (new), Roll, Reverse, Position, Tune and Slide (existing). Fill writes ramps, such as Speed sliding down to a stop.
 5. **Playing something else on the track.** Another instrument on a tape step plays instead of the tape, and the tape keeps time underneath. The next TA note picks it back up in place.
 6. **Seeing it.** The sample strip beside the track (§5) shows which part of the tape each step plays, where it jumps and where it slows.
-7. **Going deeper.** With the cursor on a TA step, TA is the current instrument, so **SamplePlay** opens this screen for the tape, **Params** its instrument settings, and **SampleRec** records onto it, as for any instrument.
+7. **Going deeper.** With the cursor on a TA step, TA is the current instrument, so **SamplePlay** opens this screen for the tape, **Params** its instrument settings. Recording onto it is in the pattern editor itself (§7).
 
 - **The Tracker's existing FX already do most of Bryo's tape moves.** They work on a tape exactly as their names say:
 
@@ -165,7 +165,7 @@ A tape track has **four FX columns** where an ordinary track has two. They *are*
 | Grain Freeze | on / off | hold the grain buffer |
 | Ripple Wet / Pitch / Decay | 0–100, semitones | |
 | Echo Level / Feedback | 0–100 | |
-| Tape Rec | 1–16 bars, 0 = stop | start a take onto this track's tape on this step (§7) |
+| Tape Rec | 1–16 bars, 0 = stop | start a take onto this track's tape on this step, when the track is armed (§7) |
 | Tape A send / Tape B send | 0–100 | **any track**: this note's send into a tape's FX, like Reverb send |
 
 **Ramps and sweeps** use **Fill**, which already offers an FX Type with From and To. Fill Speed from 100 to −100 across steps 9–16 and the tape slows into reverse.
@@ -185,24 +185,32 @@ Press **Params** again on Tape A for **Automation**, the existing page: Destinat
 
 ---
 
-## 7. Recording onto a tape: Sample Recorder
+## 7. Recording onto a tape: in the pattern editor
 
-**SampleRec** opens the Sample Recorder as it is now: Source, Level, Gain, Metronome, Record. In a tape project it gains:
+Recording onto a tape happens in the pattern editor, where the tape lives, using the recording controls the pattern editor already has. The Sample Recorder doesn't change: it still records samples into instrument slots.
 
-- **Source** adds **Tracks** (resample the mix of the ordinary tracks), **Track 3…6**, and **Grain A / B** (freeze to tape: the grain buffer copied at once), next to Line, Mic, Radio and USB.
-- **Target**: **New instrument** (today's behaviour), **Tape A** or **Tape B**.
-- **Bars** (Free, 1, 2, 4, 8, 16) and **Dub** (−100…+100), shown only when the target is a tape.
+**1. Arm the tape track.** Hold **Shift + Rec**: the bottom labels show each track's Armed or Unarmed state, as they do today for live recording, now including the tape tracks. An armed tape track records; an unarmed one never does, so playing a song back can't record over a tape by accident.
 
-**Recording onto a tape doesn't stop the song.** Press Record and the label blinks until the next bar line, the way a queued pattern blinks. It records for the set bars and stops itself, and the tape loops the take in time. Bar takes skip the trim step, because they're already the right length; **Undo** brings back the tape as it was. A **Free** take goes through the trim screen you know (Preview, Start, End, Zoom, Crop, Undo, Cancel, Save), and Save writes it onto the tape.
+**2. Record live.** **Rec + Play** starts live recording, as it does now for notes. On an armed tape track it also records audio onto the tape, from the tape's Source, until you stop: **Rec** again punches out, and Rec once more punches back in. With **Bars** set, a take waits for the next bar line, blinking red the way a queued pattern does, records that many bars, then stops by itself and loops in time. With Bars on Free, it starts and stops on your presses.
 
-**Triggering a take from the pattern.** The step FX **Tape Rec** on a tape track starts a take on its step, exactly there rather than at the next bar line. The value is the number of bars (1–16), and `0` stops a take early. It records from the Source and with the Dub set for that tape in the Sample Recorder, so you set up the take once and the pattern decides when it happens. Takes can then be placed in a song: print the drums onto Tape A at bar 17, overdub at bar 33.
-- **Arming keeps it safe.** A pattern replays every time it loops, and a song every time you play it, so a Tape Rec FX only records while its tape track is **armed**. That's the arm the pattern editor already has: hold **Shift + Rec** and the bottom labels show each track's Armed or Unarmed state, now including the tape tracks. Disarmed, Tape Rec FX are skipped and shown dimmed, so you can play the song back without recording over the tapes.
-- **Looping patterns.** While armed, a Tape Rec on a looping pattern records on every pass. With Dub at 0 that builds up layers, sound on sound, which can be what you want; with Dub at −100 each pass replaces the last. The take's bar count still ends it, and Undo restores the tape as it was before the last take.
-- **Feedback:** while a take is running, the tape track's header blinks red, the way a queued pattern's number blinks, and the sample strip shows the record head as a red line moving down with the steps.
+**3. Or write the take into the pattern.** The step FX **Tape Rec** starts a take on its step, exactly there. The value is the number of bars (1–16), and `0` stops a take early. Takes can then be placed in a song: print the drums onto Tape A at bar 17, overdub at bar 33. It records only while the track is armed, and is shown dimmed when it isn't. While armed, a Tape Rec on a looping pattern records on every pass: with Dub at 0 that builds up layers, and with Dub at −100 each pass replaces the last.
 
-**Dub** works as it did in Bryo: 0 adds the new sound to the old (sound on sound), +100 keeps the old loop, −100 replaces it, and values between fade the old loop each pass.
+**4. The take's settings** are on the pattern editor's third page, which today has Pattern Name and Track Name with its other buttons free. On a tape track it gains:
 
-**Bounce** is **Render Selection** (pattern editor, page 2), which already renders a selection to a sample. It gains a destination: New instrument, **Tape A** or **Tape B**. Select an ordinary track's steps, render to Tape A, and the part is on tape.
+| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Pattern Name | Track Name | Rec Source | Bars | Dub | Undo Take | | More |
+
+- **Rec Source:** Tracks (the mix of the ordinary tracks, the default), Track 3–6, Tape A or B, Self (resampling through its own FX), Grain A or B (freeze to tape: the grain buffer copied at once), Line, Mic, Radio (Original and Tracker+), USB (Tracker+ and Mini).
+- **Bars:** Free, 1, 2, 4, 8, 16.
+- **Dub** works as it did in Bryo: 0 adds the new sound to the old (sound on sound), +100 keeps the old loop, −100 replaces it, and values between fade the old loop each pass.
+- **Undo Take** brings back the tape as it was before the last take.
+
+**5. Bounce** is **Render Selection** (pattern editor, page 2), which already renders a selection to a sample. It gains a destination: New instrument, **Tape A** or **Tape B**. Select an ordinary track's steps, render to Tape A, and the part is on tape.
+
+**While a take runs,** the tape track's header blinks red with the bar count (`REC 2/4`), and the sample strip shows the record head as a red line moving down with the steps. A take never stops the song.
+
+**Saving:** a take marks the tape dirty, and saving the project writes it in the main loop like any edited sample.
 
 ---
 
@@ -258,7 +266,7 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 | A separate COLOR block | Each instrument's Overdrive and Bit depth | They already exist on every instrument. |
 | Master → Tape Sends page, HIT toggle | Tape A / B send in each instrument's More, plus Ripple's Pluck setting | Sends are per instrument on the Tracker, beside Reverb and Delay. |
 | Synth **Output** routing | Tape A / B sends on the synth part | Same reason. |
-| Tape Recorder screen | Sample Recorder, with a tape Target | It's the screen people already record in. |
+| Tape Recorder screen | The pattern editor: arm, Rec + Play, the Tape Rec FX, settings on page 3 | Recording a tape is part of writing the pattern, and the pattern editor already arms tracks and records live. |
 | Top-row pads for pages, freeze and stutter | Pads play notes, as everywhere else | Live moves belong in performance mode. |
 | A Mini-specific assign flow | Nothing extra | The screens used already work on the Mini. |
 
@@ -269,7 +277,7 @@ theseus is a synth, so it uses the synth screens a Tracker+ or Mini owner alread
 **J1. Tape 4, first sound**
 1. **File → New Project → Tape 4 → Create.** Pattern 1 has `C-4 TA` on Tape A and `C-4 TB` on Tape B.
 2. On track 3, write a beat with a drum instrument (§8). **Play.**
-3. **SampleRec**: Source Tracks, Target Tape A, Bars 4. **Record.** It starts on the next bar, stops after 4, and Tape A loops it.
+3. **Shift + Rec**, arm Tape A. On the pattern editor's third page, Rec Source is Tracks and Bars is 4. **Rec + Play**: the take starts on the next bar, stops after 4, and Tape A loops it.
 4. **Master** until **Master Tape 4/4**, then **A Grain**, and turn the encoder: Wet is already selected.
 
 **J2. A tape break in the pattern**
