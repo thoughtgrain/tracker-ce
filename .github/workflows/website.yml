@@ -1,0 +1,69 @@
+name: Website
+
+# Rebuilds the GitHub Pages site so the homepage always lists the newest release.
+# - workflow_run: after the firmware workflow finishes, because releases it publishes with
+#   GITHUB_TOKEN don't fire `release` events.
+# - release: for releases published by hand.
+# workflow_run and release only fire once this file is on the default branch.
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'website/**', '.github/workflows/website.yml' ]
+  workflow_run:
+    workflows: [ 'Build Tracker CE Firmware' ]
+    types: [ completed ]
+  release:
+    types: [ published, edited ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
