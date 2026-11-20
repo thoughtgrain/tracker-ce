@@ -32,3 +32,8 @@ __pycache__/
 
 # Host test builds
 tests/*/build/
+
+# Website (Astro)
+website/node_modules/
+website/dist/
+website/.astro/
