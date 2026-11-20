@@ -46,7 +46,12 @@ Behind a proxy, Node's `fetch` ignores `HTTPS_PROXY` unless you set `NODE_USE_EN
 
 ## Design notes
 
-- **Type.** Archivo (condensed widths) for headings, Atkinson Hyperlegible for reading, JetBrains Mono for anything that's tracker data: tags, file names, step numbers. All three are self-hosted through Fontsource, so there are no third-party font requests.
-- **Colour.** The Tracker's own pattern column colours (note, instrument, FX 1, FX 2) mark the four feature groups. Every group also has a text label, so colour is never the only cue. The light theme uses darker versions of those colours so they pass contrast; dark mode uses the real ones.
-- **Images.** The device images are SVG drawings from `src/components/TrackerDrawing.astro`, not product photos. Each one has a title and description for screen readers.
-- **Accessibility.** A skip link, visible focus rings, 44 px targets on the buttons, real table headers on the download list, and no horizontal scroll down to 320 px.
+I styled the page after the visual language of Polyend's own Tracker+ page, so it feels at home next to theirs. It doesn't borrow their logo, fonts, photos or copy, and it says it's unofficial right at the top.
+
+- **Layout.** A near-black ground (`#1c1c1c`) with black panels at 28 px radius. The hero and the download list sit in panels. The intro is a two-column statement in grey with white highlights.
+- **Type.** Bebas Neue for the tall, condensed, uppercase headlines (Polyend uses Tanker; Bebas Neue is the closest open-licence match). Albert Sans at weight 300 for body text, which is the same family Polyend uses and is OFL. JetBrains Mono for file names and tags. All three are self-hosted through Fontsource, so there are no third-party font requests.
+- **Colour.** The feature cards use the pastel colours of the Tracker's Note, Instrument, FX1 and FX2 keys, with near-black text. Every card also names its group, so colour is never the only cue. The blurred light streaks behind the hero drawing use the same four colours and are hidden from screen readers.
+- **Buttons.** Pills, either outlined or solid white, at least 44 px tall.
+- **Images.** The device images are SVG drawings from `src/components/TrackerDrawing.astro`, not product photos. Each one has a title and description.
+- **Accessibility.** A skip link, visible focus rings, grey text at 7:1 or better, download links that name their file for screen readers, and no horizontal scroll at phone width.
+- **Manuals.** Polyend's per-device downloads pages hold each manual. The links are in `src/config.ts`.

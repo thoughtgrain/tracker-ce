@@ -9,11 +9,14 @@ export const repoUrl = `https://github.com/${releaseRepo}`;
 export const releasesUrl = `${repoUrl}/releases`;
 export const docsUrl = (path: string) => `${repoUrl}/blob/main/${path}`;
 
-// Polyend's own pages. The deep links to their manuals weren't checked when this was written (the
-// build environment couldn't reach polyend.com), so the page links their homepage, which carries
-// the manuals, and their Backstage forum, which the repository README already links.
+// Polyend's own pages. Each device's downloads page carries its user manual and stock firmware.
 export const polyend = {
   home: "https://polyend.com/",
+  downloads: {
+    original: "https://polyend.com/downloads/tracker-downloads/",
+    plus: "https://polyend.com/downloads/tracker-plus-downloads/",
+    mini: "https://polyend.com/downloads/tracker-mini-downloads/",
+  },
   backstage: "https://backstage.polyend.com/",
   support: "https://backstage.polyend.com/t/how-to-contact-the-polyend-customer-support/15510",
 };

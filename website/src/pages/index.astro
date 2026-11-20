@@ -1,9 +1,7 @@
 ---
-import "@fontsource-variable/archivo/wdth.css";
-import "@fontsource/atkinson-hyperlegible/400.css";
-import "@fontsource/atkinson-hyperlegible/700.css";
+import "@fontsource/bebas-neue/400.css";
+import "@fontsource-variable/albert-sans/wght.css";
 import "@fontsource/jetbrains-mono/500.css";
-import "@fontsource/jetbrains-mono/700.css";
 import "../styles/global.css";
 
 import TrackerDrawing from "../components/TrackerDrawing.astro";
@@ -12,6 +10,7 @@ import { repoUrl, releasesUrl, docsUrl, polyend, recoveryVideo } from "../config
 
 const info = await getReleaseInfo();
 const latest = info.preview ?? info.stable;
+const releases = [info.preview, info.stable].filter((r): r is Release => !!r);
 const base = import.meta.env.BASE_URL;
 
 const deviceNames: Record<Device, string> = {
@@ -21,80 +20,31 @@ const deviceNames: Record<Device, string> = {
 };
 const dateFmt = new Intl.DateTimeFormat("en", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 
-// Feature groups borrow the Tracker's pattern column colours; each one always carries its label.
+// Card colours are the Tracker's Note / Instrument / FX1 / FX2 keys; each card also names its group.
 type Group = "note" | "instr" | "fx1" | "fx2";
 const groupLabel: Record<Group, string> = { note: "Sound", instr: "Sequencing", fx1: "Workflow", fx2: "Make it yours" };
 const features: { group: Group; title: string; body: string; devices: string; doc?: string }[] = [
-  {
-    group: "note",
-    title: "Open synth engines",
-    body: "A plugin SDK for synth engines loaded from the SD card. CHIP and DIRT ship with it, and anyone can build more.",
-    devices: "Tracker+ · Mini",
-    doc: "docs/custom_synth_sdk.md",
-  },
-  {
-    group: "note",
-    title: "Sample editor plugins",
-    body: "Swappable effects and generators in /Effects, up to 12 parameters each. Six reference plugins are included.",
-    devices: "All three",
-    doc: "docs/modular_effects_system.md",
-  },
-  {
-    group: "note",
-    title: "Wavetable envelopes and LFOs",
-    body: "256 morphable contours with Warp X/Y across seven instrument parameters, plus the w and y step FX.",
-    devices: "All three",
-    doc: "docs/wavetable_envelopes.md",
-  },
-  {
-    group: "instr",
-    title: "Micro-move and volume columns",
-    body: "Every step stores its own m and V values, so Fx1 and Fx2 stay free. Press Note on the note column to flip views.",
-    devices: "All three",
-  },
-  {
-    group: "instr",
-    title: "More chance conditions",
-    body: "Group with last, not last, play N / skip M and skip N / play M, alongside the usual percentage.",
-    devices: "All three",
-  },
-  {
-    group: "instr",
-    title: "Slices that play through",
-    body: "Slice and Beat Slice instruments can keep playing past their marker until the note ends.",
-    devices: "All three",
-  },
-  {
-    group: "fx1",
-    title: "SD card sample streaming",
-    body: "Long samples keep only their attack in RAM and stream the rest, so a project holds far more audio.",
-    devices: "All three",
-  },
-  {
-    group: "fx1",
-    title: "Performance mode pages",
-    body: "Keep pressing Perform to switch between sample tracks and MIDI/synth tracks.",
-    devices: "All three",
-  },
-  {
-    group: "fx2",
-    title: "Themes and fonts",
-    body: "Load your own colour themes and antialiased fonts from the SD card, made in the web editor.",
-    devices: "All three",
-    doc: "docs/custom_themes_and_fonts.md",
-  },
-  {
-    group: "fx2",
-    title: "Image viewer",
-    body: "Three folders of reference images, notes or anything else, flipped through with the pads.",
-    devices: "All three",
-    doc: "docs/image_viewer.md",
-  },
+  { group: "note", title: "Open synth engines", body: "A plugin SDK for synth engines loaded from the SD card. CHIP and DIRT ship with it, and anyone can build more.", devices: "Tracker+ · Mini", doc: "docs/custom_synth_sdk.md" },
+  { group: "note", title: "Sample editor plugins", body: "Swappable effects and generators in /Effects, up to 12 parameters each. Six reference plugins included.", devices: "All three", doc: "docs/modular_effects_system.md" },
+  { group: "note", title: "Wavetable envelopes", body: "256 morphable contours with Warp X/Y across seven instrument parameters, plus the w and y step FX.", devices: "All three", doc: "docs/wavetable_envelopes.md" },
+  { group: "instr", title: "Micro-move and volume", body: "Every step stores its own m and V values, so Fx1 and Fx2 stay free. Press Note on the note column to flip views.", devices: "All three" },
+  { group: "instr", title: "More chance", body: "Group with last, not last, play N / skip M and skip N / play M, alongside the usual percentage.", devices: "All three" },
+  { group: "instr", title: "Slices play through", body: "Slice and Beat Slice instruments can keep playing past their marker until the note ends.", devices: "All three" },
+  { group: "fx1", title: "Sample streaming", body: "Long samples keep only their attack in RAM and stream the rest from the card, so a project holds far more audio.", devices: "All three" },
+  { group: "fx1", title: "Performance pages", body: "Keep pressing Perform to switch between sample tracks and MIDI/synth tracks.", devices: "All three" },
+  { group: "fx2", title: "Themes and fonts", body: "Load your own colour themes and antialiased fonts from the SD card, made in the web editor.", devices: "All three", doc: "docs/custom_themes_and_fonts.md" },
+  { group: "fx2", title: "Image viewer", body: "Three folders of reference images, notes or anything else, flipped through with the pads.", devices: "All three", doc: "docs/image_viewer.md" },
 ];
 
-function headline(r: Release): string {
-  return r.prerelease ? (stageOf(r.tag) ?? "Pre-release") : "Stable";
-}
+const devices: { model: Device; desc: string; chip: string; file: string }[] = [
+  { model: "original", desc: "A light grey Tracker with screen, encoder and 48 pads.", chip: "MK66, Cortex-M4F at 180 MHz", file: "PolyendTracker_*.ptf" },
+  { model: "plus", desc: "A graphite Tracker+ with screen, encoder and 48 pads.", chip: "i.MX RT, Cortex-M7 at 600 MHz", file: "TrackerPlus_*.ptf" },
+  { model: "mini", desc: "A compact grey Tracker Mini with screen and two rows of keys.", chip: "i.MX RT, Cortex-M7 at 600 MHz", file: "TrackerMini_*.ptf" },
+];
+
+// The four key colours, used for the decorative light streaks.
+const streak = "linear-gradient(90deg, #dcaaf0, #eef0a0 45%, #8ff0d6 75%, #a2e8f2)";
+const streakV = "linear-gradient(180deg, #8ff0d6, #eef0a0 45%, #dcaaf0)";
 ---
 
 <!doctype html>
@@ -105,24 +55,27 @@ function headline(r: Release): string {
     <title>Tracker CE · Community firmware for the Polyend Tracker</title>
     <meta
       name="description"
-      content="Community Edition firmware for the Original Polyend Tracker, Tracker+ and Tracker Mini. Download the latest release and see what's new."
+      content="Unofficial community firmware for the Original Polyend Tracker, Tracker+ and Tracker Mini. Download the latest release and see what's new."
     />
     <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
-    <meta name="theme-color" content="#e7e9ec" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0d0f12" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#1c1c1c" />
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
     <div class="wrap">
       <header class="site-head">
-        <a class="wordmark" href={base}>TRACKER CE<span>community firmware</span></a>
+        <a class="wordmark" href={base}>
+          <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#fff" /><rect x="6" y="8" width="9" height="3" rx="1.5" fill="#111" /><rect x="17" y="8" width="9" height="3" rx="1.5" fill="#111" opacity=".35" /><rect x="6" y="14.5" width="20" height="3" rx="1.5" fill="#111" /><rect x="6" y="21" width="12" height="3" rx="1.5" fill="#111" opacity=".35" /></svg>
+          Tracker CE
+        </a>
         <nav aria-label="Main">
           <ul>
-            <li><a href="#download">Download</a></li>
             <li><a href="#features">Features</a></li>
+            <li><a href="#devices">Devices</a></li>
             <li><a href="#install">Install</a></li>
             <li><a href="#docs">Docs</a></li>
             <li><a href={polyend.home} rel="noopener">Polyend<span aria-hidden="true"> ↗</span></a></li>
+            <li><a class="pill-sm" href="#download">Download</a></li>
           </ul>
         </nav>
       </header>
@@ -130,20 +83,18 @@ function headline(r: Release): string {
       <main id="main">
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
-            <p class="eyebrow">Original Tracker · Tracker+ · Tracker Mini</p>
-            <h1 id="hero-title">Community firmware for the Polyend Tracker</h1>
-            <p class="lede">
-              Tracker CE builds on Polyend's open-sourced firmware. It adds synth and effect plugins, wavetable
-              modulation, sample streaming and more, and it keeps the workflow you already know.
-            </p>
-            <div class="actions">
-              <a class="btn primary" href="#download">
-                {latest ? `Get ${latest.tag}` : "Get the firmware"}
-              </a>
-              <a class="btn" href={repoUrl} rel="noopener">Source on GitHub</a>
+            <span class="unofficial">Unofficial · made by the community</span>
+            <h1 id="hero-title">Tracker.<br />Community Edition.</h1>
+            <p class="hero-sub">Firmware for the Original Tracker, Tracker+ and Tracker Mini</p>
+            <div class="pill-row">
+              <a class="pill solid" href="#download">{latest ? `Get ${latest.tag}` : "Get the firmware"}</a>
+              <a class="pill" href={repoUrl} rel="noopener">Source on GitHub</a>
             </div>
           </div>
           <div class="hero-art">
+            <span class="glow" aria-hidden="true" style={`left:-25%;right:-30%;top:64%;height:22px;background:${streak}`}></span>
+            <span class="glow sharp" aria-hidden="true" style={`left:-15%;right:-30%;top:calc(64% + 6px);height:10px;background:${streak};opacity:.9`}></span>
+            <span class="glow" aria-hidden="true" style={`left:60%;width:20px;top:-80%;bottom:-80%;background:${streakV};opacity:.45`}></span>
             <TrackerDrawing
               model="plus"
               title="Drawing of a Tracker+"
@@ -152,169 +103,134 @@ function headline(r: Release): string {
           </div>
         </section>
 
-        <section id="download" aria-labelledby="download-title">
-          <div class="section-intro">
-            <p class="eyebrow">Latest release</p>
-            <h2 id="download-title">Download</h2>
-            <p>
-              This list updates itself: every time the site is built, it reads the newest releases from GitHub.
-              Pick the file for your Tracker.
-            </p>
-          </div>
+        <div class="statement">
+          <p>
+            Polyend open-sourced the Tracker firmware, and <strong>Tracker CE picks it up from there</strong>. Same
+            workflow, same projects, same muscle memory.
+          </p>
+          <p>
+            Adding <strong>synth and effect plugins</strong>, <strong>wavetable modulation</strong>, <strong>sample streaming</strong> and <strong>dedicated m and V columns</strong> across all three devices.
+          </p>
+        </div>
+
+        <section id="download" class="panel" aria-labelledby="download-title">
+          <h2 id="download-title">Latest build</h2>
+          <p>This list refreshes itself: every time the site is built it reads the newest releases from GitHub.</p>
 
           {latest ? (
-            <div class="release-grid">
-              {[info.preview, info.stable].filter((r): r is Release => !!r).map((r) => (
-                <article class="release" aria-labelledby={`rel-${r.tag}`}>
-                  <div class="release-head">
-                    <div>
-                      <h3 id={`rel-${r.tag}`} class="release-tag">{r.tag}</h3>
-                      <p class="release-meta">
-                        {r.name !== r.tag && <>{r.name} · </>}
-                        Published <time datetime={r.publishedAt.toISOString()}>{dateFmt.format(r.publishedAt)}</time>
-                      </p>
-                    </div>
-                    <span class={`badge${r.prerelease ? "" : " stable"}`}>{headline(r)}</span>
-                  </div>
-                  {r.prerelease && (
-                    <p class="note-box" style="margin: 1rem 1.25rem 0;">
-                      This is a test build. Back up your Projects folder first: projects saved on CE can't be opened by
-                      older firmware.
+            releases.map((r) => (
+              <article class="release" aria-labelledby={`rel-${r.tag}`}>
+                <div class="release-head">
+                  <div>
+                    <h3 id={`rel-${r.tag}`} class="release-tag">{r.tag}</h3>
+                    <p class="release-meta">
+                      Published <time datetime={r.publishedAt.toISOString()}>{dateFmt.format(r.publishedAt)}</time>
                     </p>
+                  </div>
+                  <span class={`stage${r.prerelease ? "" : " stable"}`}>
+                    {r.prerelease ? (stageOf(r.tag) ?? "Pre-release") : "Stable"}
+                  </span>
+                </div>
+                {r.prerelease && (
+                  <p class="warn">
+                    A test build. Back up your Projects folder first: projects saved on CE can't be opened by older firmware.
+                  </p>
+                )}
+                <ul class="files">
+                  {(Object.keys(deviceNames) as Device[]).map((d) => {
+                    const f = r.firmware[d];
+                    return (
+                      <li class="file">
+                        <div>
+                          <span class="file-for">{deviceNames[d]}</span>
+                          {f && <span class="file-name">{f.name} · {formatSize(f.size)}</span>}
+                        </div>
+                        {f ? (
+                          <a class="pill" href={f.url}>Download<span class="sr-only"> {f.name} for {deviceNames[d]}</span></a>
+                        ) : (
+                          <span class="missing">Not in this release</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                  {r.synths && (
+                    <li class="file">
+                      <div>
+                        <span class="file-for">Synth engines</span>
+                        <span class="file-name">{r.synths.name} · {formatSize(r.synths.size)} · Tracker+ and Mini</span>
+                      </div>
+                      <a class="pill" href={r.synths.url}>Download<span class="sr-only"> {r.synths.name}</span></a>
+                    </li>
                   )}
-                  <div class="table-scroll">
-                    <table class="rows">
-                      <caption class="sr-only">Files in {r.tag}</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Step</th>
-                          <th scope="col">For</th>
-                          <th scope="col">File</th>
-                          <th scope="col">Size</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(Object.keys(deviceNames) as Device[]).map((d, i) => {
-                          const f = r.firmware[d];
-                          return (
-                            <tr>
-                              <td class="step">{String(i).padStart(2, "0")}</td>
-                              <td>{deviceNames[d]}</td>
-                              <td>{f ? <a href={f.url}>{f.name}</a> : <span class="size">not in this release</span>}</td>
-                              <td class="size">{f && formatSize(f.size)}</td>
-                            </tr>
-                          );
-                        })}
-                        {r.synths && (
-                          <tr>
-                            <td class="step">03</td>
-                            <td>Synth engines, Tracker+ and Mini</td>
-                            <td><a href={r.synths.url}>{r.synths.name}</a></td>
-                            <td class="size">{formatSize(r.synths.size)}</td>
-                          </tr>
-                        )}
-                        {r.effects && (
-                          <tr>
-                            <td class="step">04</td>
-                            <td>Sample editor effects, all three</td>
-                            <td><a href={r.effects.url}>{r.effects.name}</a></td>
-                            <td class="size">{formatSize(r.effects.size)}</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div class="release-foot">
-                    <a href={r.url} rel="noopener">Release notes for {r.tag}</a>
-                    <a href={releasesUrl} rel="noopener">All releases</a>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  {r.effects && (
+                    <li class="file">
+                      <div>
+                        <span class="file-for">Sample editor effects</span>
+                        <span class="file-name">{r.effects.name} · {formatSize(r.effects.size)} · all three</span>
+                      </div>
+                      <a class="pill" href={r.effects.url}>Download<span class="sr-only"> {r.effects.name}</span></a>
+                    </li>
+                  )}
+                </ul>
+                <div class="release-foot">
+                  <a class="pill" href={r.url} rel="noopener">Release notes</a>
+                  <a class="pill" href={releasesUrl} rel="noopener">All releases</a>
+                </div>
+              </article>
+            ))
           ) : (
-            <div class="recovery">
-              <p>
-                {info.error
-                  ? "The release list couldn't be read when this page was built."
-                  : "There's no published release yet."}{" "}
+            <div class="release">
+              <p class="warn" style="margin-top:1.5rem">
+                {info.error ? "The release list couldn't be read when this page was built." : "There's no published release yet."}{" "}
                 The current builds are always on GitHub.
               </p>
-              <p><a class="btn" href={releasesUrl} rel="noopener">Open the releases page</a></p>
+              <a class="pill solid" href={releasesUrl} rel="noopener">Open the releases page</a>
             </div>
           )}
         </section>
 
-        <section id="devices" aria-labelledby="devices-title">
-          <div class="section-intro">
-            <p class="eyebrow">One firmware tree, three machines</p>
-            <h2 id="devices-title">Runs on every Tracker</h2>
-            <p>Each device has its own file. Most features work on all three; the synth engines need the faster chip in Tracker+ and Mini.</p>
-          </div>
-          <div class="devices">
-            <figure class="device">
-              <TrackerDrawing model="original" title="Drawing of the Original Tracker" description="A light grey Tracker with screen, encoder and 48 pads." />
-              <figcaption>
-                <h3>Original Tracker</h3>
-                <dl>
-                  <dt>Chip</dt><dd>MK66, Cortex-M4F at 180 MHz</dd>
-                  <dt>File</dt><dd><code>PolyendTracker_*.ptf</code></dd>
-                </dl>
-              </figcaption>
-            </figure>
-            <figure class="device">
-              <TrackerDrawing model="plus" title="Drawing of the Tracker+" description="A graphite Tracker+ with screen, encoder and 48 pads." />
-              <figcaption>
-                <h3>Tracker+</h3>
-                <dl>
-                  <dt>Chip</dt><dd>i.MX RT, Cortex-M7 at 600 MHz</dd>
-                  <dt>File</dt><dd><code>TrackerPlus_*.ptf</code></dd>
-                </dl>
-              </figcaption>
-            </figure>
-            <figure class="device">
-              <TrackerDrawing model="mini" class="mini" title="Drawing of the Tracker Mini" description="A compact mid-grey Tracker Mini with screen and two rows of keys." />
-              <figcaption>
-                <h3>Tracker Mini</h3>
-                <dl>
-                  <dt>Chip</dt><dd>i.MX RT, Cortex-M7 at 600 MHz</dd>
-                  <dt>File</dt><dd><code>TrackerMini_*.ptf</code></dd>
-                </dl>
-              </figcaption>
-            </figure>
-          </div>
-        </section>
-
-        <section id="features" aria-labelledby="features-title">
-          <div class="section-intro">
-            <p class="eyebrow">What's in 1.0</p>
-            <h2 id="features-title">Features</h2>
-            <p>
-              A short tour. The <a href={docsUrl("CHANGELOG.md")} rel="noopener">changelog</a> has every change and fix.
-            </p>
-          </div>
-          <div class="features">
+        <section id="features" class="block" aria-labelledby="features-title">
+          <h2 id="features-title">Same Tracker,<br />more of it</h2>
+          <p>A short tour of 1.0. The <a href={docsUrl("CHANGELOG.md")} rel="noopener">changelog</a> has every change and fix.</p>
+          <div class="cards">
             {features.map((f) => (
-              <article class="feature">
-                <span class={`col-tag col-${f.group}`}>{groupLabel[f.group]}</span>
+              <article class={`card ${f.group}`}>
+                <span class="tag">{groupLabel[f.group]}</span>
                 <h3>{f.title}</h3>
                 <p>{f.body}</p>
-                <span class="devices-tag">{f.devices}</span>
-                {f.doc && <a href={docsUrl(f.doc)} rel="noopener">Read the guide<span class="sr-only"> for {f.title}</span></a>}
+                <div class="foot">
+                  <span class="on">{f.devices}</span>
+                  {f.doc && <a class="pill" href={docsUrl(f.doc)} rel="noopener">Guide<span class="sr-only"> for {f.title}</span></a>}
+                </div>
               </article>
             ))}
           </div>
         </section>
 
-        <section id="install" aria-labelledby="install-title">
-          <div class="section-intro">
-            <p class="eyebrow">About two minutes</p>
-            <h2 id="install-title">Install</h2>
+        <section id="devices" class="block" aria-labelledby="devices-title">
+          <h2 id="devices-title">Every Tracker</h2>
+          <p>One firmware tree, a file per device. The synth engines need the faster chip in Tracker+ and Mini; everything else runs on all three.</p>
+          <div class="devices">
+            {devices.map((d) => (
+              <figure class="device">
+                <TrackerDrawing model={d.model} class={d.model === "mini" ? "mini" : undefined} title={`Drawing of the ${deviceNames[d.model]}`} description={d.desc} />
+                <figcaption>
+                  <h3>{deviceNames[d.model]}</h3>
+                  <p>{d.chip}</p>
+                  <p><code>{d.file}</code></p>
+                </figcaption>
+              </figure>
+            ))}
           </div>
+        </section>
+
+        <section id="install" class="block" aria-labelledby="install-title">
+          <h2 id="install-title">Install</h2>
           <ol class="steps">
-            <li><p>Back up the <code>Projects</code> folder on your SD card. Projects saved on CE use pattern format 6, which older firmware can't read.</p></li>
-            <li><p>Copy the <code>.ptf</code> for your Tracker into <code>/Firmware/</code> on the SD card. Keep the file name to 31 characters or fewer.</p></li>
+            <li><p>Back up the <strong>Projects</strong> folder on your SD card. Projects saved on CE use pattern format 6, which older firmware can't read.</p></li>
+            <li><p>Copy the <code>.ptf</code> for your Tracker into <code>/Firmware/</code> on the card. Keep the file name to 31 characters or fewer.</p></li>
             <li><p>On the Tracker, open <strong>Config › Firmware › Firmware update</strong>, pick the file and confirm.</p></li>
-            <li><p>Optional: unzip the Effects (all three) or Synths (Tracker+ and Mini) bundle and copy its folder to the root of the SD card.</p></li>
+            <li><p>Optional: unzip the Effects (all three) or Synths (Tracker+ and Mini) bundle and copy its folder to the root of the card.</p></li>
           </ol>
           <div class="recovery">
             <h3>If an update won't boot</h3>
@@ -323,67 +239,38 @@ function headline(r: Release): string {
               <code>.ptf</code> alone in <code>/Firmware/</code>, power on, and press the reset pinhole with a paperclip. It's on
               the bottom of the Original and Tracker+, and next to the USB-C port on the Mini.
             </p>
-            <p><a href={recoveryVideo} rel="noopener">Watch the recovery video</a></p>
+            <a class="pill" href={recoveryVideo} rel="noopener">Watch the recovery video</a>
           </div>
         </section>
 
-        <section id="docs" aria-labelledby="docs-title">
-          <div class="section-intro">
-            <p class="eyebrow">Read more</p>
-            <h2 id="docs-title">Docs and the manual</h2>
-            <p>
-              The repository holds guides for what CE adds. For everything the Tracker already did, Polyend's own manual
-              is still the reference.
-            </p>
-          </div>
-          <div class="doc-cols">
-            <div>
-              <h3>Polyend</h3>
-              <ul>
-                <li><a href={polyend.home} rel="noopener">polyend.com</a><span>Products, the official user manuals and stock firmware</span></li>
-                <li><a href={polyend.backstage} rel="noopener">Backstage forum</a><span>The Tracker community</span></li>
-                <li><a href={polyend.support} rel="noopener">Contacting support</a><span>For hardware questions</span></li>
-              </ul>
-            </div>
-            <div>
-              <h3>CE guides</h3>
-              <ul>
-                <li><a href={docsUrl("docs/wavetable_envelopes.md")} rel="noopener">Wavetable envelopes</a><span>WT Env, WT LFO and the w / y step FX</span></li>
-                <li><a href={docsUrl("docs/custom_themes_and_fonts.md")} rel="noopener">Themes and fonts</a><span>Making your own</span></li>
-                <li><a href={docsUrl("docs/image_viewer.md")} rel="noopener">Image viewer</a><span>Folders and file names</span></li>
-              </ul>
-            </div>
-            <div>
-              <h3>Building</h3>
-              <ul>
-                <li><a href={docsUrl("docs/developer_guide.md")} rel="noopener">Developer guide</a><span>Toolchain, structure, memory</span></li>
-                <li><a href={docsUrl("docs/custom_synth_sdk.md")} rel="noopener">Synth SDK</a><span>Writing a .psyn engine</span></li>
-                <li><a href={docsUrl("docs/modular_effects_system.md")} rel="noopener">Effects SDK</a><span>Writing a .ptfx plugin</span></li>
-                <li><a href={docsUrl("CONTRIBUTING.md")} rel="noopener">Contributing</a><span>How changes get in</span></li>
-              </ul>
-            </div>
+        <section id="docs" class="block" aria-labelledby="docs-title">
+          <h2 id="docs-title">Manuals and docs</h2>
+          <p>Polyend's manuals still cover everything the Tracker already did. The CE guides cover what's new.</p>
+          <div class="tiles">
+            <a class="tile" href={polyend.downloads.original} rel="noopener"><span class="src">Polyend</span><h3>Tracker manual</h3><p>Manual and stock firmware for the Original Tracker</p></a>
+            <a class="tile" href={polyend.downloads.plus} rel="noopener"><span class="src">Polyend</span><h3>Tracker+ manual</h3><p>Manual and stock firmware for Tracker+</p></a>
+            <a class="tile" href={polyend.downloads.mini} rel="noopener"><span class="src">Polyend</span><h3>Tracker Mini manual</h3><p>Manual and stock firmware for Tracker Mini</p></a>
+            <a class="tile" href={polyend.backstage} rel="noopener"><span class="src">Community</span><h3>Backstage forum</h3><p>Where Tracker people talk</p></a>
+            <a class="tile" href={docsUrl("docs/wavetable_envelopes.md")} rel="noopener"><span class="src">CE guide</span><h3>Wavetable envelopes</h3><p>WT Env, WT LFO and the w / y step FX</p></a>
+            <a class="tile" href={docsUrl("docs/custom_themes_and_fonts.md")} rel="noopener"><span class="src">CE guide</span><h3>Themes and fonts</h3><p>Making your own</p></a>
+            <a class="tile" href={docsUrl("docs/custom_synth_sdk.md")} rel="noopener"><span class="src">Build</span><h3>Synth SDK</h3><p>Writing a .psyn engine</p></a>
+            <a class="tile" href={docsUrl("docs/developer_guide.md")} rel="noopener"><span class="src">Build</span><h3>Developer guide</h3><p>Toolchain, structure, memory, contributing</p></a>
           </div>
         </section>
       </main>
 
       <footer class="site-foot">
         <p>
-          <strong>Use at your own risk.</strong> CE is community firmware, not an official Polyend release, and
+          <strong>Use at your own risk.</strong> Tracker CE is community firmware, not an official Polyend release, and
           Polyend doesn't support it. Keep a backup of your projects.
         </p>
         <p>
           Polyend and Tracker are trademarks of Polyend. The drawings on this page are impressions, not product photos.
-          Firmware source under the <a href={docsUrl("LICENSE")} rel="noopener">repository licence</a>.
+          Firmware source under the <a href={docsUrl("LICENSE")} rel="noopener">repository licence</a> ·
+          <a href={polyend.home} rel="noopener">polyend.com</a> ·
+          <a href={polyend.support} rel="noopener">Polyend support</a>
         </p>
       </footer>
     </div>
   </body>
 </html>
-
-<style is:global>
-  .sr-only {
-    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
-  }
-  figure { margin: 0; }
-</style>
