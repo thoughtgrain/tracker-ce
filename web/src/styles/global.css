@@ -200,3 +200,7 @@ figure { margin: 0; }
 @media (prefers-reduced-motion: no-preference) {
   .pill, .tile { transition: background-color 0.15s ease, color 0.15s ease; }
 }
+
+/* Phosphor icons sit on the text baseline and take the text's colour */
+.ph-icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex: none; }
+.ph-inline { margin-inline: 0.1em; }

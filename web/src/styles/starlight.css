@@ -83,3 +83,7 @@ h1#_top { font-size: clamp(2.6rem, 6vw, 4.2rem); }
 
 /* Pagination and edit links as pills */
 .pagination-links a { border-radius: 18px; background: #000000; border-color: #333333; }
+
+/* Phosphor icons sit on the text baseline and take the text's colour */
+.ph-icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex: none; }
+.ph-inline { margin-inline: 0.1em; }

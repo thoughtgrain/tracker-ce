@@ -1,6 +1,7 @@
 ---
 // The header shared by the landing page and the docs. On the landing page the section links
 // scroll; from the docs they go back to the landing page's sections.
+import Icon from "./Icon.astro";
 import { polyend } from "../config";
 
 interface Props {
@@ -22,7 +23,7 @@ const section = (id: string) => (current === "home" ? `#${id}` : `${home}#${id}`
       <li><a href={section("devices")}>Devices</a></li>
       <li><a href={section("install")}>Install</a></li>
       <li><a href={`${home}docs/`} aria-current={current === "docs" ? "page" : undefined}>Docs</a></li>
-      <li><a href={polyend.home} rel="noopener">Polyend<span aria-hidden="true"> ↗</span></a></li>
+      <li><a href={polyend.home} rel="noopener">Polyend <Icon name="arrow-up-right" label="(external site)" /></a></li>
       <li><a class="pill-sm" href={section("download")}>Download</a></li>
     </ul>
   </nav>

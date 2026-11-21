@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import rehypeRepoLinks from "./src/lib/rehype-repo-links.mjs";
+import rehypeEmojiIcons from "./src/lib/rehype-emoji-icons.mjs";
 
 // On GitHub Pages the workflow passes the site's URL and base path (a project site lives under
 // /<repo>/). Locally both default so `npm run dev` just works.
@@ -37,8 +38,9 @@ export default defineConfig({
   base,
   trailingSlash: "ignore",
   markdown: {
-    // The docs are written for GitHub, so their relative links point at .md files and source files.
-    rehypePlugins: [[rehypeRepoLinks, { base, repoUrl }]],
+    // The docs are written for GitHub: their relative links point at .md files and source files,
+    // and they use emoji, which the site shows as Phosphor icons instead.
+    rehypePlugins: [[rehypeRepoLinks, { base, repoUrl }], rehypeEmojiIcons],
   },
   integrations: [
     starlight({
