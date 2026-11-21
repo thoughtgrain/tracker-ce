@@ -52,3 +52,17 @@ export function iconHast(name, { weight = "regular", label, className = "ph-icon
     children,
   };
 }
+
+// The icon's shapes as SVG markup, for hosts that supply their own <svg> wrapper.
+export function iconShapes(name, { weight = "regular" } = {}) {
+  const { shapes } = read(name, weight);
+  return shapes
+    .map(({ tag, attrs }) => `<${tag} ${Object.entries(attrs).map(([k, v]) => `${k}="${esc(v)}"`).join(" ")}/>`)
+    .join("");
+}
+
+// A data: URL of the icon, for CSS masks.
+export function iconDataUrl(name, { weight = "regular" } = {}) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">${iconShapes(name, { weight })}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}

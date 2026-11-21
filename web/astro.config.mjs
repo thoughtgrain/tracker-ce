@@ -1,9 +1,11 @@
 // @ts-check
 import fs from "node:fs";
 import { defineConfig } from "astro/config";
-import starlight from "@astrojs/starlight";
 import rehypeRepoLinks from "./src/lib/rehype-repo-links.mjs";
 import rehypeEmojiIcons from "./src/lib/rehype-emoji-icons.mjs";
+import { iconDataUrl } from "./src/lib/phosphor.mjs";
+import { starlightIconsVitePlugin } from "./src/lib/starlight-icons.mjs";
+import starlight from "@astrojs/starlight";
 
 // On GitHub Pages the workflow passes the site's URL and base path (a project site lives under
 // /<repo>/). Locally both default so `npm run dev` just works.
@@ -42,6 +44,7 @@ export default defineConfig({
     // and they use emoji, which the site shows as Phosphor icons instead.
     rehypePlugins: [[rehypeRepoLinks, { base, repoUrl }], rehypeEmojiIcons],
   },
+  vite: { plugins: [starlightIconsVitePlugin()] },
   integrations: [
     starlight({
       title: "Tracker CE Docs",
@@ -50,6 +53,16 @@ export default defineConfig({
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "Source on GitHub", href: repoUrl }],
       sidebar: sidebarFromWiki(),
+      // The code-block copy button is drawn by Expressive Code, not Starlight's icon table.
+      expressiveCode: { styleOverrides: { frames: { copyIcon: iconDataUrl("copy") } } },
+      // Heading anchors get their icon from Starlight's Markdown step, which the Vite plugin
+      // can't reach, so draw Phosphor's link icon over them with a mask instead.
+      head: [
+        {
+          tag: "style",
+          content: `.sl-anchor-icon svg{background-color:currentColor;-webkit-mask:${iconDataUrl("link-simple")} center/contain no-repeat;mask:${iconDataUrl("link-simple")} center/contain no-repeat}.sl-anchor-icon svg>*{display:none}`,
+        },
+      ],
       customCss: [
         "@fontsource/bebas-neue/400.css",
         "@fontsource-variable/albert-sans/wght.css",
