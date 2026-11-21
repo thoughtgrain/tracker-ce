@@ -1,0 +1,38 @@
+# Groups the notes GitHub writes for a tagged release (generate_release_notes in build.yml) by
+# pull request label. A PR lands in the first category whose labels it has; anything unlabelled
+# goes under "Other changes". Labels in `exclude` keep a PR out of the notes entirely.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+      - duplicate
+      - invalid
+      - wontfix
+    authors:
+      - dependabot
+      - github-actions
+  categories:
+    - title: New features
+      labels:
+        - enhancement
+        - feature
+    - title: Synth engines and effects
+      labels:
+        - synth
+        - effects
+    - title: Fixes
+      labels:
+        - bug
+        - fix
+    - title: Docs and website
+      labels:
+        - documentation
+        - website
+    - title: Build and tooling
+      labels:
+        - build
+        - ci
+        - tooling
+    - title: Other changes
+      labels:
+        - "*"
