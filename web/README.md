@@ -37,14 +37,14 @@ I don't keep release info in the page by hand. `src/lib/releases.ts` calls the G
 
 Firmware files are matched by the names the build workflow gives them (`PolyendTracker_*.ptf`, `TrackerPlus_*.ptf`, `TrackerMini_*.ptf`), along with the Synths and Effects zips. If GitHub can't be reached, the build doesn't fail. The page says so and links the releases page instead, so a flaky API never blocks a deploy.
 
-`.github/workflows/web.yml` rebuilds the site:
+The site lives on the `work/website` branch, so `main` stays firmware only. `.github/workflows/web.yml` on this branch deploys it:
 
-- after each successful firmware workflow run. Releases the workflow publishes with `GITHUB_TOKEN` don't fire `release` events, so I hook `workflow_run` instead;
-- on releases published by hand;
-- on pushes to `main` that touch `web/`;
-- on demand.
+- on every push to `work/website`;
+- when started by hand (Actions → Website → Run workflow, on `work/website`).
 
-`workflow_run` and `release` only fire once the workflow file is on the default branch.
+Each build pulls `docs/`, `CHANGELOG.md` and `README.md` from `main` first, so the docs pages always match the firmware's docs, even though this branch's own copies go stale. GitHub only runs workflows for events on `main` (releases, firmware builds) from files on `main`, so a new release reaches the homepage on the next deploy from this branch.
+
+Pages has to be allowed to deploy from this branch: Settings → Environments → `github-pages` → Deployment branches and tags → add `work/website`.
 
 ## Release notes on the page
 

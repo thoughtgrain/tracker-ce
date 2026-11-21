@@ -1,19 +1,15 @@
 name: Website
 
-# Rebuilds the GitHub Pages site so the homepage always lists the newest release.
-# - workflow_run: after the firmware workflow finishes, because releases it publishes with
-#   GITHUB_TOKEN don't fire `release` events.
-# - release: for releases published by hand.
-# workflow_run and release only fire once this file is on the default branch.
+# Builds the site in web/ and deploys it to GitHub Pages. The site lives on this branch
+# (work/website) so main stays firmware only. The docs pages are built from main's docs/,
+# CHANGELOG.md and README.md, pulled in at build time, so they're always current.
+# - push to work/website: deploy site changes.
+# - workflow_dispatch: redeploy on demand, for example after a new release or a docs change on
+#   main. Events on main (releases, firmware builds) can't start a workflow that only exists on
+#   this branch, so those redeploys are started by hand or from a workflow on main.
 on:
   push:
-    branches: [ main ]
-    paths: [ 'web/**', '.github/workflows/web.yml' ]
-  workflow_run:
-    workflows: [ 'Build Tracker CE Firmware' ]
-    types: [ completed ]
-  release:
-    types: [ published, edited ]
+    branches: [ work/website ]
   workflow_dispatch:
 
 permissions:
@@ -27,13 +23,19 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+
+      # The docs belong to the firmware, so take main's copy rather than this branch's.
+      - name: Use main's docs
+        working-directory: .
+        run: |
+          git fetch --depth=1 origin main
+          git checkout FETCH_HEAD -- docs CHANGELOG.md README.md
 
       - uses: actions/setup-node@v4
         with:
