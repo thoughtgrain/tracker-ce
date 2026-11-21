@@ -17,22 +17,8 @@
 
 // clang-format off
 
-#ifdef TRACKER_MINI
-constexpr uint8_t baseMenuGroupCount = 8;
-constexpr uint8_t projectMenuGroupCount = 10;
-constexpr uint8_t generalMenuGroupCount = 9;
-#elif defined(PLATFORM_IMX)
-constexpr uint8_t baseMenuGroupCount = 7;
-constexpr uint8_t projectMenuGroupCount = 10;
-constexpr uint8_t generalMenuGroupCount = 12;
-#else
-constexpr uint8_t baseMenuGroupCount = 6;
-constexpr uint8_t projectMenuGroupCount = 10;
-constexpr uint8_t generalMenuGroupCount = 12;
-#endif
-
 // baza baz
-cMenuGroup menuBase(menuBase, 0, baseMenuGroupCount);
+cMenuGroup menuBase(menuBase, 0);
 //=====================================================================================================================================
 //=====================================================================================================================================
 //=====================================================================================================================================
@@ -41,22 +27,20 @@ cMenuGroup menuBase(menuBase, 0, baseMenuGroupCount);
 
 // grupy glowne
 
-cMenuGroup menuProject(menuBase, "Project Settings", projectMenuGroupCount);
-cMenuGroup menuGeneral(menuBase, "General", generalMenuGroupCount);
-cMenuGroup menuMidi(menuBase, "MIDI", 11);
+cMenuGroup menuProject(menuBase, "Project Settings");
+cMenuGroup menuGeneral(menuBase, "General");
+cMenuGroup menuMidi(menuBase, "MIDI");
 
-#ifdef PLATFORM_IMX
-cMenuGroup menuUsb(menuBase, "USB", 2);
-#endif
+cMenuGroup menuUsb(menuBase, "USB");
 
-cMenuGroup menuMetro(menuBase, "Metronome", 5);
-cMenuGroup menuFirmware(menuBase, "Firmware", 4);
+cMenuGroup menuMetro(menuBase, "Metronome");
+cMenuGroup menuFirmware(menuBase, "Firmware");
 
 #ifdef TRACKER_MINI
-cMenuGroup menuFunctionButtons(menuBase, "Fn buttons binding", 8);
+cMenuGroup menuFunctionButtons(menuBase, "Fn buttons binding");
 #endif
 
-cMenuGroup menuCredits(menuBase, "Info", 4);
+cMenuGroup menuCredits(menuBase, "Info");
 
 // elementy/////////
 
@@ -104,7 +88,7 @@ const strItemTypeListText setupHexMode{ &mtConfig.general.numberingMode, std::si
 const strItemTypeListText setupPadPreviewInPatternEdit{ &mtConfig.general.padPreviewInPatternEdit, 3, padPreviewInPatternEditTexts };
 const strItemTypeListText setupPatternArrangement{ &mtConfig.general.patternArrangement, 3, patternArrangementTexts };
 const strItemTypeListText setupPatternInfo{ &mtConfig.general.patternInfo, 3, patternInfoTexts };
-const strItemTypeListTextWithAction setupLineInOutType{ &mtConfig.general.lineInOutType, 3,  lineInOutType, setLineInOutType };
+const strItemTypeListText setupNoteDisplayMode{ &mtConfig.general.noteDisplayMode, std::size(noteDisplayModeTexts), noteDisplayModeTexts };
 
 #ifndef TRACKER_MINI
 cMenuItem melRadioReg(menuGeneral,
@@ -166,11 +150,11 @@ cMenuItem melPatternInfo(menuGeneral,
                          patternInfo,
                          menuTypeItemListText,
                          &setupPatternInfo);
-cMenuItem melLinInOutType(menuGeneral,
-                          "Line in channel",
-                          lineInChannelDesc,
-                          menuTypeItemListTextWithAction,
-                          &setupLineInOutType);
+cMenuItem melNoteDisplayMode(menuGeneral,
+                             "Note display",
+                             noteDisplayModeDesc,
+                             menuTypeItemListText,
+                             &setupNoteDisplayMode);
 
 //==================================================================================================================================================================
 // Metroneome
@@ -279,7 +263,6 @@ cMenuItem melResetConfig(menuFirmware,
 //==================================================================================================================================================================
 // USB
 
-#ifdef PLATFORM_IMX
 const strItemTypeActionButton usbStorageSetup{ usbStorageEnter, nullptr };
 const strItemTypeListTextWithAction usbAudioSetup{ &mtConfig.common.usbAudioMode,
                                               sizeof(kUsbAudioList)/sizeof(kUsbAudioList[0]), kUsbAudioList, usbAudioChange };
@@ -295,7 +278,6 @@ cMenuItem melUsbAudio(menuUsb,
 						  usbAudioDesc,
 						  menuTypeItemListTextWithAction,
                           &usbAudioSetup);
-#endif
 //==================================================================================================================================================================
 // File transfer
 // const strItemTypeActionButton startfileTransferSetup 		{ startFileTransferMode, nullptr};
@@ -542,8 +524,8 @@ void cConfigEditor::changeMenuListPosition(uint8_t list, int16_t value, uint8_t)
 
         if (menuBase.selectedItem + value < 0)
             menuBase.selectedItem = 0;
-        else if (menuBase.selectedItem + value > menuBase.childsCount - 1)
-            menuBase.selectedItem = menuBase.childsCount - 1;
+        else if (menuBase.selectedItem + value > menuBase.getCount() - 1)
+            menuBase.selectedItem = menuBase.getCount() - 1;
         else
             menuBase.selectedItem += value;
 
@@ -562,7 +544,7 @@ void cConfigEditor::changeMenuListPosition(uint8_t list, int16_t value, uint8_t)
         uint8_t start_position = submenu->selectedItem;
 
         uint8_t* item_selected = &submenu->selectedItem;
-        uint8_t item_max = submenu->childsCount - 1;
+        uint8_t item_max = submenu->getCount() - 1;
 
         if (*item_selected + value < 0)
             *item_selected = 0;
@@ -819,7 +801,7 @@ void cConfigEditor::configListConfirm(uint8_t list_pos)
 // wykonywanie akcji/edycji na elemencie menu
 void cMenuGroup::executeItem()
 {
-    if (childs[selectedItem]->type != menuTypeItem)
+    if (childs[selectedItem] == nullptr || childs[selectedItem]->type != menuTypeItem)
         return;
 
     cMenuItem* selected_child = (cMenuItem*)childs[selectedItem];
@@ -854,9 +836,9 @@ void cMenuGroup::executeItem()
 
 void cMenuGroup::reloadValues()
 {
-    for (uint8_t i = 0; i < childsCount; i++)
+    for (uint8_t i = 0; i < getCount(); i++)
     {
-        if (childs[i]->type == menuTypeItem)
+        if (childs[i] != nullptr && childs[i]->type == menuTypeItem)
         {
             char* valueText = ((cMenuItem*)childs[i])->getValue();
 

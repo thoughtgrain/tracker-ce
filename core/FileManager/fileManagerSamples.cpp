@@ -135,8 +135,12 @@ bool cFileManager::saveSampleDataToWorkspace(int idx)
         changesFlags.instrument[idx] = 1;
 
         // do instrument struct save
-        bool result = saveInstrumentStructToWorkspace(idx);
-        (void)result;
+        // Without the file there is nothing to write the sample into, and trying again
+        // on the next update would fail the same way for ever.
+        if (!saveInstrumentStructToWorkspace(idx))
+        {
+            stopOperationWithError(fmSaveError);
+        }
     }
     else if (saveStatus >= fileTransferError)
     {
@@ -388,6 +392,12 @@ void cFileManager::completeLoadedInstrumentStruct(int idx, bool success, uint32_
         //*******************************wavetable window size moze byc tylko potęgą 2
         // Jezeli length nie jest potega 2 trzeba go zrownac do najwiekszej mozliwej potegi 2
         uint16_t localMask = 2048;
+        // A size above the largest window, as a damaged or foreign instrument file can
+        // hold, may have no bit that the mask reaches, and the loop below would not end.
+        if (mtProject.instrument[idx].sample.wavetable_window_size > localMask)
+        {
+            mtProject.instrument[idx].sample.wavetable_window_size = localMask;
+        }
         while (!(mtProject.instrument[idx].sample.wavetable_window_size & localMask))
         {
             if ((mtProject.instrument[idx].sample.wavetable_window_size == 0))
