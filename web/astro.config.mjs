@@ -48,7 +48,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Tracker CE Docs",
-      description: "Guides and developer docs for the Polyend Tracker Community Edition firmware.",
+      description: "Guides and developer docs for the Polyend Tracker Community Edition, the official community firmware.",
       logo: { src: "./src/assets/mark.svg" },
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "Source on GitHub", href: repoUrl }],

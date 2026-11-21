@@ -79,7 +79,7 @@ Behind a proxy, Node's `fetch` ignores `HTTPS_PROXY` unless you set `NODE_USE_EN
 
 ## Design notes
 
-I styled the page after the visual language of Polyend's own Tracker+ page, so it feels at home next to theirs. It doesn't borrow their logo, display font, photos or copy, and it says it's unofficial right at the top.
+I styled the page after the visual language of Polyend's own Tracker+ page, so it feels at home next to theirs. It doesn't borrow their logo, display font, photos or copy,.
 
 - **Layout.** A near-black ground (`#1c1c1c`) with black panels at 28 px radius. The hero and the download list sit in panels. The intro is a two-column statement in grey with white highlights.
 - **Type.** Bebas Neue for the tall, condensed, uppercase headlines (Polyend uses Tanker; Bebas Neue is the closest open-licence match). Albert Sans at weight 300 for body text, which is the same family Polyend uses and is OFL. JetBrains Mono for file names and tags. All three are self-hosted through Fontsource, so there are no third-party font requests.

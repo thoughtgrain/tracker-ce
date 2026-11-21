@@ -1,7 +1,7 @@
 /* Tracker CE site, styled after the visual language of Polyend's Tracker+ page: a near-black ground,
    black rounded panels, tall condensed uppercase headlines, light-weight body text in grey with white
    highlights, pill buttons, and cards in the Tracker's own pad colours (note, instrument, FX 1, FX 2).
-   The wordmark and copy are our own, and the page says up top that it isn't Polyend's. */
+   The wordmark and copy are our own. */
 
 :root {
   --bg: #1c1c1c;
@@ -115,7 +115,7 @@ figure { margin: 0; }
 .hero > :not(.glow) { position: relative; }
 .hero-copy { display: grid; gap: 1.25rem; justify-items: start; }
 .hero-sub { font-size: 1.6rem; color: var(--muted); line-height: 1.2; }
-.unofficial { font-size: 0.85rem; color: var(--muted); border: 1px solid #444; border-radius: 999px; padding: 0.3rem 0.85rem; }
+.badge-line { font-size: 0.85rem; color: var(--muted); border: 1px solid #444; border-radius: 999px; padding: 0.3rem 0.85rem; }
 .hero-art { position: relative; }
 .hero-art svg { position: relative; width: 100%; height: auto; display: block; }
 
