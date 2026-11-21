@@ -46,6 +46,13 @@ Firmware files are matched by the names the build workflow gives them (`PolyendT
 
 `workflow_run` and `release` only fire once the workflow file is on the default branch.
 
+## Release notes on the page
+
+Each release in the download panel shows its notes under "What's new". They come from the same API call as the files, as `body_html`: GitHub renders and sanitises the Markdown, so PR titles in generated notes can't inject markup here. Where the notes come from depends on how the release was made (see `.github/workflows/build.yml`):
+
+- **A pushed `v*` tag** gets GitHub's generated notes, grouped by PR label using `.github/release.yml` (New features, Synth engines and effects, Fixes, Docs and website, Build and tooling, Other changes). Give a PR the `skip-changelog` label to keep it out.
+- **A manual run with `prerelease_tag`** publishes a pre-release whose notes are exactly the `release_notes` text given to the run.
+
 ## One-time setup
 
 In the repository settings, go to **Pages → Build and deployment → Source** and choose **GitHub Actions**. `actions/configure-pages` hands the build the right site URL and base path (`/tracker-ce/` for a project page), so no config changes are needed.

@@ -5,6 +5,7 @@ import "@fontsource/jetbrains-mono/500.css";
 import "../styles/global.css";
 
 import Head from "../components/Head.astro";
+import Icon from "../components/Icon.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import TrackerDrawing from "../components/TrackerDrawing.astro";
 import { getReleaseInfo, stageOf, formatSize, type Release, type Device } from "../lib/releases";
@@ -137,6 +138,15 @@ const streakV = "linear-gradient(180deg, #8ff0d6, #eef0a0 45%, #dcaaf0)";
                       </li>
                     );
                   })}
+                  {r.sdCard && (
+                    <li class="file">
+                      <div>
+                        <span class="file-for">SD card content</span>
+                        <span class="file-name">{r.sdCard.name} · {formatSize(r.sdCard.size)} · Words, Effects and Synths</span>
+                      </div>
+                      <a class="pill" href={r.sdCard.url}>Download<span class="sr-only"> {r.sdCard.name}</span></a>
+                    </li>
+                  )}
                   {r.synths && (
                     <li class="file">
                       <div>
@@ -156,8 +166,15 @@ const streakV = "linear-gradient(180deg, #8ff0d6, #eef0a0 45%, #dcaaf0)";
                     </li>
                   )}
                 </ul>
+                {r.notesHtml && (
+                  <details class="notes" open={r === latest}>
+                    <summary><Icon name="caret-right" class="notes-caret" /> What's new in {r.tag}</summary>
+                    {/* GitHub renders and sanitises these notes (body_html), so they're safe to inline. */}
+                    <div class="notes-body" set:html={r.notesHtml} />
+                  </details>
+                )}
                 <div class="release-foot">
-                  <a class="pill" href={r.url} rel="noopener">Release notes</a>
+                  <a class="pill" href={r.url} rel="noopener">Release on GitHub</a>
                   <a class="pill" href={releasesUrl} rel="noopener">All releases</a>
                 </div>
               </article>

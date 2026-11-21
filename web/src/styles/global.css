@@ -204,3 +204,27 @@ figure { margin: 0; }
 /* Phosphor icons sit on the text baseline and take the text's colour */
 .ph-icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex: none; }
 .ph-inline { margin-inline: 0.1em; }
+
+/* Release notes from GitHub, under each release's files */
+.notes { margin-top: 1.25rem; background: var(--panel-2); border-radius: var(--radius-md); }
+.notes summary {
+  cursor: pointer; padding: 1rem 1.25rem; font-size: 1.1rem; font-weight: 400;
+  list-style: none; display: flex; align-items: center; gap: 0.5rem;
+}
+.notes summary::-webkit-details-marker { display: none; }
+.notes-caret { transition: transform 0.15s ease; }
+.notes[open] .notes-caret { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .notes-caret { transition: none; } }
+.notes summary:focus-visible { outline-offset: -3px; }
+.notes-body { padding: 0 1.25rem 1.25rem; color: #d4d4d4; font-size: 1rem; max-height: 28rem; overflow: auto; }
+.notes-body > :first-child { margin-top: 0; }
+.notes-body :is(h1, h2, h3) {
+  font-family: var(--f-display); font-weight: 400; text-transform: uppercase; line-height: 1;
+  font-size: 1.6rem; margin: 1.5rem 0 0.6rem; color: var(--ink);
+}
+.notes-body :is(p, ul, ol) { margin: 0 0 0.9rem; max-width: none; }
+.notes-body ul, .notes-body ol { padding-left: 1.25rem; }
+.notes-body li + li { margin-top: 0.3rem; }
+.notes-body a { color: var(--ink); }
+.notes-body code { background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 0.05em 0.3em; }
+.notes-body img { max-width: 100%; height: auto; }

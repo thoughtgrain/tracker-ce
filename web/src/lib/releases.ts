@@ -18,8 +18,13 @@ export interface Release {
   publishedAt: Date;
   prerelease: boolean;
   firmware: Partial<Record<Device, ReleaseFile>>;
+  // One zip of everything that goes on the SD card (Words, Effects, Synths), from upstream's
+  // current packaging. Older releases ship Synths and Effects as separate zips instead.
+  sdCard?: ReleaseFile;
   synths?: ReleaseFile;
   effects?: ReleaseFile;
+  // The release notes as HTML, rendered and sanitised by GitHub. Empty when there are none.
+  notesHtml: string;
 }
 
 export interface ReleaseInfo {
@@ -42,6 +47,7 @@ interface GitHubRelease {
   name: string | null;
   html_url: string;
   published_at: string | null;
+  body_html?: string | null;
   draft: boolean;
   prerelease: boolean;
   assets: GitHubAsset[];
@@ -65,6 +71,7 @@ function toRelease(r: GitHubRelease): Release {
     const asset = r.assets.find((a) => a.name.startsWith(prefix) && a.name.endsWith(".ptf"));
     if (asset) firmware[device] = file(asset);
   }
+  const sdCard = r.assets.find((a) => /SD_Card\.zip$/i.test(a.name));
   const synths = r.assets.find((a) => /Synths\.zip$/i.test(a.name));
   const effects = r.assets.find((a) => /Effects\.zip$/i.test(a.name));
   return {
@@ -74,8 +81,10 @@ function toRelease(r: GitHubRelease): Release {
     publishedAt: new Date(r.published_at ?? Date.now()),
     prerelease: r.prerelease,
     firmware,
+    sdCard: sdCard && file(sdCard),
     synths: synths && file(synths),
     effects: effects && file(effects),
+    notesHtml: (r.body_html ?? "").trim(),
   };
 }
 
@@ -88,7 +97,9 @@ export function getReleaseInfo(): Promise<ReleaseInfo> {
 
 async function load(): Promise<ReleaseInfo> {
   const headers: Record<string, string> = {
-    Accept: "application/vnd.github+json",
+    // The html media type adds body_html: the notes as GitHub renders them, already sanitised,
+    // so the page never turns raw Markdown from PR titles into HTML itself.
+    Accept: "application/vnd.github.html+json",
     "User-Agent": "tracker-ce-website",
   };
   // A token isn't needed, but it lifts the API's rate limit on shared CI runners.

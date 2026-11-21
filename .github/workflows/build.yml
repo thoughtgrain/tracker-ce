@@ -7,6 +7,15 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      prerelease_tag:
+        description: "Publish this run as a pre-release with this tag (e.g. v0.1.0-alpha.1). Leave empty to only build."
+        required: false
+        default: ""
+      release_notes:
+        description: "Notes for that pre-release. Used instead of GitHub's generated notes."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -220,18 +229,28 @@ jobs:
               });
             }
 
+      # A release is published for a pushed v* tag, or for a manual run given a prerelease_tag
+      # (which creates that tag on the run's commit).
       - name: Package SD Card Content for GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.prerelease_tag != ''
         run: |
           cd build/sd-card
           zip -r ../PolyendTracker_CE_SD_Card.zip Words Effects Synths
 
       - name: Publish GitHub Release on Version Tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.prerelease_tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          name: Polyend Tracker CE ${{ github.ref_name }}
-          generate_release_notes: true
+          tag_name: ${{ inputs.prerelease_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: Polyend Tracker CE ${{ inputs.prerelease_tag || github.ref_name }}
+          # A tag push gets GitHub's generated notes, grouped by PR label (.github/release.yml).
+          # A manual pre-release uses the notes given to the run instead.
+          generate_release_notes: ${{ inputs.prerelease_tag == '' }}
+          body: ${{ inputs.release_notes }}
+          # A test build is never shown as the latest release: a manual pre-release run, or a tag
+          # with a suffix (v0.1.0-alpha.1, v1.2.0-beta.2).
+          prerelease: ${{ inputs.prerelease_tag != '' || contains(github.ref_name, '-') }}
           files: |
             build/*.ptf
             build/PolyendTracker_CE_SD_Card.zip
