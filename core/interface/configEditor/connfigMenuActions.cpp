@@ -15,6 +15,12 @@
 
 #include "Tracker.h"
 #include "core/interface.h"
+#include "masterParams/masterParams.h"
+#include "mtSequencer.h"
+#include "patternEditor/patternEditor.h"
+#include "performanceMode/performanceEngine.h"
+#include "performanceMode/performanceMode.h"
+#include "songEditor/songEditor.h"
 
 // device startup actions after Config read
 void initConfigValuesAfterReadConfig()
@@ -79,13 +85,6 @@ void setDisplayFont()
     mtInterface.activateModule(&configEditor, 0);
 }
 
-void setLineInOutType()
-{
-    if (mtConfig.general.lineInOutType > 2)
-        mtConfig.general.lineInOutType = 2;
-    engine.setLineInOutType(mtConfig.general.lineInOutType);
-}
-
 void setPadsBrightness()
 {
     if (mtConfig.general.padsBrightness > 2)
@@ -138,6 +137,39 @@ void setSnapToZeroMode()
     newFileManager.setProjectStructChanged();
 }
 
+void applyProjectMaxTracks()
+{
+    if (mtProject.values.maxTracksMode >= kMaxTracksModeCount)
+    {
+        mtProject.values.maxTracksMode = kMaxTracksModeDefault;
+    }
+
+    const uint8_t maxTracks = getProjectMaxTracks();
+
+    sequencer.onMaxTracksChanged(maxTracks);
+
+    for (uint8_t tr = 0; tr < kSampleTracks; tr++)
+    {
+        engine.muteTrack(tr, isSampleTrackMutedOrHidden(tr) ? 1 : 0);
+        if (tr >= maxTracks)
+        {
+            instrumentPlayer[tr].noteOff();
+        }
+    }
+
+    performance.disarmHiddenTracks(maxTracks);
+    performanceMode.onMaxTracksChanged(maxTracks);
+    patternEditor.onMaxTracksChanged(maxTracks);
+    songEditor.onMaxTracksChanged(maxTracks);
+    masterParams.onMaxTracksChanged(maxTracks);
+}
+
+void setMaxTracks()
+{
+    applyProjectMaxTracks();
+    newFileManager.setProjectStructChanged();
+}
+
 void setMetronomValues()
 {
     // wlaczenie wylaczenie metronomu
@@ -187,9 +219,7 @@ void usbAudioChange()
             usb->setClassState(Usb::ClassType::kAudioOut, false);
             break;
     }
-#ifdef PLATFORM_IMX
     engine.refreshOutputSourceOutsideTheRecorder();
-#endif
     usb->reset();
 }
 

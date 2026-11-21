@@ -184,6 +184,12 @@ void cSamplePlayback::start(uint32_t options)
 
     loadedInstrumentType = mtSampleTypeWaveFile;
 
+    if (mtProject.values.lastUsedInstrument >= kSampleInstrumentsCount ||
+        mtProject.values.lastUsedInstrument != displayedInstrument)
+    {
+        clearDisplayedTrack();
+    }
+
     //--------------------------------------------------------------------
     if (mtProject.values.lastUsedInstrument < kSampleInstrumentsCount)
     {
@@ -336,6 +342,7 @@ void cSamplePlayback::stop()
         mtPopups.toggleNoteKeyboardPopup();
     }
 
+    clearDisplayedTrack();
     sequencer.stopManualNotes();
     sequencer.setMidiInVoiceMode(Sequencer::midiInVoiceMode_default);
     moduleRefresh = 0;
@@ -486,6 +493,17 @@ void cSamplePlayback::refreshLiveParams()
         return;
     }
 
+    if (mtProject.values.lastUsedInstrument >= kSampleInstrumentsCount ||
+        mtProject.values.lastUsedInstrument != displayedInstrument)
+    {
+        clearDisplayedTrack();
+        if (mtPopups.getStepPopupState() == stepPopupNone)
+        {
+            refreshSpectrumProgress = 1;
+        }
+        return;
+    }
+
     calcPlayProgressValue();
 
     refreshGranularAutomation();
@@ -564,6 +582,26 @@ void cSamplePlayback::cancelPopups()
     }
 }
 
+void cSamplePlayback::clearDisplayedTrack()
+{
+    if (displayedTrack != kNoTrack)
+    {
+        instrumentPlayer[displayedTrack].clearTrackIsDisplayed();
+        instrumentPlayer[displayedTrack].clearEndDisplayTrackFlag();
+        displayedTrack = kNoTrack;
+    }
+
+    displayedInstrument = kNoInstrument;
+    playProgressValue = 0;
+    playProgressInSpectrum = 0;
+    refreshSpectrumProgress = 0;
+
+    if (progressCursor >= 0)
+    {
+        display.setControlValue(progressCursor, 0);
+    }
+}
+
 void cSamplePlayback::onEndTrackDisplay()
 {
     instrumentPlayer[displayedTrack].clearTrackIsDisplayed();
@@ -595,23 +633,37 @@ void cSamplePlayback::onEndTrackDisplay()
     }
 
     displayedTrack = kNoTrack;
+    displayedInstrument = kNoInstrument;
 }
 
 void cSamplePlayback::noteOnHandle(uint8_t channel, uint8_t note, uint8_t velocity, int16_t source)
 {
     sequencer.handleNoteOn(channel, note, velocity, source);
 
+    if (mtProject.values.lastUsedInstrument >= kSampleInstrumentsCount)
+    {
+        return;
+    }
+
+    if (displayedTrack != kNoTrack && displayedInstrument != mtProject.values.lastUsedInstrument)
+    {
+        clearDisplayedTrack();
+    }
+
     if (displayedTrack == engine.getLastUsedVoice())
     {
         instrumentPlayer[displayedTrack].setTrackIsDisplayed();
         instrumentPlayer[displayedTrack].clearEndDisplayTrackFlag();
+        displayedInstrument = mtProject.values.lastUsedInstrument;
         // akcja ustawia sie w audio engine - sequencer jej nie clearuje a tu tak - wiec seq gasi
         // progres a druga nuta na tym samym vocie z pada/midi nie
     }
-    else if (displayedTrack == -1)
+    else if (displayedTrack == kNoTrack)
     {
         displayedTrack = engine.getLastUsedVoice();
         instrumentPlayer[displayedTrack].setTrackIsDisplayed();
+        instrumentPlayer[displayedTrack].clearEndDisplayTrackFlag();
+        displayedInstrument = mtProject.values.lastUsedInstrument;
     }
 }
 
@@ -1847,6 +1899,12 @@ static void changePlayModeSelection(int16_t value)
         //*******************************wavetable window size moze byc tylko potęgą 2
         // Jezeli length nie jest potega 2 trzeba go zrownac do najwiekszej mozliwej potegi 2
         uint16_t localMask = 2048;
+        // A size above the largest window, as a damaged or foreign instrument file can
+        // hold, may have no bit that the mask reaches, and the loop below would not end.
+        if (SP->editorInstrument->sample.wavetable_window_size > localMask)
+        {
+            SP->editorInstrument->sample.wavetable_window_size = localMask;
+        }
         while (!(SP->editorInstrument->sample.wavetable_window_size & localMask))
         {
             if ((SP->editorInstrument->sample.wavetable_window_size == 0))

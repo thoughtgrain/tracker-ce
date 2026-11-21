@@ -10,7 +10,6 @@ void setDisplayTheme();
 void setDisplayFont();
 void refreshThemeAndFontMenuOptions();
 void setPadsBrightness();
-void setLineInOutType();
 
 void setPadBoardValues();
 void setAntialiasingEnable();
@@ -18,6 +17,8 @@ void setLimiterMode();
 void setSendsMode();
 void setHeadroomMode();
 void setSnapToZeroMode();
+void applyProjectMaxTracks();
+void setMaxTracks();
 
 void setMetronomValues();
 void setSlaveClockCompValue();

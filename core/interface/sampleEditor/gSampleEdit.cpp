@@ -1,6 +1,7 @@
 #include "core/interfacePopups.h"
 #include "fileManager.h"
 #include "mtSampleEditorEngine.h"
+#include "ptfx_manager.h"
 #include "sampleEditor.h"
 
 #include <cmath>
@@ -69,7 +70,7 @@ void cSampleEditor::initDisplayControls()
         barProperties.y = 29;
         barProperties.w = 800 / 8 - 4;
         barProperties.style =
-          controlStyleValue_0_100 | controlStyleBackground |
+          controlStyleValue_0_100 | controlStyleBackground | controlStyleFont2 |
           (display.getTheme().barShadow > 0 ? controlStyleGradient : 0) |
           (display.getTheme().bottomScreenShadow > 0 ? controlStyleBottomShadow : 0);
         barProperties.h = 394;
@@ -99,10 +100,11 @@ void cSampleEditor::initDisplayControls()
     }
 
     // list
-    effectListData.linesCount = std::min<uint16_t>(editorEffectMax, 14);
+    PtfxManager::initEffectList();
+    effectListData.linesCount = 14;
     effectListData.start = 0;
-    effectListData.length = editorEffectMax;
-    effectListData.data = (char**)effectNamesLabels;
+    effectListData.length = PtfxManager::getTotalEffectListCount();
+    effectListData.data = PtfxManager::getEffectListNames();
 
     strControlProperties effectListProperties;
     effectListProperties.x = (800 / 8) * 6 + 1;
@@ -376,7 +378,18 @@ void cSampleEditor::showEffectParamsScreen()
                     display.setControlHide(paramList[i]);
                     display.refreshControl(paramList[i]);
                 }
-                display.setControlValue(bar[i], paramsBarValue[paramIdx]);
+                if (isParameterFile(paramIdx) || isParameterText(paramIdx))
+                {
+                    display.setAddControlStyle(bar[i], controlStyleVerticalText | controlStyleFont2);
+                    display.setControlText(bar[i], getParameterFileText(paramIdx));
+                    display.setControlValue(bar[i], 0);
+                }
+                else
+                {
+                    display.setRemoveControlStyle(bar[i], controlStyleVerticalText);
+                    display.setControlText(bar[i], nullptr);
+                    display.setControlValue(bar[i], paramsBarValue[paramIdx]);
+                }
                 display.setControlShow(bar[i]);
                 display.refreshControl(bar[i]);
             }
@@ -669,7 +682,18 @@ void cSampleEditor::showParameterBar(uint8_t n)
     }
     else
     {
-        display.setControlValue(bar[barIdx], paramsBarValue[n]);
+        if (isParameterFile(n) || isParameterText(n))
+        {
+            display.setAddControlStyle(bar[barIdx], controlStyleVerticalText | controlStyleFont2);
+            display.setControlText(bar[barIdx], getParameterFileText(n));
+            display.setControlValue(bar[barIdx], 0);
+        }
+        else
+        {
+            display.setRemoveControlStyle(bar[barIdx], controlStyleVerticalText);
+            display.setControlText(bar[barIdx], nullptr);
+            display.setControlValue(bar[barIdx], paramsBarValue[n]);
+        }
         display.setControlShow(bar[barIdx]);
         display.refreshControl(bar[barIdx]);
     }
@@ -868,4 +892,55 @@ void cSampleEditor::hideUselessControls()
     display.setControlHide(playhead);
     display.setControlHide(spectrum[0]);
     display.setControlHide(spectrum[1]);
+}
+
+void cSampleEditor::showTextParamKeyboard()
+{
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        display.setControlHide(bar[i]);
+        display.refreshControl(bar[i]);
+        if (i < kEffectPageParams)
+        {
+            display.setControlHide(paramList[i]);
+            display.refreshControl(paramList[i]);
+        }
+    }
+    display.setControlHide(blankSpaceCover);
+    display.refreshControl(blankSpaceCover);
+    display.setControlHide(frame);
+    display.refreshControl(frame);
+    hideEffectList();
+    hideSpectrum();
+    hideSpectrumPoints();
+    hidePlayhead();
+
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        display.setControlValue(label[i], 0);
+        display.setControlText(label[i], "");
+        display.setControlText2(label[i], "");
+        display.setControlColors(label[i], display.getTheme().activeButtonLabelsColors);
+        display.setControlStyle(label[i],
+                                controlStyleCenterX | controlStyleCenterY | controlStyleFont3);
+        display.setControlPosition(label[i], (800 / 8) * i + (800 / 16), 424);
+        display.setControlSize(label[i], 800 / 8 - 6, 55);
+    }
+
+    display.setControlText(label[0], "Enter");
+    display.setControlText(label[1], "Clear");
+    display.setControlColors(label[2], display.getTheme().inactiveLabelsColors);
+    display.setControlColors(label[3], display.getTheme().inactiveLabelsColors);
+    display.setControlColors(label[4], display.getTheme().inactiveLabelsColors);
+    display.setControlColors(label[5], display.getTheme().inactiveLabelsColors);
+    display.setControlText(label[6], "Cancel");
+    display.setControlText(label[7], "Confirm");
+
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        display.setControlShow(label[i]);
+        display.refreshControl(label[i]);
+    }
+
+    display.synchronizeRefresh();
 }

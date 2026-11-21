@@ -26,6 +26,7 @@ static void recoveryProjectVersion13();
 static void recoveryProjectVersion14();
 static void recoveryProjectVersion15();
 static void recoveryProjectVersion16();
+static void recoveryProjectVersion17();
 static void recoveryInstrumentVersion1();
 static void recoveryInstrumentVersion2();
 static void recoveryInstrumentVersion3();
@@ -58,6 +59,7 @@ mtVersionRecovery::mtVersionRecovery()
     recoveryProjectFunction[13] = recoveryProjectVersion14;
     recoveryProjectFunction[14] = recoveryProjectVersion15;
     recoveryProjectFunction[15] = recoveryProjectVersion16;
+    recoveryProjectFunction[16] = recoveryProjectVersion17;
 
     // INSTRUMENT
     recoveryInstrumentFunction[0] = recoveryInstrumentVersion1;
@@ -363,7 +365,10 @@ static void recoveryProjectVersion15()
     projectNameShift += sizeof(newProject->values.allPatternsBitmaskMidi);
     projectNameShift += sizeof(newProject->values.midiTrackMute);
 
-    strcpy(newProject->projectName, oldProject.projectName - projectNameShift);
+    // The name in a damaged file may have no terminator.
+    strncpy(
+      newProject->projectName, oldProject.projectName - projectNameShift, PROJECT_NAME_SIZE - 1);
+    newProject->projectName[PROJECT_NAME_SIZE - 1] = 0;
 #if FILEMANAGER_HANDLE_SYNTH == 1
     for (int part = 0; part < kSynthInstrumentsCount; part++)
     {
@@ -377,6 +382,12 @@ void recoveryProjectVersion16()
 {
     strMtProjectRemote* receivedProject = versionRecovery.getReadedProject();
     receivedProject->values.recorderGainUsb = 0;
+}
+
+static void recoveryProjectVersion17()
+{
+    strMtProjectRemote* receivedProject = versionRecovery.getReadedProject();
+    receivedProject->values.maxTracksMode = kMaxTracksModeDefault;
 }
 
 //*************************************************************************INSTRUMENT

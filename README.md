@@ -14,8 +14,7 @@ Built directly from the original Polyend firmware source code, Tracker CE opens 
 Automatically built from the latest changes in `main` (for all 3 devices):
 
 * Download the latest [Beta Firmware builds (`.zip`)](https://nightly.link/polyend/tracker-ce/workflows/build.yml/main/polyend-tracker-ce-firmware.zip)
-* Download the latest [Synth Engines (`.zip`)](https://nightly.link/polyend/tracker-ce/workflows/build.yml/main/polyend-tracker-ce-synths.zip)
-* Download the latest [Sample Editor Effects (`.zip`)](https://nightly.link/polyend/tracker-ce/workflows/build.yml/main/polyend-tracker-ce-effects.zip)
+* Download the latest [SD Card Content (`.zip`)](https://nightly.link/polyend/tracker-ce/workflows/build.yml/main/polyend-tracker-ce-sd-card.zip) (`/Words`, `/Effects`, `/Synths`)
 * See [`UPCOMING.md`](UPCOMING.md) to find out what's new in these Beta Builds.
 
 ---
@@ -188,6 +187,7 @@ Full user and developer documentation is available in [`docs/`](docs/Home.md) an
   * [Wavetable Envelopes, LFOs & Step FX](docs/wavetable_envelopes.md)
   * [SD Card Image Viewer](docs/image_viewer.md)
 * **Developer & Architecture Guides**:
+  * [Firmware Memory Map, Budgets & Subsystem Limits](docs/memory_map.md)
   * [Firmware Architecture, Hardware Limits & Developer Gotchas](docs/developer_guide.md)
   * [Global File Browser Developer Guide](docs/global_file_browser.md)
   * [Custom Synth Engine & `.psyn` Plugin SDK](docs/custom_synth_sdk.md)

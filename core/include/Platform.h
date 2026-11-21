@@ -115,6 +115,7 @@ class UsbAudio
     virtual void beginFillData() = 0;
     virtual void fillChannelData(void* samples, int count, int channel) = 0;
     virtual void finishFillData() = 0;
+    virtual bool isOutputActive() const { return false; }
 };
 
 class UsbMidi : public Midi
@@ -127,6 +128,7 @@ class UsbMidi : public Midi
         void (*noteOff)(uint8_t, uint8_t, uint8_t);
         void (*songPosition)(uint16_t);
         void (*controlChange)(uint8_t, uint8_t, uint8_t);
+        void (*programChange)(uint8_t, uint8_t);
     };
 
     virtual void setReceiveActions(MidiReceiveActions* receiveActions) = 0;
@@ -145,6 +147,7 @@ class UartMidi : public Midi
         void (*songPosition)(unsigned);
         void (*continueMessage)(void);
         void (*controlChange)(uint8_t, uint8_t, uint8_t);
+        void (*programChange)(uint8_t, uint8_t);
     };
     virtual void init() = 0;
     virtual void setReceiveActions(MidiReceiveActions* receiveActions) = 0;

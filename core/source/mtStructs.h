@@ -40,7 +40,7 @@ const uint8_t PRODUCT_BETA = FW_VER_BETA;
 const char firmwareVersionLabelFormat[] = "%d.%d.%d " FW_EDITION_NAME;
 const char firmwareVersionLabelFormatBeta[] = "%d.%d.%d " FW_EDITION_NAME " beta %d";
 
-const uint8_t PROJECT_FILE_VERSION = 17;   // wersja struktury pliku projektu
+const uint8_t PROJECT_FILE_VERSION = 18;   // wersja struktury pliku projektu
 const uint8_t INSTRUMENT_FILE_VERSION = 9; // wersja struktury pliku instrumentu
 const uint8_t PATTERN_FILE_VERSION = 6;
 
@@ -76,13 +76,13 @@ const uint32_t DELAY_MEMORY_SIZE = (3 * 512 * 1024);               // 1,5 MB
 const uint32_t REVERB_MEMORY_SIZE = 32768;                         // 32 KB
 const uint32_t SHARED_SCRATCH_MEMORY_SIZE = 768 * 1024; // 768 KB shared external scratch (.scratch_memory)
 
-const uint32_t EDIT_BUFF_SIZE = (15 * 256 * 1024); // 3,75 MB
-
 #ifdef PLATFORM_IMX
-constexpr int SAMPLE_CHANNELS = 2;
+const uint32_t EDIT_BUFF_SIZE = (15 * 256 * 1024); // 3,75 MB
 #else
-constexpr int SAMPLE_CHANNELS = 1;
+const uint32_t EDIT_BUFF_SIZE = (15 * 128 * 1024); // 1,875 MB (~22.3s stereo on MK66)
 #endif
+
+constexpr int SAMPLE_CHANNELS = 2;
 
 const uint32_t EDIT_BUFF_OFFSET = SAMPLE_MEMORY_SIZE - (2 * SAMPLE_CHANNELS * EDIT_BUFF_SIZE);
 
@@ -842,6 +842,17 @@ typedef struct
 } SynthPartSettings;
 
 //----------------------------------------------------------------------------------
+enum MaxTracksMode : uint8_t
+{
+    kMaxTracks4 = 0,
+    kMaxTracks8 = 1,
+    kMaxTracks12 = 2,
+    kMaxTracks16 = 3,
+
+    kMaxTracksModeCount = 4,
+    kMaxTracksModeDefault = kMaxTracks16,
+};
+
 struct strMtValues
 {
     uint8_t lastUsedNote = 0;
@@ -968,8 +979,10 @@ struct strMtValues
     SynthPartSettings synthPart[kSynthInstrumentsCount];
 
     uint8_t recorderGainUsb;
+    uint8_t maxTracksMode = kMaxTracksModeDefault;
     void setDefaultTrackName(int trackIdx);
 };
+static_assert(sizeof(strMtValues) == 1792, "strMtValues size must remain 1792 bytes");
 
 //----------------------------------------------------------------------------------
 struct strSong
@@ -1015,6 +1028,15 @@ enum NumberingMode
 
     kNumberingModeCount,
     kNumberingModeDefault = kDecimalWithStepsFrom1,
+};
+
+enum NoteDisplayMode
+{
+    kNoteDisplayOriginal,
+    kNoteDisplayTraditional,
+
+    kNoteDisplayModeCount,
+    kNoteDisplayModeDefault = kNoteDisplayOriginal,
 };
 
 struct strMtConfig
@@ -1076,6 +1098,8 @@ struct strMtConfig
         uint8_t ccInChannel;
         uint8_t middleC;
         uint8_t slaveClockComp;
+        uint8_t programChangeInMode;
+        uint8_t programChangeInChannel;
     } midi;
 
     struct strGlobalValues
@@ -1120,6 +1144,7 @@ struct strMtConfig
         uint8_t font;
         uint8_t previewVolume;
         uint8_t recThreshold;
+        uint8_t noteDisplayMode;
     } general;
 
     struct strInterfaceState
@@ -1182,6 +1207,30 @@ struct strRecentFile
 
 extern strMtProject mtProject;
 extern strMtConfig mtConfig;
+
+inline uint8_t getProjectMaxTracks()
+{
+    const uint8_t mode = mtProject.values.maxTracksMode;
+    return (mode < kMaxTracksModeCount) ? static_cast<uint8_t>((mode + 1) << 2)
+                                        : static_cast<uint8_t>(kAllTracks);
+}
+
+inline uint8_t getProjectActiveSampleTracks()
+{
+    const uint8_t maxTracks = getProjectMaxTracks();
+    return maxTracks < kSampleTracks ? maxTracks : static_cast<uint8_t>(kSampleTracks);
+}
+
+inline uint8_t getProjectActiveMidiTracks()
+{
+    const uint8_t maxTracks = getProjectMaxTracks();
+    return maxTracks > kSampleTracks ? static_cast<uint8_t>(maxTracks - kSampleTracks) : 0;
+}
+
+inline bool isSampleTrackMutedOrHidden(uint8_t track)
+{
+    return (track >= getProjectMaxTracks()) || (mtProject.values.trackMute[track] != 0);
+}
 
 struct strMtDispSpectrum
 {
@@ -1280,6 +1329,19 @@ const char mtNotes[128][5] = {
     "G7",  "G#7", "A7",  "A#7", "B7",   "C8",  "C#8",  "D8",  "D#8", "E8",   "F8",  "F#8", "G8",
     "G#8", "A8",  "A#8", "B8",  "C9",   "C#9", "D9",   "D#9", "E9",  "F9",   "F#9", "G9",  "G#9",
     "A9",  "A#9", "B9",  "C10", "C#10", "D10", "D#10", "E10", "F10", "F#10", "G10"
+};
+
+const char mtNotesTraditional[128][5] = {
+    "C-0",  "C#0", "D-0",  "D#0", "E-0",  "F-0",  "F#0",  "G-0",  "G#0", "A-0",  "A#0", "B-0",  "C-1",
+    "C#1",  "D-1", "D#1",  "E-1", "F-1",  "F#1",  "G-1",  "G#1", "A-1",  "A#1", "B-1",  "C-2",  "C#2",
+    "D-2",  "D#2", "E-2",  "F-2", "F#2",  "G-2",  "G#2",  "A-2", "A#2",  "B-2", "C-3",  "C#3",  "D-3",
+    "D#3",  "E-3", "F-3",  "F#3", "G-3",  "G#3",  "A-3",  "A#3", "B-3",  "C-4", "C#4",  "D-4",  "D#4",
+    "E-4",  "F-4", "F#4",  "G-4", "G#4",  "A-4",  "A#4",  "B-4", "C-5",  "C#5", "D-5",  "D#5",  "E-5",
+    "F-5",  "F#5", "G-5",  "G#5", "A-5",  "A#5",  "B-5",  "C-6", "C#6",  "D-6", "D#6",  "E-6",  "F-6",
+    "F#6",  "G-6", "G#6",  "A-6", "A#6",  "B-6",  "C-7",  "C#7", "D-7",  "D#7", "E-7",  "F-7",  "F#7",
+    "G-7",  "G#7", "A-7",  "A#7", "B-7",  "C-8",  "C#8",  "D-8", "D#8",  "E-8", "F-8",  "F#8",  "G-8",
+    "G#8",  "A-8", "A#8",  "B-8", "C-9",  "C#9",  "D-9",  "D#9", "E-9",  "F-9", "F#9",  "G-9",  "G#9",
+    "A-9",  "A#9", "B-9",  "C-10", "C#10", "D-10", "D#10", "E-10", "F-10", "F#10", "G-10"
 };
 
 const char mtVolumes[48][4] = {

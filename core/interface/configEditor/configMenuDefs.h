@@ -96,12 +96,6 @@ const char* const brightness[3] = {
     "High",
 };
 
-const char* const lineInOutType[3] = {
-    "Stereo",
-    "Mono Left",
-    "Mono Right",
-};
-
 const char* const themeChoices[3] = {
     "Original",
     "Monochrome",
@@ -162,6 +156,8 @@ const char* const limiterModeTexts[2] = {
 
 const char* const sendsModeTexts[2] = { "Pre-fader", "Post-fader" };
 
+const char* const maxTracksTexts[kMaxTracksModeCount] = { "4", "8", "12", "16" };
+
 const char* const numberingModeTexts[3] = {
     "Decimal, Steps from 0",
     "Decimal, Steps from 1",
@@ -184,6 +180,11 @@ const char* const patternInfoTexts[3] = {
     "Additional info",
     "Track names",
     "Off",
+};
+
+const char* const noteDisplayModeTexts[2] = {
+    "Original",
+    "Traditional",
 };
 
 // metronome
@@ -236,8 +237,13 @@ const char* const slaveClockComp[kExternalClockCompMaxVal + 1] = {
 const char* const kUsbAudioList[4] = {
     "Off",
     "Input (2 in)",
+#ifdef PLATFORM_IMX
     "Output (28 out)",
     "In/Out (2 in, 28 out)",
+#else
+    "Output (2 out)",
+    "In/Out (2 in, 2 out)",
+#endif
 };
 //############################################################################################
 //						OPISY PARAMETROW MENU CONFIG
@@ -319,6 +325,11 @@ const char snapToZeroDesc[] = {
     "marker color."
 };
 
+const char maxTracksDesc[] = {
+    "Limits the number of active visible and audible tracks (4, 8, 12, or 16) for a focused or "
+    "retro workflow. All 16 tracks remain preserved internally in the project."
+};
+
 const char hexModeDesc[] = { "Enable the throwback hex goodness: pattern step numbers start with "
                              "00 and use sixteen digits (A means 10, B means 11, and so "
                              "on all the way to F which means 15). This allows for easy alignment "
@@ -330,15 +341,8 @@ const char patternArraDesc[] = { "Pattern arrangement type" };
 
 const char patternInfo[] = { "Pattern info" };
 
-const char lineInChannelDesc[] = {
-#ifdef PLATFORM_IMX
-    "Sets physical Line Input channel configuration for Global Mixer and Sample Recorder: "
-    "monitoring and recording can be in Stereo or use the selected Left / Right channel."
-#else
-    "Sets physical Line Input channel configuration for Global Mixer and Sample Recorder: only "
-    "monitoring can be Stereo but recording will sum to mono. Mono settings use the selected Left "
-    "/ Right channel for both monitoring and recording."
-#endif
+const char noteDisplayModeDesc[] = {
+    "Choose how notes are displayed in Pattern View: Original (C4, C#4) or Traditional (C-4, C#4)."
 };
 
 const char usbAudioDesc[] = {
@@ -380,6 +384,10 @@ const char slaveClockCompDesc[] = { "Allows compensating latency of incoming clo
 const char supportedCcInDesc[] = { "Supported incoming CC\nmessages:\n\nCC41 - CC48\n(performance "
                                    "mode track),\n\nCC51 - CC62\n(performance mode slot),"
                                    "\n\nCC71 - CC82\n(master mixer levels)." };
+
+const char programChangeInDesc[] = { "Incoming MIDI Program\nChange (0-127) queues\nPattern 1-128 "
+                                     "for the\nnext pattern boundary,\nor switches immediately\nwhen "
+                                     "stopped." };
 
 #ifdef TRACKER_MINI
 

@@ -2,6 +2,7 @@
 #define _MTSEQUENCER_H_
 
 #include "Platform.h"
+#include "internalTickClock.h"
 #include "mtChordDefs.h"
 #include "mtMidi.h"
 #include "mtStructs.h"
@@ -48,6 +49,7 @@ class Sequencer
         STEP_VELO_MIN = 0,
         STEP_VELO_MAX = 127,
         STEP_VELO_DEFAULT = -1,
+        STEP_VELO_OFF = -2,
     };
     enum enFillStep
     {
@@ -326,7 +328,7 @@ class Sequencer
                 }
                 bool hasAnyFx()
                 {
-                    return fx[0].type != 0 || fx[1].type != 0 || volume >= 0 || micromove >= 0;
+                    return fx[0].type != 0 || fx[1].type != 0 || volume != STEP_VELO_DEFAULT || micromove >= 0;
                 }
 
             } step[MAXSTEP + 1];
@@ -357,6 +359,8 @@ class Sequencer
         uint8_t selectionModeLastStep = 0;
 
         uint16_t sequencialSwitch_pattern = 0;
+        uint16_t sequencialSwitch_pendingPattern = 0;
+        volatile uint8_t midiProgramChange_pendingStoppedPattern = 0;
         bool sequencialSwitch_isArmed = 0;
         bool sequencialSwitch_loaded = 0;
         // Set by stop() in the audio callback, carried out by update().
@@ -748,6 +752,8 @@ class Sequencer
     void setSynthMute(MuteState muteState);
 
     void sequencialSwitch_changeNextPattern(int8_t delta);
+    void sequencialSwitch_queuePattern(uint8_t patternNumber);
+    void requestStoppedPatternSwitch(uint8_t patternNumber);
     void sequencialSwitch_SetReady();
     void sequencialSwitch_SetReadyNow();
     void sequencialSwitch_Reset();
@@ -766,6 +772,7 @@ class Sequencer
     void recEnable(bool enable);
     void stop(void);
     void stopManualNotes(void);
+    void onMaxTracksChanged(uint8_t maxTracks);
     void continueSong(uint8_t songPos);
     void loopCurrentPattern(uint8_t songPos);
     int16_t findSlotWithPattern();
@@ -1035,6 +1042,7 @@ class Sequencer
     };
     void stop(StopContext context);
     void reloadPatternAfterStop();
+    void processPendingMidiProgramChange();
     void stopForMissingNextPattern();
 
     strPattern* currentPattern;
@@ -1045,7 +1053,7 @@ class Sequencer
     int externalClockPulses = 0;
     int externalClocksToPlay = 0;
 
-    double internalTickAccumulatorUs = 0.0;
+    InternalTickClock internalTickClock;
 
     seqtimesec_t timeWithoutClockPulse = 0;
     int16_t externalClockCompensation_clockSignals = 0;

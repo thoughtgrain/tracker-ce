@@ -73,6 +73,7 @@ void Sequencer::init()
 void Sequencer::update()
 {
     reloadPatternAfterStop();
+    processPendingMidiProgramChange();
     updatePatternManagment();
 }
 void Sequencer::initAfterReadConfig()
@@ -95,19 +96,17 @@ AUDIO_CORE_RAM void Sequencer::tick(float intervalSeconds)
 
     if (isSetInternalClock() || player.selectionMode)
     {
-        double uStepPeriod_us = static_cast<double>(getTimerPeriod_us());
-        double blockDurationUs = static_cast<double>(intervalSeconds) * 1000000.0;
-
-        internalTickAccumulatorUs += blockDurationUs;
-
-        while (internalTickAccumulatorUs >= uStepPeriod_us)
-        {
-            internalTickAccumulatorUs -= uStepPeriod_us;
-            double offsetUs = blockDurationUs - internalTickAccumulatorUs;
-            midiSetClockSubBlockOffsetUs(
-              offsetUs > 0.0 ? static_cast<uint32_t>(offsetUs + 0.5) : 0U);
-            tick_uStep();
-        }
+        // Integer clock, same ticks and offsets as the double accumulator it replaced (internalTickClock.h)
+        internalTickClock.advance(
+          intervalSeconds,
+          getCurrentTempo(),
+          player.swing.isActive ? player.swing.getTempoCorrection() : 0.0f,
+          [this]() { return getTimerPeriod_us(); },
+          [this](uint32_t offsetUs)
+          {
+              midiSetClockSubBlockOffsetUs(offsetUs);
+              tick_uStep();
+          });
     }
     else
     {
@@ -166,13 +165,8 @@ AUDIO_CORE_RAM bool Sequencer::isMetronomeApplicableForActualRecordingSource(voi
 {
     return SR->recorderConfig.source == SR->sourceTypeMicLG ||
            SR->recorderConfig.source == SR->sourceTypeMicHG ||
-           SR->recorderConfig.source == SR->sourceTypeLineIn
-
-#ifdef PLATFORM_IMX
-           || SR->recorderConfig.source == SR->sourceTypeUsb
-#endif
-
-      ;
+           SR->isLineInSource() ||
+           SR->isUsbSource();
 }
 
 AUDIO_CORE_RAM void Sequencer::tick_uStep(void)
@@ -264,7 +258,6 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
     strPlayer::strPlayerTrack::strSendStep& stepSent = player.track[row].stepSent;
 
     bool forceFirstRollWhenNoNote = 0; // potrzebne jak rolka wchodzi jako efekt bez nuty
-    int forceFirstRollWhenNoNote_fxIndex = 0;
 
     if (row == 0 && playerRow.uStep == 1 && isRec())
     {
@@ -487,6 +480,15 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
                     instrumentPlayer[row].setStepVelocity(stepToSend.volume);
                 }
             }
+            else if (stepToSend.volume == STEP_VELO_OFF)
+            {
+                stepToSend.volume = STEP_VELO_DEFAULT;
+                stepSent.volume = STEP_VELO_DEFAULT;
+                if (stepToSend.note == STEP_NOTE_EMPTY && isSampleTrack(row))
+                {
+                    instrumentPlayer[row].setStepVelocity(STEP_VELO_DEFAULT);
+                }
+            }
         }
 
         for (int8_t fxIndex = 1; fxIndex >= 0; fxIndex--)
@@ -538,8 +540,11 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
                         killFxOnSlot(row, fxIndex);
                         atLeastOneFx = 1;
 
-                        stepToSend.volume = _fx.value;
-                        stepSent.volume = stepToSend.volume;
+                        if (!isSampleInstrument(stepToSend.instrument))
+                        {
+                            stepToSend.volume = _fx.value;
+                            stepSent.volume = stepToSend.volume;
+                        }
                     }
                     break;
                 case fx.FX_TYPE_GATE_LENGTH:
@@ -712,9 +717,12 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
                         killFxOnSlot(row, fxIndex);
                         atLeastOneFx = 1;
 
-                        stepToSend.volume =
-                          clamp<int>(utilMathRandom::random(0, _fx.value + 1), 0, 127);
-                        stepSent.volume = stepToSend.volume;
+                        if (!isSampleInstrument(stepToSend.instrument))
+                        {
+                            stepToSend.volume =
+                              clamp<int>(utilMathRandom::random(0, _fx.value + 1), 0, 127);
+                            stepSent.volume = stepToSend.volume;
+                        }
                     }
                     break;
 
@@ -736,7 +744,6 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
                             break;
 
                         forceFirstRollWhenNoNote = 1;
-                        forceFirstRollWhenNoNote_fxIndex = fxIndex;
 
                         playerRow.roll.isOn = 1;
                         playerRow.roll.fxSlot = fxIndex;
@@ -749,7 +756,15 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
                         {
                             playerRow.roll.length = calcStepLength(row, playerRow.actual_pos);
 
-                            playerRow.roll.startingVolume = stepSent.volume;
+                            if (isSampleInstrument(stepSent.instrument) && isSampleTrack(row))
+                            {
+                                playerRow.roll.startingVolume =
+                                  instrumentPlayer[row].getMostSignificantVolume();
+                            }
+                            else
+                            {
+                                playerRow.roll.startingVolume = stepSent.volume;
+                            }
                         }
 
                         break;
@@ -862,7 +877,14 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
                     {
                         playerRow.roll.length = calcStepLength(row, playerRow.actual_pos);
 
-                        playerRow.roll.startingVolume = stepToSend.volume;
+                        if (_fxBis.type == fx.FX_TYPE_VOLUME)
+                        {
+                            playerRow.roll.startingVolume = _fxBis.value;
+                        }
+                        else
+                        {
+                            playerRow.roll.startingVolume = stepToSend.volume;
+                        }
                     }
 
                     break;
@@ -981,7 +1003,16 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
             }
             if (playerRow.roll.isOn && playerRow.roll.volumeOption != rollVolumeOption_const)
             {
-                stepToSend.volume = getRollVelo(row, &stepToSend);
+                uint8_t rollVelo = getRollVelo(row, &stepToSend);
+                if (isSampleInstrument(stepToSend.instrument))
+                {
+                    stepToSend.fx[playerRow.roll.fxSlot].type = fx.FX_TYPE_VOLUME;
+                    stepToSend.fx[playerRow.roll.fxSlot].value = rollVelo > 100 ? 100 : rollVelo;
+                }
+                else
+                {
+                    stepToSend.volume = rollVelo;
+                }
             }
 
             if ((isMidiInstrument(stepToSend.instrument) ||
@@ -1119,15 +1150,15 @@ AUDIO_CORE_RAM void Sequencer::play_microStep(int row)
                         playerRow.roll.volumeOption != rollVolumeOption_const)
                     {
                         uint8_t rollVelo = getRollVelo(row, &playerRow.stepContRoll);
-                        playerRow.stepContRoll.volume = rollVelo > 127 ? 127 : rollVelo;
-
-                        if (forceFirstRollWhenNoNote)
+                        if (isSampleInstrument(playerRow.stepContRoll.instrument))
                         {
-                            auto& fxItem =
-                              playerRow.stepContRoll.fx[forceFirstRollWhenNoNote_fxIndex];
-                            // instrumentPlayer needs to know about roll to change volume
-                            fxItem.type = fx.FX_TYPE_ROLL;
-                            fxItem.value = 0; // instrumentPlayer do not cares about this value
+                            auto& fxItem = playerRow.stepContRoll.fx[playerRow.roll.fxSlot];
+                            fxItem.type = fx.FX_TYPE_VOLUME;
+                            fxItem.value = rollVelo > 100 ? 100 : rollVelo;
+                        }
+                        else
+                        {
+                            playerRow.stepContRoll.volume = rollVelo > 127 ? 127 : rollVelo;
                         }
                     }
 
@@ -1330,7 +1361,7 @@ AUDIO_CORE_RAM void Sequencer::play(uint8_t fromPos)
     player.isStop = 0;
     player.isPlay = 1;
     timerTicks = 1;
-    internalTickAccumulatorUs = 0.0;
+    internalTickClock.reset();
 
     player.uStep = 1;
     player.globalPos = fromPos;
@@ -1505,6 +1536,38 @@ void Sequencer::stopAllOpenNotes(void)
     liveRecHeldNotesCount = 0;
 }
 
+void Sequencer::onMaxTracksChanged(uint8_t maxTracks)
+{
+    for (int tr = maxTracks; tr < kAllTracks; tr++)
+    {
+        stopOpenNoteOnTrack(tr);
+        player.track[tr].roll.reset();
+        if (player.selectionMode)
+        {
+            player.track[tr].isActive = 0;
+        }
+    }
+
+    liveRecHeldNotesCount = 0;
+
+    if (player.isPlay && player.selectionMode)
+    {
+        bool anyVisibleActive = false;
+        for (int tr = 0; tr < maxTracks; tr++)
+        {
+            if (player.track[tr].isActive != 0)
+            {
+                anyVisibleActive = true;
+                break;
+            }
+        }
+        if (!anyVisibleActive)
+        {
+            stop();
+        }
+    }
+}
+
 void Sequencer::stopOpenNoteOnTrack(int track, bool leaveStepOpen)
 {
     assert(track >= 0);
@@ -1576,7 +1639,7 @@ void Sequencer::stop(StopContext context)
     player.breakPattern = 0;
 
     timerTicks = 0;
-    internalTickAccumulatorUs = 0.0;
+    internalTickClock.reset();
 
     if (player.onPatternOrSelectionEnd == cbkTurnOffPerformanceMode)
     {
@@ -1636,6 +1699,77 @@ void Sequencer::reloadPatternAfterStop()
     DISABLE_GLOBAL_INTERRUPTS();
     switchRamPatternsNow();
     ENABLE_GLOBAL_INTERRUPTS();
+}
+
+void Sequencer::requestStoppedPatternSwitch(uint8_t patternNumber)
+{
+    player.midiProgramChange_pendingStoppedPattern =
+      clamp<int>(patternNumber, PATTERN_INDEX_MIN, PATTERN_INDEX_MAX);
+}
+
+void Sequencer::processPendingMidiProgramChange()
+{
+    if (player.midiProgramChange_pendingStoppedPattern == 0)
+    {
+        return;
+    }
+
+    if (newFileManager.getStatus() != fmIdle)
+    {
+        return;
+    }
+
+    DISABLE_GLOBAL_INTERRUPTS();
+    uint8_t targetPattern = player.midiProgramChange_pendingStoppedPattern;
+    player.midiProgramChange_pendingStoppedPattern = 0;
+    ENABLE_GLOBAL_INTERRUPTS();
+
+    if (targetPattern == 0)
+    {
+        return;
+    }
+
+    if (isPlay())
+    {
+        sequencialSwitch_queuePattern(targetPattern);
+        return;
+    }
+
+    sequencialSwitch_Reset();
+    setOnGlobalStep(nullCallback);
+
+    if (targetPattern == mtProject.values.actualPattern)
+    {
+        return;
+    }
+
+    if (mtInterface.isPatternScreenActive())
+    {
+        patternEditor.setActualPattern(targetPattern);
+    }
+    else
+    {
+        if (getSeqState() != SEQ_STATE_PLAY_PERFORMANCE)
+        {
+            newFileManager.saveWorkspacePatternNow(mtProject.values.actualPattern);
+        }
+
+        mtProject.values.actualPattern = targetPattern;
+        newFileManager.loadWorkspacePatternNow(mtProject.values.actualPattern);
+
+        DISABLE_GLOBAL_INTERRUPTS();
+        switchRamPatternsNow();
+        ENABLE_GLOBAL_INTERRUPTS();
+
+        if (mtInterface.isPerformanceModeScreenActive())
+        {
+            for (uint8_t a = 0; a < kPerformanceTracks; a++)
+            {
+                mtProject.perfTracksPatterns[a] = mtProject.values.actualPattern;
+            }
+            PM->refreshTrackPattern = 1;
+        }
+    }
 }
 
 void Sequencer::updatePatternManagment()
@@ -1933,7 +2067,13 @@ void Sequencer::switchRowStep(uint8_t row) // przełączamy stepy w zależności
             switchRamPatternsNow();
             patternSwitched = true;
 
+            uint16_t pendingPattern = player.sequencialSwitch_pendingPattern;
             sequencialSwitch_Reset();
+            if (pendingPattern > 0)
+            {
+                player.sequencialSwitch_pattern = pendingPattern;
+                player.sequencialSwitch_isArmed = true;
+            }
         }
         else if (player.songMode)
         {
@@ -2675,19 +2815,21 @@ AUDIO_CORE_FLASH void Sequencer::handleNoteOn(
             instrumentPlayer[sel->firstTrack].noteOn(step->instrument,
                                                      step->note,
                                                      velocityToVolume(velocity),
-                                                     fx.FX_TYPE_VOLUME,
                                                      0,
                                                      0,
-                                                     0); // wartość FX1 volume z velocity u gory
+                                                     0,
+                                                     0);
 
             engine.setLastUsedVoice(sel->firstTrack);
         }
     }
     else if (isRec())
     {
+        const int maxTracks = getProjectMaxTracks();
         int8_t singleArmedTrack = getSingleArmedTrack();
-        int startTrack = (singleArmedTrack >= 0) ? singleArmedTrack : getActualTrack();
-        int endTrack = (singleArmedTrack >= 0) ? (singleArmedTrack + 1) : kAllTracks;
+        int startTrack = (singleArmedTrack >= 0) ? singleArmedTrack
+                                                 : std::min<int>(getActualTrack(), maxTracks - 1);
+        int endTrack = (singleArmedTrack >= 0) ? (singleArmedTrack + 1) : maxTracks;
 
         if (singleArmedTrack >= 0)
         {
@@ -2830,10 +2972,10 @@ AUDIO_CORE_FLASH void Sequencer::handleNoteOn(
                         instrumentPlayer[tr].noteOn(inst,
                                                     note,
                                                     velocityToVolume(velocity),
-                                                    fx.FX_TYPE_VOLUME,
                                                     0,
                                                     0,
-                                                    0); // wartość FX1 volume z velocity u gory
+                                                    0,
+                                                    0);
 
                         engine.setLastUsedVoice(tr);
                     }
@@ -2845,10 +2987,11 @@ AUDIO_CORE_FLASH void Sequencer::handleNoteOn(
     else // czyli playMode / dogrywanie / wgrywanie akordów w edit
     {
         int instrument = mtProject.values.lastUsedInstrument;
+        const int maxTracks = getProjectMaxTracks();
 
-        for (int tryIdx = 0; tryIdx < kAllTracks; tryIdx++)
+        for (int tryIdx = 0; tryIdx < maxTracks; tryIdx++)
         {
-            int trackIdx = (sel->firstTrack + tryIdx) % kAllTracks;
+            int trackIdx = (sel->firstTrack + tryIdx) % maxTracks;
 
             if (isSampleInstrument(instrument) && !isSampleTrack(trackIdx))
             {
@@ -2881,10 +3024,10 @@ AUDIO_CORE_FLASH void Sequencer::handleNoteOn(
                     instrumentPlayer[trackIdx].noteOn(mtProject.values.lastUsedInstrument,
                                                       note,
                                                       velocityToVolume(velocity),
-                                                      fx.FX_TYPE_VOLUME,
                                                       0,
                                                       0,
-                                                      0); // wartość FX1 volume z velocity u gory
+                                                      0,
+                                                      0);
 
                     engine.setLastUsedVoice(trackIdx);
                 }
@@ -3087,7 +3230,7 @@ void Sequencer::handleNoteOff(byte channel, // pochodzenie grida np. GRID_OUTSID
                         continue;
                     }
 
-                    if (wasRecOpen && !player.preRecMetronomeActive)
+                    if (tr < getProjectMaxTracks() && wasRecOpen && !player.preRecMetronomeActive)
                     {
                         strPattern::strTrack::strStep* step =
                           &currentPattern->track[tr].step[destinationStep];
@@ -3505,6 +3648,37 @@ void Sequencer::sequencialSwitch_changeNextPattern(int8_t delta)
       clamp<int>(player.sequencialSwitch_pattern + delta, PATTERN_INDEX_MIN, PATTERN_INDEX_MAX);
 }
 
+void Sequencer::sequencialSwitch_queuePattern(uint8_t patternNumber)
+{
+    uint16_t clampedPattern = clamp<int>(patternNumber, PATTERN_INDEX_MIN, PATTERN_INDEX_MAX);
+
+    DISABLE_GLOBAL_INTERRUPTS();
+    player.midiProgramChange_pendingStoppedPattern = 0;
+    if (player.sequencialSwitch_loaded)
+    {
+        // A pattern is already preloading/preloaded for the imminent end-of-pattern switch.
+        // Defer this new request until immediately after that switch completes.
+        player.sequencialSwitch_pendingPattern = clampedPattern;
+        ENABLE_GLOBAL_INTERRUPTS();
+        return;
+    }
+
+    player.sequencialSwitch_pendingPattern = 0;
+    player.sequencialSwitch_pattern = clampedPattern;
+
+    if (!newFileManager.isPatternLoading() && !isLastPatternStep())
+    {
+        player.sequencialSwitch_isArmed = true;
+        player.onGlobalStep = nullCallback;
+    }
+    else
+    {
+        player.sequencialSwitch_isArmed = false;
+        player.onGlobalStep = cbkSequencialSwitch_SetReady;
+    }
+    ENABLE_GLOBAL_INTERRUPTS();
+}
+
 // uzbraja sequencialSwitch
 void Sequencer::sequencialSwitch_SetReady()
 {
@@ -3531,6 +3705,7 @@ void cbkSequencialSwitch_SetReady()
 AUDIO_CORE_RAM void Sequencer::sequencialSwitch_Reset()
 {
     player.sequencialSwitch_pattern = 0;
+    player.sequencialSwitch_pendingPattern = 0;
     player.sequencialSwitch_isArmed = 0;
     player.sequencialSwitch_loaded = 0;
 }
@@ -3565,7 +3740,8 @@ void Sequencer::toogleRecArmedOnTrack(uint8_t track)
 int8_t Sequencer::getSingleArmedTrack()
 {
     int8_t armedTrack = -1;
-    for (int tr = 0; tr < kAllTracks; tr++)
+    const int maxTracks = getProjectMaxTracks();
+    for (int tr = 0; tr < maxTracks; tr++)
     {
         if (player.track[tr].isRecordingArmed)
         {
