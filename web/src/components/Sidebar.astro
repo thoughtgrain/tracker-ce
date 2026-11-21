@@ -7,12 +7,13 @@ import './sidebar.scss';
 <button
     class="nav-button"
     type="button"
-    aria-label="Open navigation"
+    aria-controls="docs-nav"
+    aria-expanded="true"
 >
-  &#x2630;
+  <span aria-hidden="true">&#x2630;</span> Contents
 </button>
 
-<nav class="sidebar" aria-label="Main navigation">
+<nav id="docs-nav" class="sidebar" aria-label="Documentation">
     <Sidebar class="sidebar-content" />
 </nav>
 
@@ -22,18 +23,28 @@ import './sidebar.scss';
         article = document.querySelector('.article-content'),
         buttonColors = ['note-color', 'instrument-color', 'fx1-color', 'fx2-color'];
 
-    if (sidebar) {
-        navButton?.addEventListener('click', () => {
-            sidebar.classList.toggle('hidden');
-            article?.classList.toggle('hidden');
-        })
+    const setOpen = (open: boolean) => {
+        sidebar?.classList.toggle('hidden', !open);
+        article?.classList.toggle('hidden', open && breakpoint.matches);
+        navButton?.setAttribute('aria-expanded', String(open));
+    };
+    const breakpoint = window.matchMedia('(max-width: 779px)');
 
-        const breakpoint = window.matchMedia('(max-width: 779px)');
-        const updateVisibility = () => sidebar.classList.toggle('hidden', breakpoint.matches);
+    if (sidebar) {
+        navButton?.addEventListener('click', () => setOpen(sidebar.classList.contains('hidden')));
+
+        // On phones the contents start folded away; on wider screens they're always shown.
+        const updateVisibility = () => setOpen(!breakpoint.matches);
 
         updateVisibility();
         breakpoint.addEventListener('change', updateVisibility);
     }
+
+    // Mark the page we're on so the list shows where you are.
+    const here = location.pathname.replace(/\/?$/, '/');
+    sidebar?.querySelectorAll('a').forEach((a) => {
+        if (new URL(a.href).pathname.replace(/\/?$/, '/') === here) a.setAttribute('aria-current', 'page');
+    });
 
     navButton?.classList.add(buttonColors[Math.floor(Math.random() * 4)])
 </script>

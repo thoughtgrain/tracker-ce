@@ -1,0 +1,29 @@
+---
+// The header shared by the landing page and the docs. On the landing page the section links
+// scroll; from the docs they go back to the landing page's sections.
+import { polyend } from "../config";
+
+interface Props {
+  current?: "home" | "docs";
+}
+const { current = "home" } = Astro.props;
+const home = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const section = (id: string) => (current === "home" ? `#${id}` : `${home}#${id}`);
+---
+
+<header class="site-head">
+  <a class="wordmark" href={home}>
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#fff" /><rect x="6" y="8" width="9" height="3" rx="1.5" fill="#111" /><rect x="17" y="8" width="9" height="3" rx="1.5" fill="#111" opacity=".35" /><rect x="6" y="14.5" width="20" height="3" rx="1.5" fill="#111" /><rect x="6" y="21" width="12" height="3" rx="1.5" fill="#111" opacity=".35" /></svg>
+    Tracker CE
+  </a>
+  <nav aria-label="Site">
+    <ul>
+      <li><a href={section("features")}>Features</a></li>
+      <li><a href={section("devices")}>Devices</a></li>
+      <li><a href={section("install")}>Install</a></li>
+      <li><a href={`${home}docs/`} aria-current={current === "docs" ? "page" : undefined}>Docs</a></li>
+      <li><a href={polyend.home} rel="noopener">Polyend<span aria-hidden="true"> ↗</span></a></li>
+      <li><a class="pill-sm" href={section("download")}>Download</a></li>
+    </ul>
+  </nav>
+</header>
