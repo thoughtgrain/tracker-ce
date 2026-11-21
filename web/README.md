@@ -5,22 +5,28 @@ This is the community firmware's website, built with [Astro](https://astro.build
 It has two parts:
 
 - **`/`, the landing page** (`src/pages/index.astro`): the latest release, a feature tour, the devices, install steps, and links to Polyend.
-- **`/docs/`, the docs** (`src/pages/docs/`): the repository's own Markdown (`README.md`, `CHANGELOG.md` and the guides in `docs/`), rendered as pages with the wiki sidebar from `docs/_Sidebar.md`. Joseph Venuto built this part. Because the pages import the Markdown directly, they change whenever the docs do, with no second copy to keep in sync.
+- **`/docs/`, the docs**, built with [Starlight](https://starlight.astro.build): the repository's own Markdown (`docs/Home.md` as the docs home, `CHANGELOG.md` and every guide in `docs/`) with search (Pagefind), an "on this page" outline, edit-on-GitHub links and previous/next navigation. Joseph Venuto built the first docs site, which rendered these same files. This keeps his idea of using the repo's Markdown directly, so there's no second copy to keep in sync.
 
-Both parts share `src/components/Head.astro` (title, description, canonical and social tags), `src/components/SiteHeader.astro`, and the tokens in `src/styles/global.css`.
+The landing page uses `src/components/Head.astro`, `src/components/SiteHeader.astro` and `src/styles/global.css`. Starlight uses `src/styles/starlight.css`, which maps the same colours and fonts onto Starlight's variables. Both are dark only: `src/components/starlight/` replaces Starlight's theme provider and theme picker.
 
-## Adding a docs page
+## How the docs get into Starlight
 
-Add `src/pages/docs/<name>.astro` that imports `docs/<name>.md` (copy any existing page), and add a link to `docs/_Sidebar.md` if it isn't there already. The name has to match the Markdown file's name. That's how links between docs find the page.
+The docs live where they always have, in `docs/` and the repo root, written for GitHub and the wiki. Starlight wants pages in `src/content/docs/` with a `title` in frontmatter. So `scripts/sync-docs.mjs` runs before every `dev` and `build`:
+
+1. It copies `docs/Home.md` to `/docs/`, `CHANGELOG.md` to `/docs/changelog/`, and each `docs/<name>.md` to `/docs/<name>/` (lower case, like Starlight's slugs). The output goes to `src/content/docs/docs/`, which is gitignored.
+2. It lifts each file's `# Title` into frontmatter, because Starlight prints the title itself.
+3. It records the file's repo path in `source` and sets `editUrl`, so "Edit page" opens the real file on GitHub.
+
+A new guide in `docs/` gets a page automatically. To list it in the sidebar, add it to `docs/_Sidebar.md`. `astro.config.mjs` builds Starlight's sidebar from that file (`#### Heading` is a group, `[Label](target)` is a page or an outside link), so the wiki and the site share one sidebar.
 
 ## How docs links work
 
-The Markdown is written to be read on GitHub, so its links are relative: `global_file_browser.md`, `../core/source/mtStructs.h`, or wiki-style `developer_guide`. Left alone they'd break on the site. `src/lib/rehype-repo-links.mjs` rewrites each one at build time:
+The Markdown's links are relative to where each file lives in the repo: `global_file_browser.md`, `../core/source/mtStructs.h`, or wiki-style `developer_guide`. `src/lib/rehype-repo-links.mjs` rewrites each one at build time. It resolves the link from the file's real location (the `source` field), then:
 
-- a doc that has a page here goes to that page;
+- a doc that has a page goes to that page;
 - anything else in the repo goes to the file or folder on GitHub.
 
-It runs on Astro's remark/rehype Markdown pipeline (`@astrojs/markdown-remark`). Astro 7's default Markdown processor doesn't run rehype plugins.
+It runs on Astro's remark/rehype Markdown pipeline (`@astrojs/markdown-remark`), which Starlight also needs. Astro 7's default Markdown processor doesn't run rehype plugins.
 
 ## How the release list stays current
 
@@ -50,7 +56,7 @@ In the repository settings, go to **Pages → Build and deployment → Source** 
 cd web
 npm ci
 npm run dev            # local server with live reload
-npm run build          # static output in dist/
+npm run build          # syncs the docs, then static output in dist/
 npm run check-release  # print the releases the page would show
 ```
 

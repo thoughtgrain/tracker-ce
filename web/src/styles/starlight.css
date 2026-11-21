@@ -1,0 +1,85 @@
+/* Starlight, dressed like the landing page (src/styles/global.css): the same near-black ground,
+   black panels, Bebas Neue headlines, light Albert Sans body text and the Tracker's key colours.
+   Starlight is dark only here (see src/components/starlight/ThemeProvider.astro). */
+
+:root {
+  --sl-font: "Albert Sans Variable", "Albert Sans", "Helvetica Neue", Arial, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --tce-display: "Bebas Neue", "Oswald", Impact, "Arial Narrow", sans-serif;
+
+  /* Accent: the Instrument key's yellow. text-accent is accent-high on dark, and the current
+     sidebar item sits on it with text-invert, so that text has to be dark. */
+  --sl-color-accent-low: #2f3014;
+  --sl-color-accent: #c9cb6a;
+  --sl-color-accent-high: #eef0a0;
+  --sl-color-text-invert: #111111;
+
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #eeeeee;
+  --sl-color-gray-2: #d4d4d4;
+  --sl-color-gray-3: #a0a0a0; /* 7:1 on the ground, like --muted on the landing page */
+  --sl-color-gray-4: #5c5c5c;
+  --sl-color-gray-5: #333333;
+  --sl-color-gray-6: #1c1c1c;
+  --sl-color-black: #111111;
+
+  --sl-color-bg: #1c1c1c;
+  --sl-color-bg-nav: #000000;
+  --sl-color-bg-sidebar: #000000;
+  --sl-color-hairline: #333333;
+  --sl-color-hairline-shade: #000000;
+
+  --sl-content-width: 50rem;
+}
+
+body { font-weight: 300; }
+strong, b { font-weight: 600; }
+
+/* Headlines: tall, condensed and upper case, like the landing page */
+h1#_top,
+.sl-markdown-content :is(h1, h2) {
+  font-family: var(--tce-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 0.95;
+  letter-spacing: 0.005em;
+}
+h1#_top { font-size: clamp(2.6rem, 6vw, 4.2rem); }
+.sl-markdown-content h2 { font-size: clamp(2rem, 4vw, 2.8rem); }
+.sl-markdown-content h3 { font-weight: 500; }
+
+/* Site title in the header: the mark plus the wordmark */
+/* White like the landing page wordmark; the title links back to the landing page */
+.site-title { font-weight: 500; color: var(--sl-color-white); }
+.site-title img { height: 1.6rem; width: auto; }
+
+/* Sidebar group labels in mono caps, as on the landing page's tiles */
+.sidebar-content .group-label .large,
+.sidebar-content summary .large {
+  font-family: var(--sl-font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-3);
+}
+.sidebar-content a { border-radius: 8px; }
+
+/* Code, tables and asides in black panels with the landing page's radii */
+.sl-markdown-content :not(pre) > code {
+  background: #111111;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  padding: 0.08em 0.35em;
+}
+.sl-markdown-content .expressive-code .frame,
+.sl-markdown-content .expressive-code pre { border-radius: 18px; }
+.sl-markdown-content blockquote {
+  border-inline-start: 4px solid var(--sl-color-accent-high);
+  background: #000000;
+  border-radius: 0 18px 18px 0;
+  padding: 0.9rem 1.2rem;
+}
+
+/* Pagination and edit links as pills */
+.pagination-links a { border-radius: 18px; background: #000000; border-color: #333333; }

@@ -1,7 +1,7 @@
 // The repository's Markdown is written to be read on GitHub, so its links are relative to the file:
 // `global_file_browser.md`, `../core/source/mtStructs.h`, wiki-style `developer_guide`. On the site
 // those would 404. This rewrites each relative link once, at build time:
-// - a doc that has a page here goes to that page (`/docs/<name>/`);
+// - a doc that has a page here goes to that page (`/docs/<name>/`, lower-cased like Starlight's slugs);
 // - anything else in the repo goes to the file or folder on GitHub.
 import fs from "node:fs";
 import path from "node:path";
@@ -9,13 +9,14 @@ import { fileURLToPath } from "node:url";
 
 const webDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const repoRoot = path.resolve(webDir, "..");
-const pagesDir = path.join(webDir, "src/pages/docs");
+// Pages written by scripts/sync-docs.mjs.
+const pagesDir = path.join(webDir, "src/content/docs/docs");
 
-// Repo-relative Markdown path -> page slug ("" is the docs index).
+// Repo-relative Markdown path -> page slug ("" is the docs index), or null if it has no page.
 function pageFor(rel) {
-  if (rel === "README.md" || rel === "docs/Home.md") return "";
-  const name = rel === "CHANGELOG.md" ? "CHANGELOG" : rel.startsWith("docs/") ? rel.slice(5, -3) : null;
-  if (name && !name.includes("/") && fs.existsSync(path.join(pagesDir, `${name}.astro`))) return name;
+  if (rel === "docs/Home.md") return "";
+  const name = rel === "CHANGELOG.md" ? "changelog" : rel.startsWith("docs/") ? rel.slice(5, -3).toLowerCase() : null;
+  if (name && !name.includes("/") && fs.existsSync(path.join(pagesDir, `${name}.md`))) return name;
   return null;
 }
 
@@ -36,7 +37,9 @@ function rewrite(href, fromDir, { base, repoUrl }) {
 
 export default function rehypeRepoLinks(options) {
   return (tree, file) => {
-    const source = file.path || file.history?.[0];
+    // Synced docs carry their repo path in `source`; anything else resolves from where it sits.
+    const synced = file.data?.astro?.frontmatter?.source;
+    const source = synced ? path.join(repoRoot, synced) : file.path || file.history?.[0];
     if (!source) return;
     const fromDir = path.dirname(source);
     const visit = (node) => {
