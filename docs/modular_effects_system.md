@@ -59,6 +59,7 @@ SD Card Root/
     ├── add_silence.ptfx
     ├── analog_kick_gen.ptfx
     ├── chiptune_gen.ptfx
+    ├── drum_loop_gen.ptfx
     ├── cross_mod.ptfx
     ├── haas.ptfx
     ├── multimode_filter.ptfx
@@ -77,6 +78,7 @@ All plugins in [`editor-fx-sdk/effects/`](../editor-fx-sdk/effects) can be compi
 | [`add_silence.c`](../editor-fx-sdk/effects/add_silence.c)           | `Add Silence`        | `EFFECT \| STEREO`          | `0 B`       | `Where` (List: `Beginning\|End`), `Length` (`10–5000 ms`, default `2500 ms`). Prepends or appends silence via `host->set_extra_samples()`.                                                                                                                      |
 | [`analog_kick_gen.c`](../editor-fx-sdk/effects/analog_kick_gen.c)   | `Analog Kick Gen`    | `GENERATOR`                 | `0 B`       | `TopFreq` (`60–250 Hz`), `SubFreq` (`30–80 Hz`), `Decay` (`100–900 ms`), `Click` (`0.0–1.0`). Synthesizes analog-style kick drums onto any slot.                                                                                                                |
 | [`chiptune_gen.c`](../editor-fx-sdk/effects/chiptune_gen.c)         | `Chiptune Voice Gen` | `GENERATOR`                 | `0 B`       | `Voice` (List: `Kick\|Snare\|HiHat\|Pulse12\|Pulse25\|Pulse50\|Triangle\|NESNoise`), `Note` (`24–84 st`), `Arp` (List), `Speed` (`10–60 Hz`), `Decay` (`30–1500 ms`), `Sweep` (`-24..+24 st`), `Crush` (List), `Length` (List: `DecayLen\|SingleCyc`).          |
+| [`drum_loop_gen.c`](../editor-fx-sdk/effects/drum_loop_gen.c)       | `Drum Loop Gen`      | `GENERATOR`                 | `0 B`       | `Steps` (`16–24`), `BPM` (`60–200`), `Seed` (`1–9999`), `Style` (`Four\|Break\|Electro\|Sparse`), `Density`, `Swing` (`0–60 %`), `Tone`, `Decay`, `Hats`, `Drive`. Renders a seamless drum loop; turn `Seed` one click and Preview again for a new pattern. |
 | [`cross_mod.c`](../editor-fx-sdk/effects/cross_mod.c)               | `Sample Cross-Mod`   | `EFFECT \| STEREO`          | `0 B`       | `Mod WAV` (File `.wav`), `Mode` (List: `Layer Mix\|Ring Mod\|FM Scrub\|Amp Follow\|Sidechain`), `Pitch` (`-24..+24 st`), `Mix` (`0–100 %`). Cross-modulates or layers the sample with a secondary `.wav` file from SD.                                          |
 | [`haas.c`](../editor-fx-sdk/effects/haas.c)                         | `Haas Effect`        | `EFFECT \| STEREO`          | `8,820 B`   | `Delay` (`1–100 ms`, default `10 ms`), `Chan` (List: `Left\|Right`). Psychoacoustic stereo Haas widener delaying L or R channel with appended tail fade-out.                                                                                                    |
 | [`multimode_filter.c`](../editor-fx-sdk/effects/multimode_filter.c) | `Multi-Mode Filter`  | `EFFECT \| STEREO`          | `0 B`       | `Mode` (List: `LPF 24dB\|LPF 12dB\|BPF 12dB\|HPF 12dB\|Notch\|Peak`), `Cutoff` (`40–16000 Hz`), `Reso` (`0–95 %`), `Drive` (List: `Clean\|SoftSat\|WarmTube\|HardClip\|Foldback`). Zero-delay feedback Cytomic SVF filter.                                      |
@@ -204,7 +206,7 @@ int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples
 | Flag | Constant | Behavior |
 | :--- | :--- | :--- |
 | `EFFECT` | `PTFX_FLAG_EFFECT` (`0x0000`) | Standard audio effect transforming `in` to `out` across the selected sample range (plus optional prepended/appended samples via `set_extra_samples`). Disabled on empty sample slots. |
-| `GENERATOR` | `PTFX_FLAG_GENERATOR` (`0x0001`) | Audio generator/synthesizer. Can run on empty instrument slots (`in` is `NULL`), produces up to `88,200` samples (`2.0 s`, or stops early if `plugin_process_block` returns `<= 0`), activates inactive instruments upon apply, and names them `"Gen XX"`. |
+| `GENERATOR` | `PTFX_FLAG_GENERATOR` (`0x0001`) | Audio generator/synthesizer. Can run on empty instrument slots (`in` is `NULL`), produces `88,200` samples (`2.0 s`) by default, or the length it asks for with `set_extra_samples(0, n)` from `plugin_set_param()`, and stops early if `plugin_process_block` returns `<= 0`, activates inactive instruments upon apply, and names them `"Gen XX"`. |
 | `STEREO` | `PTFX_FLAG_STEREO` (`0x0002`) | Processes independent Left/Right channels when `channels == 2` on Tracker+ / Tracker Mini. On Original Tracker (`MK66`), `channels` is always `1`. |
 | `WAVETABLE` | `PTFX_FLAG_WAVETABLE` (`0x0004`) | Automatically sets `instrument.playMode = playModeWavetable` when committed. |
 | `CONVERT_TO_MONO` | `PTFX_FLAG_CONVERT_TO_MONO` (`0x0008`) | Signals `cSampleEditor::isCurrentSampleStereo()` on IMX platforms to export only the Left channel (`memoryAddressR = memoryAddressL`) when saving back to project sample memory, reclaiming 50% sample RAM. |
@@ -373,7 +375,7 @@ for (uint8_t ch = 0; ch < channels; ch++) {
 
 ### 7.4 Pattern C: Sample & Wavetable Generators (`PTFX_FLAG_GENERATOR`)
 Generators synthesize audio from scratch (`in` is `NULL`) and can run even when an instrument slot is completely empty:
-- Maximum generation window is `88,200` samples (`2.0 seconds` at `44.1 kHz`).
+- The default generation window is `88,200` samples (`2.0 seconds` at `44.1 kHz`). To render longer, call `host->set_extra_samples(0, n)` from `plugin_set_param()`; the firmware calls every `plugin_set_param()` after `plugin_init()` and before rendering, then uses `n` as the length. Keep it within the Sample Editor's edit buffer (`EDIT_BUFF_SIZE`, `core/source/mtStructs.h`): the host doesn't clamp the length for you. A 24-step loop at 60 BPM is 6 s (264,600 samples), well inside it. [`drum_loop_gen.c`](../editor-fx-sdk/effects/drum_loop_gen.c) sizes its output this way.
 - To generate a shorter sample (such as a `300 ms` drum hit or a single-cycle oscillator waveform of `689` samples), stop generating once your target sample count is reached and return `0` on the next call (or return the exact remaining sample count `< samples` and `0` thereafter).
 - When `plugin_process_block()` finishes early, the firmware automatically trims `processed[ch].selection.length` and `processed[ch].area.length` to the exact number of samples generated.
 - Write identical samples to all `channels` (`for (uint8_t c = 0; c < channels; c++) out[c][i] = pcm;`) so stereo instruments on Tracker+ / Tracker Mini receive both Left and Right channels.
