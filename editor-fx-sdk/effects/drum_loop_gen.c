@@ -10,6 +10,11 @@
 // generated: each hit takes the machine character of the moment it lands, so a loop can start as
 // a CR-78 and finish as a 909.
 //
+// APHX is drill-and-bass editing: ratcheted rolls (2-4 retriggers inside a step, often climbing in
+// pitch), hits re-pitched like a sampler, sample-rate and bit crushed snares and claps, and loose
+// timing. 0 leaves the pattern untouched; 100 tears it up. Like everything else it comes from
+// Seed, so Preview and Apply match.
+//
 // Workflow: set Style and Density, press Preview, then turn Seed one click and Preview again
 // to hear another pattern. Apply renders exactly what you last previewed, because the pattern
 // comes only from the parameters (Seed included), never from the host's rand().
@@ -23,7 +28,7 @@
 
 #define MAX_STEPS 24
 #define VOICES 5
-#define MAX_HITS (MAX_STEPS * VOICES)
+#define MAX_HITS 256 // room for APHX ratchets on top of up to 5 voices per step
 #define TWO_PI 6.28318530718f
 
 enum { V_KICK, V_SNARE, V_CLAP, V_HAT, V_OPEN };
@@ -34,7 +39,7 @@ const PluginParam PLUGIN_PARAMS[] = {
     PTFX_PARAM_INT("Seed", 1.0f, 9999.0f, 1.0f, 1.0f, ""),
     PTFX_PARAM_LIST("Style", 0, "Four|Break|Electro|Sparse"),
     PTFX_PARAM_FLOAT("Density", 0.0f, 1.0f, 0.5f, 0.05f, ""),
-    PTFX_PARAM_INT("Swing", 0.0f, 60.0f, 0.0f, 1.0f, "%"),
+    PTFX_PARAM_INT("APHX", 0.0f, 100.0f, 0.0f, 1.0f, ""),
     PTFX_PARAM_FLOAT("Tone", 0.0f, 1.0f, 0.5f, 0.05f, ""),
     PTFX_PARAM_FLOAT("Decay", 0.0f, 1.0f, 0.5f, 0.05f, ""),
     PTFX_PARAM_FLOAT("Hats", 0.0f, 1.0f, 0.5f, 0.05f, ""),
@@ -50,7 +55,7 @@ static int s_bpm = 120;
 static uint32_t s_seed = 1;
 static int s_style = 0;
 static float s_density = 0.5f;
-static float s_swing = 0.0f;
+static float s_aphx = 0.0f; // 0..1; took Swing's control slot and loosens timing itself
 static float s_tone = 0.5f;
 static float s_decay = 0.5f;
 static float s_hats = 0.5f;
@@ -65,6 +70,9 @@ typedef struct {
     float vel;      // 0..1
     uint32_t salt;  // per-hit noise seed
     float machine;  // machine blend where this hit lands (Morph moves it across the loop)
+    float ratio;    // APHX re-pitch: plays the voice faster or slower, like a sampler (1 = off)
+    uint32_t hold;  // APHX sample-rate crush: hold each value this many samples (1 = off)
+    float levels;   // APHX bit crush: quantisation levels (0 = off)
 } Hit;
 
 static Hit s_hits[MAX_HITS];
@@ -88,6 +96,17 @@ static uint32_t rng_next(void) {
 }
 
 static float rng_unit(void) { return (float)(rng_next() >> 8) * (1.0f / 16777216.0f); }
+
+// APHX has its own stream, so turning it up edits the same beat rather than re-rolling it.
+static uint32_t s_aphx_rng = 1;
+static float aphx_unit(void) {
+    uint32_t x = s_aphx_rng;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    s_aphx_rng = x;
+    return (float)(x >> 8) * (1.0f / 16777216.0f);
+}
 
 // Stateless white noise in -1..1 for sample n of a hit, so a voice needs no running state.
 static float noise_at(uint32_t n, uint32_t salt) {
@@ -120,16 +139,55 @@ static float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi 
 
 static float step_seconds(void) { return 60.0f / (float)s_bpm / 4.0f; }
 
-static void add_hit(uint32_t start, uint8_t voice, float vel) {
+static void add_hit_salted(uint32_t start, uint8_t voice, float vel, uint32_t salt) {
     if (s_hit_count >= MAX_HITS) return;
     s_hits[s_hit_count].start = start;
     s_hits[s_hit_count].voice = voice;
     s_hits[s_hit_count].vel = clampf(vel, 0.0f, 1.0f);
-    s_hits[s_hit_count].salt = rng_next();
+    s_hits[s_hit_count].salt = salt;
     // Each hit keeps the character of the moment it lands, so tails never change mid-sound.
     const float pos = s_loop_len ? (float)start / (float)s_loop_len : 0.0f;
     s_hits[s_hit_count].machine = clampf(s_machine + s_morph * pos, 0.0f, 1.0f);
+    s_hits[s_hit_count].ratio = 1.0f;
+    s_hits[s_hit_count].hold = 1;
+    s_hits[s_hit_count].levels = 0.0f;
     s_hit_count++;
+}
+
+static void add_hit(uint32_t start, uint8_t voice, float vel) { add_hit_salted(start, voice, vel, rng_next()); }
+
+// APHX on the hit just added. Only draws random numbers when APHX is on, so APHX 0 renders
+// exactly what it did before the control existed.
+static void aphx_hit(float climb) {
+    if (s_aphx <= 0.0f || s_hit_count == 0) return;
+    Hit* h = &s_hits[s_hit_count - 1];
+    const float a = s_aphx, a2 = s_aphx * s_aphx;
+    // Re-pitch up to an octave either way at full, plus any climb from a roll.
+    const float semis = (aphx_unit() * 2.0f - 1.0f) * a2 * 12.0f + climb;
+    h->ratio = s_host->powf(2.0f, semis / 12.0f);
+    // Crush snares and claps hardest; hats and kicks a little.
+    const float crush = (h->voice == V_SNARE || h->voice == V_CLAP) ? 1.0f : 0.35f;
+    if (aphx_unit() < a * crush) {
+        h->hold = 1u + (uint32_t)(a2 * 20.0f * aphx_unit());
+        h->levels = s_host->powf(2.0f, 15.0f - a2 * 11.0f * aphx_unit());
+    }
+}
+
+// Add a hit, then with APHX maybe turn it into a ratcheted roll inside its step.
+static void add_hit_aphx(uint32_t start, uint8_t voice, float vel, float step_len) {
+    add_hit(start, voice, vel);
+    aphx_hit(0.0f);
+    if (s_aphx <= 0.0f || voice == V_OPEN) return;
+    const float chance = s_aphx * (voice == V_SNARE ? 0.6f : voice == V_KICK ? 0.25f : 0.4f);
+    if (aphx_unit() >= chance) return;
+    const int repeats = 2 + (int)(aphx_unit() * 3.0f) % 3;
+    const float gap = step_len / (float)repeats;
+    const float climb = (aphx_unit() < 0.6f) ? 1.5f + 3.0f * aphx_unit() : 0.0f; // rolls often rise
+    for (int r = 1; r < repeats; r++) {
+        const uint32_t salt = (uint32_t)(aphx_unit() * 4294967040.0f);
+        add_hit_salted(start + (uint32_t)(gap * (float)r), voice, vel * (0.6f + 0.4f * (float)r / (float)repeats), salt);
+        aphx_hit(climb * (float)r);
+    }
 }
 
 static void build_pattern(void) {
@@ -139,34 +197,36 @@ static void build_pattern(void) {
     s_hit_count = 0;
     s_rng = (s_seed * 2654435761u) ^ (uint32_t)(s_style * 40503 + 1);
     if (s_rng == 0) s_rng = 1;
+    s_aphx_rng = (s_seed * 0x9E3779B1u) ^ 0x51ED27u;
+    if (s_aphx_rng == 0) s_aphx_rng = 1;
 
     // Density shifts every chance up or down by up to 40 points.
     const float bias = (s_density - 0.5f) * 80.0f;
 
     for (int i = 0; i < s_steps; i++) {
         const int b = i % 16;
-        // Swing delays the off 16ths (2nd and 4th of each beat).
         float t = step_len * (float)i;
-        if (i & 1) t += step_len * (s_swing / 100.0f) * 0.5f;
-        const uint32_t start = (uint32_t)t;
+        // APHX loosens the timing: off-beats push and pull by up to an eighth of a step.
+        if (s_aphx > 0.0f && (i & 1)) t += step_len * s_aphx * 0.125f * (aphx_unit() * 2.0f - 1.0f);
+        const uint32_t start = t > 0.0f ? (uint32_t)t : 0u;
         const float accent = (b % 4 == 0) ? 1.0f : 0.8f;
 
         if (rng_unit() * 100.0f < clampf((float)KICK_P[s_style][b] + (b ? bias : 0.0f), 0.0f, 100.0f))
-            add_hit(start, V_KICK, accent * (0.85f + 0.15f * rng_unit()));
+            add_hit_aphx(start, V_KICK, accent * (0.85f + 0.15f * rng_unit()), step_len);
 
         const float sn = (float)SNARE_P[s_style][b];
         if (rng_unit() * 100.0f < clampf(sn + (sn >= 90.0f ? 0.0f : bias * 0.5f), 0.0f, 100.0f)) {
             // Backbeats are full; the rest are quieter ghost notes.
             const float vel = sn >= 90.0f ? 1.0f : 0.35f + 0.25f * rng_unit();
-            add_hit(start, V_SNARE, vel);
-            if (sn >= 90.0f && rng_unit() < 0.35f + s_density * 0.3f) add_hit(start, V_CLAP, 0.8f);
+            add_hit_aphx(start, V_SNARE, vel, step_len);
+            if (sn >= 90.0f && rng_unit() < 0.35f + s_density * 0.3f) add_hit_aphx(start, V_CLAP, 0.8f, step_len);
         }
 
         // Hats: 8ths always eligible, 16ths only as density and Hats rise.
         const float hat_chance = (b % 2 == 0) ? 70.0f + s_hats * 30.0f : (s_hats * 70.0f + bias * 0.5f);
         if (s_hats > 0.0f && rng_unit() * 100.0f < clampf(hat_chance, 0.0f, 100.0f)) {
             const int open = (b % 4 == 2) && rng_unit() < 0.15f + s_hats * 0.35f;
-            add_hit(start, open ? V_OPEN : V_HAT, ((b % 2) ? 0.55f : 0.8f) * (0.8f + 0.2f * rng_unit()));
+            add_hit_aphx(start, open ? V_OPEN : V_HAT, ((b % 2) ? 0.55f : 0.8f) * (0.8f + 0.2f * rng_unit()), step_len);
         }
     }
     s_dirty = 0;
@@ -269,7 +329,7 @@ void plugin_set_param(uint8_t index, float value) {
         case 2: s_seed = (uint32_t)clampf(value + 0.5f, 1.0f, 9999.0f); break;
         case 3: s_style = (int)clampf(value + 0.5f, 0.0f, 3.0f); break;
         case 4: s_density = clampf(value, 0.0f, 1.0f); break;
-        case 5: s_swing = clampf(value, 0.0f, 60.0f); break;
+        case 5: s_aphx = clampf(value, 0.0f, 100.0f) * 0.01f; break;
         case 6: s_tone = clampf(value, 0.0f, 1.0f); break;
         case 7: s_decay = clampf(value, 0.0f, 1.0f); break;
         case 8: s_hats = clampf(value, 0.0f, 1.0f); break;
@@ -304,9 +364,12 @@ int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples
         for (int h = 0; h < s_hit_count; h++) {
             const Hit* hit = &s_hits[h];
             // Time since the hit, wrapping so the previous pass's tails continue into this one.
-            const uint32_t d = n >= hit->start ? n - hit->start : n + s_loop_len - hit->start;
+            uint32_t d = n >= hit->start ? n - hit->start : n + s_loop_len - hit->start;
+            if ((float)d * inv_sr > 1.5f) continue;
+            // APHX: play the hit faster or slower (re-pitch), then hold values (sample-rate crush).
+            if (hit->ratio != 1.0f) d = (uint32_t)((float)d * hit->ratio);
+            if (hit->hold > 1u) d -= d % hit->hold;
             const float t = (float)d * inv_sr;
-            if (t > 1.5f) continue;
             float v;
             s_cur_machine = hit->machine;
             switch (hit->voice) {
@@ -316,6 +379,7 @@ int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples
                 case V_HAT: v = voice_hat(t, d, hit->salt, 0); break;
                 default: v = voice_hat(t, d, hit->salt, 1); break;
             }
+            if (hit->levels > 0.0f) v = (float)(int32_t)(v * hit->levels) / hit->levels; // bit crush
             mix += v * hit->vel;
         }
         // Soft clip: tanh keeps peaks musical as Drive pushes the mix harder.

@@ -10,8 +10,9 @@ compiler (AddressSanitizer, UBSan, `-Werror`), drives it the way `mtEffectModula
 - Machine blends continuously (0 = CR-78, 50 = 808, 100 = 909): each point is audible and
   different, and one step of the control is a small change;
 - Morph sweeps the machine across the loop, starting at Machine and ending nearer its target;
+- APHX off changes nothing, 30 is a lighter edit than 100, and neither changes the length;
 - one golden hash per style, so any change to the sound is deliberate (`make print-goldens`, then
   update `goldens.mk`).
 
-It also writes `build/style0..3.wav` and `build/machine-*.wav` and `build/morph-cr78-to-909.wav` to listen to. It doesn't run the ARM build or the real
+It also writes `build/style0..3.wav` and `build/machine-*.wav` `build/morph-cr78-to-909.wav` and `build/aphx-0.wav` / `aphx-30.wav` / `aphx-100.wav` to listen to. It doesn't run the ARM build or the real
 Sample Editor; that's a hardware check.

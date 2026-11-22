@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 
     // 2. Preview and Apply render the same audio: two renders with the same params match.
     {
-        Params p = defaults(); p.v[2] = 42; p.v[3] = 1; p.v[5] = 25;
+        Params p = defaults(); p.v[2] = 42; p.v[3] = 1; p.v[5] = 60;
         uint32_t n1, n2; int16_t* a = render(p, &n1); int16_t* b = render(p, &n2);
         CHECK(n1 == n2 && memcmp(a, b, n1 * 2) == 0, "same params rendered different audio");
         free(a); free(b);
@@ -185,6 +185,25 @@ int main(int argc, char** argv) {
         CHECK(n2 == n && memcmp(again, m, n * 2) == 0, "morph render isn't repeatable");
         write_wav("build/morph-cr78-to-909.wav", m, n);
         free(m); free(cr); free(tr); free(again);
+    }
+
+    // 5c. APHX: off changes nothing (the goldens below predate it), 30 is a lighter edit than 100,
+    //     the loop stays the same length, and it's repeatable.
+    {
+        Params p = defaults(); p.v[2] = 11; p.v[3] = 1;
+        uint32_t n0, n1, n2, n3; int16_t* clean = render(p, &n0);
+        p.v[5] = 30; int16_t* light = render(p, &n1);
+        p.v[5] = 100; int16_t* heavy = render(p, &n2);
+        int16_t* again = render(p, &n3);
+        CHECK(n0 == n1 && n1 == n2, "APHX changed the loop length");
+        CHECK(memcmp(clean, light, n0 * 2) != 0, "APHX 30 changes nothing");
+        const double d_light = env_diff(clean, light, 0, n0), d_heavy = env_diff(clean, heavy, 0, n0);
+        CHECK(d_heavy > d_light, "APHX 100 (%.3f) isn't stronger than 30 (%.3f)", d_heavy, d_light);
+        CHECK(memcmp(heavy, again, n2 * 2) == 0, "APHX render isn't repeatable");
+        write_wav("build/aphx-0.wav", clean, n0);
+        write_wav("build/aphx-30.wav", light, n1);
+        write_wav("build/aphx-100.wav", heavy, n2);
+        free(clean); free(light); free(heavy); free(again);
     }
 
     // 6. Goldens: one hash per style, so any change to the sound is deliberate.
