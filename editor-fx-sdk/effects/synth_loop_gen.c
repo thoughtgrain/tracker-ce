@@ -34,6 +34,7 @@
 #define PARTIALS 8
 #define CHORUS_LEN 2048 // floats, in scratch: about 46 ms at 44.1 kHz
 #define CTRL_RATE 32    // filter coefficients are updated every 32 samples
+#define TAIL_PASSES 3   // a release can carry over at most this many loops (6 s loops: 18 s)
 
 enum { MODE_SEQ, MODE_ARP, MODE_SUSTAIN, MODE_DRONE };
 enum { CH_OFF, CH_TRIAD, CH_7TH, CH_SUS, CH_POWER, CH_OCTAVE };
@@ -487,7 +488,36 @@ static uint32_t s_pos = 0;
 static int s_next_note = 0;
 static int s_dirty = 1;
 static uint32_t s_chorus_w = 0;
-static float s_chorus_lfo = 0.0f;
+static float s_chorus_rate = 0.0f; // chorus sweeps per sample: a whole number of sweeps per loop
+
+// One output sample at loop position n, before the soft clip. Starts any notes due at n.
+static float render_sample(uint32_t n) {
+    const float sr = (float)s_host->sample_rate;
+    while (s_next_note < s_note_count && s_notes[s_next_note].start <= n) {
+        voice_start(alloc_voice(), &s_notes[s_next_note], 0xA5A5u + (uint32_t)s_next_note * 977u);
+        s_next_note++;
+    }
+    float mix = 0.0f;
+    for (int k = 0; k < MAX_VOICES; k++)
+        if (s_voices[k].active) mix += voice_tick(&s_voices[k]);
+
+    // Mono chorus: a slowly swept 5-9 ms delay mixed back in, the Juno's signature width.
+    if (s_chorus && s_sp.chorus > 0.0f) {
+        s_chorus[s_chorus_w] = mix;
+        // The sweep's phase comes from the loop position and fits the loop a whole number of
+        // times, so the end of one pass and the start of the next line up.
+        const float lfo = (float)n * s_chorus_rate;
+        const float delay = (0.007f + 0.002f * sin01(lfo - (float)(int)lfo)) * sr;
+        float rp = (float)s_chorus_w - delay;
+        if (rp < 0.0f) rp += (float)CHORUS_LEN;
+        const uint32_t i0 = (uint32_t)rp;
+        const float fr = rp - (float)i0;
+        const float wet = s_chorus[i0 % CHORUS_LEN] * (1.0f - fr) + s_chorus[(i0 + 1) % CHORUS_LEN] * fr;
+        s_chorus_w = (s_chorus_w + 1) % CHORUS_LEN;
+        mix = mix * (1.0f - 0.5f * s_sp.chorus) + wet * s_sp.chorus;
+    }
+    return mix;
+}
 
 static void start_render(void) {
     build_pattern();
@@ -495,18 +525,37 @@ static void start_render(void) {
     for (int i = 0; i < MAX_VOICES; i++) s_voices[i].active = 0;
     if (s_chorus) for (int i = 0; i < CHORUS_LEN; i++) s_chorus[i] = 0.0f;
     s_chorus_w = 0;
-    s_chorus_lfo = 0.0f;
-    s_next_note = 0;
-
-    // Carry the end of the loop into its start: run every note forward to the loop's end
-    // silently, and keep the ones still sounding. They play as the "previous pass".
-    for (int i = 0; i < s_note_count; i++) {
-        Voice* v = alloc_voice();
-        voice_start(v, &s_notes[i], 0xA5A5u + (uint32_t)i * 977u);
-        const uint32_t run = s_loop_len - s_notes[i].start;
-        for (uint32_t k = 0; k < run && v->active; k++) voice_tick(v);
+    {
+        // About 0.5 Hz, rounded to a whole number of sweeps per loop.
+        const float cycles = (float)(int)((float)s_loop_len * 0.5f / (float)s_host->sample_rate + 0.5f);
+        s_chorus_rate = (cycles < 1.0f ? 1.0f : cycles) / (float)s_loop_len;
     }
-    // The notes are generated in time order, except chords and drones that share a start.
+
+    // Carry the end of the loop into its start, so the loop repeats seamlessly. What continuous
+    // playback would be hearing at the loop point is rebuilt exactly:
+    //  1. every note from earlier passes is run forward silently to the last CHORUS_LEN samples
+    //     of the previous pass. Long releases (Sustain, Drone) can outlast a whole loop, so
+    //     copies from up to TAIL_PASSES passes back are kept while they're still audible;
+    //  2. those last samples are rendered in full (new notes, voices and chorus) without output.
+    // Everything still sounding, and the chorus delay, then carries on into the real pass.
+    const uint32_t tail_from = s_loop_len > CHORUS_LEN ? s_loop_len - CHORUS_LEN : 0;
+    for (uint32_t back = 1; back <= TAIL_PASSES; back++) {
+        for (int i = 0; i < s_note_count; i++) {
+            // How long this copy of the note has been playing when the previous pass reaches
+            // tail_from. Copies that haven't started by then are the ones step 2 plays.
+            const uint32_t start = s_notes[i].start;
+            if (back == 1 && start >= tail_from) continue;
+            const uint32_t run = tail_from + (back - 1u) * s_loop_len - start;
+            Voice* v = alloc_voice();
+            voice_start(v, &s_notes[i], 0xA5A5u + (uint32_t)i * 977u);
+            for (uint32_t k = 0; k < run && v->active; k++) voice_tick(v);
+        }
+    }
+    s_next_note = 0;
+    while (s_next_note < s_note_count && s_notes[s_next_note].start < tail_from) s_next_note++;
+    for (uint32_t n = tail_from; n < s_loop_len; n++) (void)render_sample(n);
+
+    s_next_note = 0;
     s_dirty = 0;
 }
 
@@ -546,35 +595,11 @@ int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples
     if (s_dirty) start_render();
     if (s_pos >= s_loop_len) return 0;
 
-    const float sr = (float)s_host->sample_rate;
     uint32_t todo = samples;
     if (todo > s_loop_len - s_pos) todo = s_loop_len - s_pos;
 
     for (uint32_t i = 0; i < todo; i++) {
-        const uint32_t n = s_pos + i;
-        while (s_next_note < s_note_count && s_notes[s_next_note].start <= n) {
-            voice_start(alloc_voice(), &s_notes[s_next_note], 0xA5A5u + (uint32_t)s_next_note * 977u);
-            s_next_note++;
-        }
-        float mix = 0.0f;
-        for (int k = 0; k < MAX_VOICES; k++)
-            if (s_voices[k].active) mix += voice_tick(&s_voices[k]);
-
-        // Mono chorus: a slowly swept 5-9 ms delay mixed back in, the Juno's signature width.
-        if (s_chorus && s_sp.chorus > 0.0f) {
-            s_chorus[s_chorus_w] = mix;
-            s_chorus_lfo += 0.5f / sr;
-            if (s_chorus_lfo >= 1.0f) s_chorus_lfo -= 1.0f;
-            const float delay = (0.007f + 0.002f * sin01(s_chorus_lfo)) * sr;
-            float rp = (float)s_chorus_w - delay;
-            if (rp < 0.0f) rp += (float)CHORUS_LEN;
-            const uint32_t i0 = (uint32_t)rp;
-            const float fr = rp - (float)i0;
-            const float wet = s_chorus[i0 % CHORUS_LEN] * (1.0f - fr) + s_chorus[(i0 + 1) % CHORUS_LEN] * fr;
-            s_chorus_w = (s_chorus_w + 1) % CHORUS_LEN;
-            mix = mix * (1.0f - 0.5f * s_sp.chorus) + wet * s_sp.chorus;
-        }
-
+        const float mix = render_sample(s_pos + i);
         const float y = s_host->tanhf(mix * 1.2f);
         const int16_t pcm = (int16_t)SATURATE_16BIT((int32_t)(y * 30000.0f));
         for (uint8_t ch = 0; ch < channels; ch++) out[ch][i] = pcm;
@@ -584,6 +609,18 @@ int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples
 }
 
 #ifdef PTFX_HOST_TEST
+// Test hook: after a full render, keep going into a second pass without resetting anything, the
+// way continuous playback would. If the carried-over tail is right, this matches the first pass.
+uint32_t synth_loop_gen_second_pass(int16_t* out) {
+    s_pos = 0;
+    s_next_note = 0;
+    for (uint32_t n = 0; n < s_loop_len; n++) {
+        const float y = s_host->tanhf(render_sample(n) * 1.2f);
+        out[n] = (int16_t)SATURATE_16BIT((int32_t)(y * 30000.0f));
+    }
+    return s_loop_len;
+}
+
 // Test hook: the notes the current parameters generate, so the host test can check keys and modes.
 int synth_loop_gen_notes(int* out_notes, int max) {
     build_pattern();

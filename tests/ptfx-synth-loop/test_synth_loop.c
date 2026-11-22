@@ -12,6 +12,7 @@ void plugin_init(void* scratch_mem, uint32_t scratch_size, const PtfxHostApi* ho
 void plugin_set_param(uint8_t index, float value);
 int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples, uint8_t channels);
 int synth_loop_gen_notes(int* out_notes, int max);
+uint32_t synth_loop_gen_second_pass(int16_t* out);
 
 enum { P_MODE, P_STYLE, P_STEPS, P_BPM, P_SEED, P_ROOT, P_SCALE, P_CHORDS, P_APHX, P_DENS, P_LEN, P_TONE };
 
@@ -197,6 +198,22 @@ int main(int argc, char** argv) {
         write_wav("build/aphx-100.wav", heavy, n);
         free(clean); free(light); free(heavy); free(again);
     }
+
+    // 5c. Seamless loop: carrying straight on into a second pass (as continuous playback would)
+    //     gives the same audio as the single render, so the loop's start already holds the right
+    //     tail of the end. Voices can sum in a different order, so allow 8 LSB (about -72 dB) of rounding.
+    for (int mode = 0; mode < 4; mode++)
+        for (int style = 0; style <= 100; style += 25) {
+            Params p = defaults(); p.v[P_MODE] = mode; p.v[P_STYLE] = style; p.v[P_CHORDS] = mode == 0 ? 0 : 1;
+            p.v[P_STEPS] = 24; p.v[P_BPM] = 80; p.v[P_SEED] = 4; p.v[P_LEN] = mode >= 2 ? 0.9f : 0.4f;
+            uint32_t n; int16_t* first = render(p, &n);
+            int16_t* second = calloc(n, sizeof(int16_t));
+            uint32_t n2 = synth_loop_gen_second_pass(second);
+            int worst = 0; uint32_t at = 0;
+            for (uint32_t i = 0; i < n && i < n2; i++) { int d = abs(first[i] - second[i]); if (d > worst) { worst = d; at = i; } }
+            CHECK(n2 == n && worst <= 8, "%s style %d: second pass differs by %d at sample %u", MODES[mode], style, worst, at);
+            free(first); free(second);
+        }
 
     // 6. Render cost, for a rough comparison between styles (host only, not the device).
     {

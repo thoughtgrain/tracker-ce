@@ -12,6 +12,8 @@ compiler (AddressSanitizer, UBSan, `-Werror`), drives it the way `mtEffectModula
 - Style blends continuously from SH-101 (0) through Juno (50) to piano (100), with one step of
   the control a small change next to the full range;
 - APHX off changes nothing, 25 is a subtle change, 100 a strong one, and it's repeatable;
+- the loop is seamless: carrying straight on into a second pass gives the same audio as the
+  single render (within rounding), for every mode at five Style values;
 - one golden hash per mode (`make print-goldens`, then update `goldens.mk`).
 
 It also prints a rough render time for the heaviest case and writes `build/style-*.wav` and
