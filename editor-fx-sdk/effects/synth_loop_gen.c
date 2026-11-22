@@ -14,6 +14,11 @@
 // Values in between mix the neighbours (below 50 the filter and envelopes move from SH-101 to
 // Juno; above 50 the Juno crossfades into the piano).
 //
+// APHX gives every note its own fixed drift, the same each time that key plays: tuning (a few
+// cents at 25, semitones apart at 100), filter brightness, piano stretch, and a per-note
+// sample-rate and bit crush. Low settings are old-synth character; high ones are broken and
+// crushed. Notes are generated in octave 3, with Root setting the key.
+//
 // Workflow: pick Mode, Root, Scale and Chords, press Preview, then turn Seed one click and Preview
 // again for another phrase. Apply renders exactly the last Preview: everything comes from the
 // parameters, never from the host's rand().
@@ -42,7 +47,7 @@ const PluginParam PLUGIN_PARAMS[] = {
     PTFX_PARAM_LIST("Root", 0, "C|C#|D|D#|E|F|F#|G|G#|A|A#|B"),
     PTFX_PARAM_LIST("Scale", 1, "Major|Minor|Dorian|Phryg|Lydian|Mixolyd|PentMaj|PentMin|Blues|Chromat"),
     PTFX_PARAM_LIST("Chords", 0, "Off|Triad|7th|Sus|Power|Octave"),
-    PTFX_PARAM_INT("Octave", 1.0f, 6.0f, 3.0f, 1.0f, ""),
+    PTFX_PARAM_INT("APHX", 0.0f, 100.0f, 0.0f, 1.0f, ""),
     PTFX_PARAM_FLOAT("Density", 0.0f, 1.0f, 0.6f, 0.05f, ""),
     PTFX_PARAM_FLOAT("Length", 0.0f, 1.0f, 0.4f, 0.05f, ""),
     PTFX_PARAM_FLOAT("Tone", 0.0f, 1.0f, 0.5f, 0.05f, ""),
@@ -59,7 +64,8 @@ static uint32_t s_seed = 1;
 static int s_root = 0;
 static int s_scale = 1;
 static int s_chords = CH_OFF;
-static int s_octave = 3;
+static const int s_octave = 3; // APHX took Octave's control slot; Root still sets the key
+static float s_aphx = 0.0f;
 static float s_density = 0.6f;
 static float s_length = 0.4f;
 static float s_tone = 0.5f;
@@ -320,6 +326,11 @@ typedef struct {
     // piano
     float pph[PARTIALS], pinc[PARTIALS], pamp[PARTIALS], pdec[PARTIALS];
     float damp;               // damper after release
+    // APHX: this key's drift
+    float cut_mult;           // filter cutoff multiplier
+    uint32_t hold;            // sample-rate crush: hold each output for this many samples (1 = off)
+    float levels;             // bit crush: quantisation levels (0 = off)
+    float held;               // last held output
 } Voice;
 
 static Voice s_voices[MAX_VOICES];
@@ -337,13 +348,28 @@ static Voice* alloc_voice(void) {
     return best;
 }
 
+// A fixed value in -1..1 for this key and seed: APHX drift is the same every time a key plays.
+static float key_drift(int note, uint32_t which) {
+    return noise_at((uint32_t)note * 131u + which, s_seed * 0x2545F491u);
+}
+
 static void voice_start(Voice* v, const Note* n, uint32_t salt) {
     const float sr = (float)s_host->sample_rate;
+    const float a = s_aphx, a2 = s_aphx * s_aphx;
     v->active = 1;
     v->released = 0;
     v->age = 0;
     v->gate = n->gate;
-    v->freq = note_freq(n->note);
+    // APHX tuning: up to +-3 semitones at full, a few cents at 25 (it grows with the square).
+    v->freq = note_freq(n->note) * (a > 0.0f ? s_host->powf(2.0f, key_drift(n->note, 1) * a2 * 3.0f / 12.0f) : 1.0f);
+    v->cut_mult = a > 0.0f ? s_host->powf(2.0f, key_drift(n->note, 2) * a * 2.0f) : 1.0f;
+    {
+        const float h = 0.5f + 0.5f * key_drift(n->note, 3);
+        v->hold = 1u + (uint32_t)(a2 * h * 24.0f);
+        const float bits = 16.0f - a2 * (0.5f + 0.5f * key_drift(n->note, 4)) * 12.0f;
+        v->levels = a > 0.0f ? s_host->powf(2.0f, bits - 1.0f) : 0.0f;
+    }
+    v->held = 0.0f;
     v->vel = n->vel;
     v->salt = salt;
     v->ph_saw = 0.0f;
@@ -361,7 +387,8 @@ static void voice_start(Voice* v, const Note* n, uint32_t salt) {
     const float t0 = clampf(3.0f - (float)(n->note - 48) * 0.04f, 0.6f, 4.0f);
     for (int k = 0; k < PARTIALS; k++) {
         const float kk = (float)(k + 1);
-        const float stretch = s_host->sqrtf(1.0f + 0.0004f * kk * kk);
+        const float inharm = 0.0004f * (1.0f + a2 * 40.0f * (0.5f + 0.5f * key_drift(n->note, 5)));
+        const float stretch = s_host->sqrtf(1.0f + inharm * kk * kk);
         const float f = v->freq * kk * stretch;
         v->pph[k] = 0.0f;
         v->pinc[k] = f < sr * 0.45f ? f / sr : 0.0f; // drop partials above Nyquist
@@ -391,7 +418,7 @@ static float voice_tick(Voice* v) {
         v->fenv *= 1.0f - 1.0f / (p->fdecay * sr);
 
         if ((v->age % CTRL_RATE) == 0) {
-            float fc = p->cutoff + p->env_mod * v->fenv * (0.5f + 0.5f * v->vel);
+            float fc = (p->cutoff + p->env_mod * v->fenv * (0.5f + 0.5f * v->vel)) * v->cut_mult;
             fc = clampf(fc, 30.0f, sr * 0.16f);
             v->f_coef = 2.0f * sin01(0.5f * fc / sr); // 2 sin(pi fc / sr)
             v->q_coef = 2.0f * (1.0f - p->res * 0.97f);
@@ -439,6 +466,13 @@ static float voice_tick(Voice* v) {
 
     v->age++;
     out *= v->vel;
+
+    // APHX crush: hold the output for a few samples (lower sample rate) and drop bits.
+    if (v->hold > 1u) {
+        if ((v->age % v->hold) == 1u) v->held = out;
+        out = v->held;
+    }
+    if (v->levels > 0.0f) out = (float)(int32_t)(out * v->levels) / v->levels;
 
     // A voice is finished once both parts are inaudible.
     const int sub_done = sub_w <= 0.0f || (v->released && v->env < 0.0002f);
@@ -493,7 +527,7 @@ void plugin_set_param(uint8_t index, float value) {
         case 5: s_root = (int)clampf(value + 0.5f, 0.0f, 11.0f); break;
         case 6: s_scale = (int)clampf(value + 0.5f, 0.0f, 9.0f); break;
         case 7: s_chords = (int)clampf(value + 0.5f, 0.0f, 5.0f); break;
-        case 8: s_octave = (int)clampf(value + 0.5f, 1.0f, 6.0f); break;
+        case 8: s_aphx = clampf(value, 0.0f, 100.0f) * 0.01f; break;
         case 9: s_density = clampf(value, 0.0f, 1.0f); break;
         case 10: s_length = clampf(value, 0.0f, 1.0f); break;
         case 11: s_tone = clampf(value, 0.0f, 1.0f); break;

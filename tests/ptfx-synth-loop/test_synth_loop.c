@@ -13,7 +13,7 @@ void plugin_set_param(uint8_t index, float value);
 int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples, uint8_t channels);
 int synth_loop_gen_notes(int* out_notes, int max);
 
-enum { P_MODE, P_STYLE, P_STEPS, P_BPM, P_SEED, P_ROOT, P_SCALE, P_CHORDS, P_OCT, P_DENS, P_LEN, P_TONE };
+enum { P_MODE, P_STYLE, P_STEPS, P_BPM, P_SEED, P_ROOT, P_SCALE, P_CHORDS, P_APHX, P_DENS, P_LEN, P_TONE };
 
 static uint32_t g_append = 0;
 static void set_extra(uint32_t pre, uint32_t app) { (void)pre; g_append = app; }
@@ -33,7 +33,7 @@ static void setup_host(void) {
 
 typedef struct { float v[12]; } Params;
 static Params defaults(void) {
-    Params p = { { 0, 50, 16, 120, 1, 0, 1, 0, 3, 0.6f, 0.4f, 0.5f } };
+    Params p = { { 0, 50, 16, 120, 1, 0, 1, 0, 0, 0.6f, 0.4f, 0.5f } };
     return p;
 }
 
@@ -179,6 +179,23 @@ int main(int argc, char** argv) {
         const double step = env_diff(a, b, n), range = env_diff(lo, hi, n);
         CHECK(step < range * 0.15, "style 50 -> 51 is not a small step (%.3f of %.3f)", step, range);
         free(lo); free(hi); free(a); free(b);
+    }
+
+    // 5b. APHX: off changes nothing (the goldens below were made before APHX existed), 25 is a
+    //     subtle change and 100 a strong one, and it's repeatable.
+    {
+        Params p = defaults(); p.v[P_SEED] = 9; p.v[P_STYLE] = 30;
+        uint32_t n; int16_t* clean = render(p, &n);
+        p.v[P_APHX] = 25; int16_t* light = render(p, &n);
+        p.v[P_APHX] = 100; int16_t* heavy = render(p, &n);
+        int16_t* again = render(p, &n);
+        const double d_light = env_diff(clean, light, n), d_heavy = env_diff(clean, heavy, n);
+        CHECK(memcmp(clean, light, n * 2) != 0, "APHX 25 changes nothing");
+        CHECK(d_heavy > d_light, "APHX 100 (%.3f) isn't stronger than 25 (%.3f)", d_heavy, d_light);
+        CHECK(memcmp(heavy, again, n * 2) == 0, "APHX render isn't repeatable");
+        write_wav("build/aphx-25.wav", light, n);
+        write_wav("build/aphx-100.wav", heavy, n);
+        free(clean); free(light); free(heavy); free(again);
     }
 
     // 6. Render cost, for a rough comparison between styles (host only, not the device).

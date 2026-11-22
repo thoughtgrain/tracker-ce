@@ -11,8 +11,9 @@ compiler (AddressSanitizer, UBSan, `-Werror`), drives it the way `mtEffectModula
 - chords change the sound, and every mode is audible without much clipping;
 - Style blends continuously from SH-101 (0) through Juno (50) to piano (100), with one step of
   the control a small change next to the full range;
+- APHX off changes nothing, 25 is a subtle change, 100 a strong one, and it's repeatable;
 - one golden hash per mode (`make print-goldens`, then update `goldens.mk`).
 
 It also prints a rough render time for the heaviest case and writes `build/style-*.wav` and
-`build/mode-*.wav` to listen to. It doesn't run the ARM build or the Sample Editor, and the
+`build/mode-*.wav` and `build/aphx-25.wav` / `aphx-100.wav` to listen to. It doesn't run the ARM build or the Sample Editor, and the
 timings are this computer's, not a Tracker's.
