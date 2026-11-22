@@ -31,7 +31,7 @@ static void setup_host(void) {
 typedef struct { float v[12]; } Params;
 
 static Params defaults(void) {
-    Params p = { { 16, 120, 1, 0, 0.5f, 0, 0.5f, 0.5f, 0.5f, 0.2f, 4, 0 } };
+    Params p = { { 16, 120, 1, 0, 0.5f, 0, 0.5f, 0.5f, 0.5f, 0.2f, 100, 0 } };
     return p;
 }
 
@@ -70,6 +70,19 @@ static void write_wav(const char* path, const int16_t* b, uint32_t n) {
     fwrite(&fmt, 4, 1, f); fwrite(&pcm, 2, 1, f); fwrite(&ch, 2, 1, f); fwrite(&sr, 4, 1, f);
     fwrite(&br, 4, 1, f); fwrite(&ba, 2, 1, f); fwrite(&bits, 2, 1, f);
     fwrite("data", 1, 4, f); fwrite(&data, 4, 1, f); fwrite(b, 2, n, f); fclose(f);
+}
+
+// Mean absolute difference of 10 ms loudness envelopes over [from, to), relative to a's loudness.
+// Comparing envelopes rather than samples ignores tiny phase drift, which the ear doesn't hear.
+static double env_diff(const int16_t* a, const int16_t* b, uint32_t from, uint32_t to) {
+    const uint32_t win = 441;
+    double diff = 0, level = 0;
+    for (uint32_t w = from; w + win <= to; w += win) {
+        double ea = 0, eb = 0;
+        for (uint32_t i = w; i < w + win; i++) { ea += fabs((double)a[i]); eb += fabs((double)b[i]); }
+        diff += fabs(ea - eb); level += ea;
+    }
+    return level > 0 ? diff / level : 0;
 }
 
 static int failures = 0;
@@ -127,21 +140,51 @@ int main(int argc, char** argv) {
         free(a);
     }
 
-    // 5. Machine reshapes the sound: each of the five settings renders differently and audibly.
+    // 5. Machine is a continuous blend: CR-78 (0), 808 (50), 909 (100) and points between all
+    //    sound different and audible, and neighbouring values differ only a little.
     {
+        static const int values[5] = { 0, 25, 50, 75, 100 };
         static const char* names[5] = { "cr78", "cr78-808", "808", "808-909", "909" };
         int16_t* prev = NULL; uint32_t prev_n = 0;
         for (int m = 0; m < 5; m++) {
-            Params p = defaults(); p.v[2] = 7; p.v[10] = m;
+            Params p = defaults(); p.v[2] = 7; p.v[10] = values[m];
             uint32_t n; int16_t* a = render(p, &n);
             int peak = 0; for (uint32_t i = 0; i < n; i++) if (abs(a[i]) > peak) peak = abs(a[i]);
-            CHECK(peak > 6000, "machine %s is too quiet (peak %d)", names[m], peak);
-            if (prev) CHECK(n == prev_n && memcmp(a, prev, n * 2) != 0, "machine %s sounds the same as the one before", names[m]);
+            CHECK(peak > 6000, "machine %d is too quiet (peak %d)", values[m], peak);
+            if (prev) CHECK(n == prev_n && memcmp(a, prev, n * 2) != 0, "machine %d sounds the same as the one before", values[m]);
             char path[64]; snprintf(path, sizeof path, "build/machine-%s.wav", names[m]);
             write_wav(path, a, n);
             free(prev); prev = a; prev_n = n;
         }
         free(prev);
+
+        Params p = defaults(); p.v[2] = 7; p.v[10] = 50;
+        uint32_t n1, n2; int16_t* a = render(p, &n1); p.v[10] = 51; int16_t* b = render(p, &n2);
+        p.v[10] = 0; uint32_t nc; int16_t* lo = render(p, &nc);
+        p.v[10] = 100; uint32_t nt; int16_t* hi = render(p, &nt);
+        const double step = env_diff(a, b, 0, n1), range = env_diff(lo, hi, 0, nc);
+        CHECK(memcmp(a, b, n1 * 2) != 0 && step < range * 0.1,
+              "machine 50 -> 51 is not a small step (%.3f of a %.3f range)", step, range);
+        free(a); free(b); free(lo); free(hi);
+    }
+
+    // 5b. Morph sweeps the machine across the loop: CR-78 -> 909 sounds closest to a static CR-78
+    //     at the start and to a static 909 at the end, and stays repeatable. (Tails from the
+    //     loop's last hits wrap into its start, so the very first samples aren't pure CR-78.)
+    {
+        Params p = defaults(); p.v[2] = 7; p.v[10] = 0; p.v[11] = 100;
+        uint32_t n, n0, n1; int16_t* m = render(p, &n);
+        p.v[11] = 0; p.v[10] = 0; int16_t* cr = render(p, &n0);
+        p.v[10] = 100; int16_t* tr = render(p, &n1);
+        uint32_t q = n / 8;
+        const double head_cr = env_diff(cr, m, 0, q), head_909 = env_diff(tr, m, 0, q);
+        const double tail_cr = env_diff(cr, m, n - q, n), tail_909 = env_diff(tr, m, n - q, n);
+        CHECK(head_cr < head_909, "morph doesn't start nearer the CR-78 (%.3f vs %.3f)", head_cr, head_909);
+        CHECK(tail_909 < tail_cr, "morph doesn't end nearer the 909 (%.3f vs %.3f)", tail_909, tail_cr);
+        uint32_t n2; p.v[10] = 0; p.v[11] = 100; int16_t* again = render(p, &n2);
+        CHECK(n2 == n && memcmp(again, m, n * 2) == 0, "morph render isn't repeatable");
+        write_wav("build/morph-cr78-to-909.wav", m, n);
+        free(m); free(cr); free(tr); free(again);
     }
 
     // 6. Goldens: one hash per style, so any change to the sound is deliberate.

@@ -4,9 +4,11 @@
 // PTFX_SCRATCH: 0
 
 // Generates a 16-24 step drum loop (kick, snare, clap, closed and open hat) as one sample.
-// Machine moves every voice between three classic drum-machine characters: CR-78 (soft, short,
-// tonal), 808 (deep, booming, metallic hats) and 909 (punchy kick with a click, noisy snare,
-// sizzly hats), with the two blends in between.
+// Machine blends every voice continuously between three classic drum-machine characters:
+// 0 = CR-78 (soft, short, tonal), 50 = 808 (deep, booming, metallic hats), 100 = 909 (punchy kick
+// with a click, noisy snare, sizzly hats). Morph sweeps that blend across the loop as it's
+// generated: each hit takes the machine character of the moment it lands, so a loop can start as
+// a CR-78 and finish as a 909.
 //
 // Workflow: set Style and Density, press Preview, then turn Seed one click and Preview again
 // to hear another pattern. Apply renders exactly what you last previewed, because the pattern
@@ -37,7 +39,8 @@ const PluginParam PLUGIN_PARAMS[] = {
     PTFX_PARAM_FLOAT("Decay", 0.0f, 1.0f, 0.5f, 0.05f, ""),
     PTFX_PARAM_FLOAT("Hats", 0.0f, 1.0f, 0.5f, 0.05f, ""),
     PTFX_PARAM_FLOAT("Drive", 0.0f, 1.0f, 0.2f, 0.05f, ""),
-    PTFX_PARAM_LIST("Machine", 4, "CR-78|78/808|808|808/909|909"),
+    PTFX_PARAM_INT("Machine", 0.0f, 100.0f, 100.0f, 1.0f, ""),
+    PTFX_PARAM_INT("Morph", -100.0f, 100.0f, 0.0f, 1.0f, ""),
 };
 
 static const PtfxHostApi* s_host = 0;
@@ -52,13 +55,16 @@ static float s_tone = 0.5f;
 static float s_decay = 0.5f;
 static float s_hats = 0.5f;
 static float s_drive = 0.2f;
-static float s_machine = 1.0f; // 0 = CR-78, 0.5 = 808, 1 = 909
+static float s_machine = 1.0f;     // start of the loop: 0 = CR-78, 0.5 = 808, 1 = 909
+static float s_morph = 0.0f;       // how far Machine moves by the end of the loop (-1..1)
+static float s_cur_machine = 1.0f; // the machine of the hit being rendered
 
 typedef struct {
     uint32_t start; // sample offset of the hit inside the loop
     uint8_t voice;
     float vel;      // 0..1
     uint32_t salt;  // per-hit noise seed
+    float machine;  // machine blend where this hit lands (Morph moves it across the loop)
 } Hit;
 
 static Hit s_hits[MAX_HITS];
@@ -120,6 +126,9 @@ static void add_hit(uint32_t start, uint8_t voice, float vel) {
     s_hits[s_hit_count].voice = voice;
     s_hits[s_hit_count].vel = clampf(vel, 0.0f, 1.0f);
     s_hits[s_hit_count].salt = rng_next();
+    // Each hit keeps the character of the moment it lands, so tails never change mid-sound.
+    const float pos = s_loop_len ? (float)start / (float)s_loop_len : 0.0f;
+    s_hits[s_hit_count].machine = clampf(s_machine + s_morph * pos, 0.0f, 1.0f);
     s_hit_count++;
 }
 
@@ -167,9 +176,10 @@ static void build_pattern(void) {
 
 static float lerpf(float a, float b, float x) { return a + (b - a) * x; }
 
-// Value for the current Machine: a at CR-78, b at 808, c at 909, blended in between.
+// Value for the current hit's machine: a at CR-78, b at 808, c at 909, blended in between.
 static float by_machine(float a, float b, float c) {
-    return s_machine < 0.5f ? lerpf(a, b, s_machine * 2.0f) : lerpf(b, c, (s_machine - 0.5f) * 2.0f);
+    const float m = s_cur_machine;
+    return m < 0.5f ? lerpf(a, b, m * 2.0f) : lerpf(b, c, (m - 0.5f) * 2.0f);
 }
 
 static float frac(float x) { return x - (float)(int)x; }
@@ -264,7 +274,8 @@ void plugin_set_param(uint8_t index, float value) {
         case 7: s_decay = clampf(value, 0.0f, 1.0f); break;
         case 8: s_hats = clampf(value, 0.0f, 1.0f); break;
         case 9: s_drive = clampf(value, 0.0f, 1.0f); break;
-        case 10: s_machine = (float)(int)clampf(value + 0.5f, 0.0f, 4.0f) * 0.25f; break;
+        case 10: s_machine = clampf(value, 0.0f, 100.0f) * 0.01f; break;
+        case 11: s_morph = clampf(value, -100.0f, 100.0f) * 0.01f; break;
         default: return; // the host also calls this for unused slots
     }
     s_dirty = 1;
@@ -297,6 +308,7 @@ int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples
             const float t = (float)d * inv_sr;
             if (t > 1.5f) continue;
             float v;
+            s_cur_machine = hit->machine;
             switch (hit->voice) {
                 case V_KICK: v = voice_kick(t, d, hit->salt); break;
                 case V_SNARE: v = voice_snare(t, d, hit->salt); break;
