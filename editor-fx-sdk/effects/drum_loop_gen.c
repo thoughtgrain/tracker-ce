@@ -4,6 +4,9 @@
 // PTFX_SCRATCH: 0
 
 // Generates a 16-24 step drum loop (kick, snare, clap, closed and open hat) as one sample.
+// Machine moves every voice between three classic drum-machine characters: CR-78 (soft, short,
+// tonal), 808 (deep, booming, metallic hats) and 909 (punchy kick with a click, noisy snare,
+// sizzly hats), with the two blends in between.
 //
 // Workflow: set Style and Density, press Preview, then turn Seed one click and Preview again
 // to hear another pattern. Apply renders exactly what you last previewed, because the pattern
@@ -34,6 +37,7 @@ const PluginParam PLUGIN_PARAMS[] = {
     PTFX_PARAM_FLOAT("Decay", 0.0f, 1.0f, 0.5f, 0.05f, ""),
     PTFX_PARAM_FLOAT("Hats", 0.0f, 1.0f, 0.5f, 0.05f, ""),
     PTFX_PARAM_FLOAT("Drive", 0.0f, 1.0f, 0.2f, 0.05f, ""),
+    PTFX_PARAM_LIST("Machine", 4, "CR-78|78/808|808|808/909|909"),
 };
 
 static const PtfxHostApi* s_host = 0;
@@ -48,6 +52,7 @@ static float s_tone = 0.5f;
 static float s_decay = 0.5f;
 static float s_hats = 0.5f;
 static float s_drive = 0.2f;
+static float s_machine = 1.0f; // 0 = CR-78, 0.5 = 808, 1 = 909
 
 typedef struct {
     uint32_t start; // sample offset of the hit inside the loop
@@ -160,50 +165,81 @@ static void build_pattern(void) {
 
 // ---- Voices (closed form in t seconds since the hit) --------------------------------------
 
+static float lerpf(float a, float b, float x) { return a + (b - a) * x; }
+
+// Value for the current Machine: a at CR-78, b at 808, c at 909, blended in between.
+static float by_machine(float a, float b, float c) {
+    return s_machine < 0.5f ? lerpf(a, b, s_machine * 2.0f) : lerpf(b, c, (s_machine - 0.5f) * 2.0f);
+}
+
+static float frac(float x) { return x - (float)(int)x; }
+
 static float voice_kick(float t, uint32_t n, uint32_t salt) {
-    // Amplitude time constant: about 0.06 s (tight) to 0.24 s (boomy). Gone after six of them.
-    const float decay = 0.06f + s_decay * 0.18f;
+    // CR-78: short and high with little sweep. 808: long, low boom. 909: big fast sweep + click.
+    const float decay = (0.06f + s_decay * 0.18f) * by_machine(0.45f, 1.7f, 0.9f);
     if (t > decay * 6.0f) return 0.0f;
-    const float f_end = 40.0f + s_tone * 25.0f;
-    const float f_top = f_end + 110.0f + s_tone * 80.0f;
-    const float tau = 0.035f;
+    const float f_end = by_machine(72.0f, 48.0f, 54.0f) * (0.8f + s_tone * 0.4f);
+    const float f_top = f_end + by_machine(25.0f, 45.0f, 230.0f) * (0.7f + s_tone * 0.6f);
+    const float tau = by_machine(0.02f, 0.03f, 0.014f);
     // Phase of an exponential pitch sweep, integrated exactly so no running phase is needed.
     const float e = s_host->expf(-t / tau);
     const float phase = TWO_PI * (f_end * t + (f_top - f_end) * tau * (1.0f - e));
-    float out = s_host->sinf(phase) * s_host->expf(-t / decay);
-    if (t < 0.004f) out += noise_at(n, salt) * 0.4f * (1.0f - t / 0.004f);
+    // A soft 2 ms attack takes the edge off the CR-78; the 909 keeps a hard start.
+    const float attack_ms = by_machine(2.0f, 0.5f, 0.0f) * 0.001f;
+    const float attack = (attack_ms > 0.0f && t < attack_ms) ? t / attack_ms : 1.0f;
+    float out = s_host->sinf(phase) * s_host->expf(-t / decay) * attack;
+    const float click = by_machine(0.0f, 0.1f, 0.6f);
+    if (click > 0.0f && t < 0.004f) out += noise_at(n, salt) * click * (1.0f - t / 0.004f);
     return out;
 }
 
 static float voice_snare(float t, uint32_t n, uint32_t salt) {
-    const float decay = 0.05f + s_decay * 0.15f;
+    // CR-78: mostly a tuned body. 808: two tones and some snap. 909: bright noise does the work.
+    const float decay = (0.05f + s_decay * 0.15f) * by_machine(0.6f, 0.9f, 1.2f);
     if (t > decay * 6.0f) return 0.0f;
-    const float f = 160.0f + s_tone * 120.0f;
-    const float body = s_host->sinf(TWO_PI * f * t) * s_host->expf(-t / 0.05f) * 0.6f;
+    const float f1 = by_machine(240.0f, 180.0f, 190.0f) * (0.8f + s_tone * 0.4f);
+    const float f2 = f1 * 1.8f;
+    const float body_env = s_host->expf(-t / by_machine(0.035f, 0.05f, 0.04f));
+    const float body = (s_host->sinf(TWO_PI * f1 * t) + 0.5f * s_host->sinf(TWO_PI * f2 * t)) * body_env;
     // First difference of white noise tilts it bright without a stateful filter.
-    const float hiss = (noise_at(n, salt) - noise_at(n - 1, salt)) * 0.45f;
-    return (body + hiss * s_host->expf(-t / decay)) * 0.9f;
+    const float hiss = noise_at(n, salt) - noise_at(n - 1, salt);
+    return (body * by_machine(0.75f, 0.5f, 0.35f) +
+            hiss * by_machine(0.12f, 0.35f, 0.55f) * s_host->expf(-t / decay)) * 0.95f;
 }
 
 static float voice_clap(float t, uint32_t n, uint32_t salt) {
     if (t > 0.35f) return 0.0f;
-    // Three quick bursts, then a short tail.
+    // Three quick bursts, then a short tail. The CR-78 never had a clap, so it's thin there.
     float env;
     if (t < 0.03f) {
         const float ph = t / 0.01f;
         env = 1.0f - (ph - (float)(int)ph);
     } else {
-        env = s_host->expf(-(t - 0.03f) / (0.05f + s_decay * 0.08f));
+        env = s_host->expf(-(t - 0.03f) / ((0.05f + s_decay * 0.08f) * by_machine(0.6f, 1.0f, 1.2f)));
     }
-    return (noise_at(n, salt) - noise_at(n - 2, salt)) * 0.5f * env;
+    return (noise_at(n, salt) - noise_at(n - 2, salt)) * 0.5f * env * by_machine(0.5f, 1.0f, 1.0f);
+}
+
+// Six detuned square waves: the metallic core of analog hats (the 808 frequencies, raised for the
+// CR-78). Computed from t alone, so it needs no oscillator state.
+static float metal_at(float t) {
+    static const float kFreqs[6] = { 205.3f, 304.4f, 369.6f, 522.7f, 540.0f, 800.0f };
+    const float scale = by_machine(1.6f, 1.0f, 1.25f) * (0.85f + s_tone * 0.3f);
+    float sum = 0.0f;
+    for (int i = 0; i < 6; i++) sum += frac(kFreqs[i] * scale * t) < 0.5f ? 1.0f : -1.0f;
+    return sum * (1.0f / 6.0f);
 }
 
 static float voice_hat(float t, uint32_t n, uint32_t salt, int open) {
-    const float decay = open ? 0.12f + s_decay * 0.3f : 0.02f + s_decay * 0.04f;
+    const float decay = (open ? 0.12f + s_decay * 0.3f : 0.02f + s_decay * 0.04f) * by_machine(0.7f, 1.0f, 1.3f);
     if (t > decay * 5.0f) return 0.0f;
-    // Second difference of noise: brighter still, closer to a high-passed hat.
-    const float x = noise_at(n, salt) - 2.0f * noise_at(n - 1, salt) + noise_at(n - 2, salt);
-    return x * 0.22f * (0.7f + s_tone * 0.6f) * s_host->expf(-t / decay);
+    // High-pass both sources with a difference: one sample apart for the metal, a second
+    // difference for the noise.
+    const float inv_sr = 1.0f / (float)s_host->sample_rate;
+    const float metal = metal_at(t) - metal_at(t - inv_sr);
+    const float noise = noise_at(n, salt) - 2.0f * noise_at(n - 1, salt) + noise_at(n - 2, salt);
+    const float mix = metal * by_machine(0.9f, 0.75f, 0.3f) + noise * by_machine(0.05f, 0.15f, 0.3f);
+    return mix * 0.3f * (0.7f + s_tone * 0.6f) * s_host->expf(-t / decay);
 }
 
 // ---- Plugin entry points --------------------------------------------------------------------
@@ -228,6 +264,7 @@ void plugin_set_param(uint8_t index, float value) {
         case 7: s_decay = clampf(value, 0.0f, 1.0f); break;
         case 8: s_hats = clampf(value, 0.0f, 1.0f); break;
         case 9: s_drive = clampf(value, 0.0f, 1.0f); break;
+        case 10: s_machine = (float)(int)clampf(value + 0.5f, 0.0f, 4.0f) * 0.25f; break;
         default: return; // the host also calls this for unused slots
     }
     s_dirty = 1;

@@ -31,7 +31,7 @@ static void setup_host(void) {
 typedef struct { float v[12]; } Params;
 
 static Params defaults(void) {
-    Params p = { { 16, 120, 1, 0, 0.5f, 0, 0.5f, 0.5f, 0.5f, 0.2f, 0, 0 } };
+    Params p = { { 16, 120, 1, 0, 0.5f, 0, 0.5f, 0.5f, 0.5f, 0.2f, 4, 0 } };
     return p;
 }
 
@@ -127,7 +127,24 @@ int main(int argc, char** argv) {
         free(a);
     }
 
-    // 5. Goldens: one hash per style, so any change to the sound is deliberate.
+    // 5. Machine reshapes the sound: each of the five settings renders differently and audibly.
+    {
+        static const char* names[5] = { "cr78", "cr78-808", "808", "808-909", "909" };
+        int16_t* prev = NULL; uint32_t prev_n = 0;
+        for (int m = 0; m < 5; m++) {
+            Params p = defaults(); p.v[2] = 7; p.v[10] = m;
+            uint32_t n; int16_t* a = render(p, &n);
+            int peak = 0; for (uint32_t i = 0; i < n; i++) if (abs(a[i]) > peak) peak = abs(a[i]);
+            CHECK(peak > 6000, "machine %s is too quiet (peak %d)", names[m], peak);
+            if (prev) CHECK(n == prev_n && memcmp(a, prev, n * 2) != 0, "machine %s sounds the same as the one before", names[m]);
+            char path[64]; snprintf(path, sizeof path, "build/machine-%s.wav", names[m]);
+            write_wav(path, a, n);
+            free(prev); prev = a; prev_n = n;
+        }
+        free(prev);
+    }
+
+    // 6. Goldens: one hash per style, so any change to the sound is deliberate.
     static const uint32_t goldens[4] = { GOLDEN0, GOLDEN1, GOLDEN2, GOLDEN3 };
     for (int style = 0; style < 4; style++) {
         uint32_t n; int16_t* a = render(golden_params[style], &n);
