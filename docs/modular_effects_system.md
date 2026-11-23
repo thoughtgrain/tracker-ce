@@ -44,14 +44,14 @@ This guide covers everything needed to use, author, compile, and understand cust
 
 The **Modular Effects System (`PTFX`)** introduces dynamically loadable DSP and synthesis plugins for the Polyend Tracker family across all three hardware platforms:
 
-- **Original Polyend Tracker** - NXP Kinetis MK66 (`ARM Cortex-M4F` @ 180 MHz, mono sample engine)
+- **Original Polyend Tracker** - NXP Kinetis MK66 (`ARM Cortex-M4F` @ 180 MHz, stereo sample engine)
 - **Polyend Tracker+** - NXP i.MX RT1051/RT1064 (`ARM Cortex-M7F` @ 600 MHz, stereo sample engine)
 - **Polyend Tracker Mini** - NXP i.MX RT1051/RT1064 (`ARM Cortex-M7F` @ 600 MHz, stereo sample engine)
 
-External `.ptfx` position-independent binary modules placed anywhere under `/Effects/` on the SD card (including subfolders) are browsed on demand via the **`Load Effect...`** entry at the bottom of the **Sample Editor** effect list (powered by [`GlobalFileBrowser`](global_file_browser.md) with no fixed plugin-count cap). Once loaded into executable RAM, the active plugin stays listed right above **`Load Effect...`** while navigating the Sample Editor, and can be auditioned via **Preview** and applied to existing samples or used to generate new samples/wavetables onto empty or active instrument slots.
+External `.ptfx` position-independent binary modules placed anywhere under `/System/Effects/` on the SD card (including subfolders) are browsed on demand via the **`Load Effect...`** entry at the bottom of the **Sample Editor** effect list (powered by [`GlobalFileBrowser`](global_file_browser.md) with no fixed plugin-count cap). Once loaded into executable RAM, the active plugin stays listed right above **`Load Effect...`** while navigating the Sample Editor, and can be auditioned via **Preview** and applied to existing samples or used to generate new samples/wavetables onto empty or active instrument slots.
 
 ### Installing Plugins on Your SD Card
-Place `.ptfx` files in the `/Effects/` directory at the root of your microSD card:
+Place `.ptfx` files in the `/System/Effects/` directory at the root of your microSD card:
 
 ```text
 SD Card Root/
@@ -72,7 +72,7 @@ SD Card Root/
 
 ## 2. Bundled Plugins (`editor-fx-sdk/effects/`)
 
-All plugins in [`editor-fx-sdk/effects/`](../editor-fx-sdk/effects) can be compiled locally via `make ptfx` (outputting to `editor-fx-sdk/build/Effects/*.ptfx`) or downloaded ready-to-use from the **`polyend-tracker-ce-effects`** GitHub Actions build artifact:
+All plugins in [`editor-fx-sdk/effects/`](../editor-fx-sdk/effects) can be compiled locally via `make ptfx` (outputting to `editor-fx-sdk/build/System/Effects/*.ptfx`) or downloaded ready-to-use from the **`polyend-tracker-ce-effects`** GitHub Actions build artifact:
 
 | Plugin Source                                                       | Display Name         | Capability Flags            | Scratch RAM | Parameters & Description                                                                                                                                                                                                                                        |
 | :------------------------------------------------------------------ | :------------------- | :-------------------------- | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -86,7 +86,7 @@ All plugins in [`editor-fx-sdk/effects/`](../editor-fx-sdk/effects) can be compi
 | [`multimode_filter.c`](../editor-fx-sdk/effects/multimode_filter.c) | `Multi-Mode Filter`  | `EFFECT \| STEREO`          | `0 B`       | `Mode` (List: `LPF 24dB\|LPF 12dB\|BPF 12dB\|HPF 12dB\|Notch\|Peak`), `Cutoff` (`40–16000 Hz`), `Reso` (`0–95 %`), `Drive` (List: `Clean\|SoftSat\|WarmTube\|HardClip\|Foldback`). Zero-delay feedback Cytomic SVF filter.                                      |
 | [`speech_gen.c`](../editor-fx-sdk/effects/speech_gen.c)             | `Speech Gen`         | `GENERATOR`                 | `16,384 B`  | `Text` (`PARAM_TEXT`), `Voice` (`Male\|Female`), `Mode` (`Natural\|Robot\|Whisper`), `Pitch` (`65–320 Hz`), `Speed` (`40–400 WPM`), `Mouth` (`50–200 %`), `Throat` (`50–200 %`), `Grime` (`Clean\|Amiga 8b\|Lo-Fi`). Formant speech synthesizer (Amiga homage). |
 | [`stereo_delay.c`](../editor-fx-sdk/effects/stereo_delay.c)         | `Stereo Delay`       | `EFFECT \| STEREO`          | `176,404 B` | `Time` (`10–1000 ms`), `Fdbk` (`0–95 %`), `Mix` (`0–100 %`), `Tail` (List: `Ring Out\|Cut Off`). Stereo delay line with optional tail ring-out.                                                                                                                 |
-| [`stereo_to_mono.c`](../editor-fx-sdk/effects/stereo_to_mono.c)     | `Stereo to Mono`     | `STEREO \| CONVERT_TO_MONO` | `0 B`       | `Source` (List: `Merge L+R\|Left Only\|Right Only\|Side L-R`), `Gain` (`-12.0 to +6.0 dB`). Converts a stereo sample on Tracker+ / Mini into a true mono sample, reclaiming 50% sample RAM.                                                                     |
+| [`stereo_to_mono.c`](../editor-fx-sdk/effects/stereo_to_mono.c)     | `Stereo to Mono`     | `STEREO \| CONVERT_TO_MONO` | `0 B`       | `Source` (List: `Merge L+R\|Left Only\|Right Only\|Side L-R`), `Gain` (`-12.0 to +6.0 dB`). Converts a stereo sample into a true mono sample, reclaiming 50% sample RAM.                                                                     |
 
 ---
 
@@ -109,7 +109,7 @@ make ptfx
 Or compile an individual plugin with `ptfx_builder.py`:
 ```bash
 python3 editor-fx-sdk/ptfx_builder.py editor-fx-sdk/effects/multimode_filter.c \
-    -o editor-fx-sdk/build/Effects/multimode_filter.ptfx \
+    -o editor-fx-sdk/build/System/Effects/multimode_filter.ptfx \
     --toolchain agt/10.3/bin/arm-none-eabi-
 ```
 
@@ -124,7 +124,7 @@ positional arguments:
   source                Input C source file (e.g. my_effect.c)
 
 optional arguments:
-  -o, --output OUTPUT   Output .ptfx file path (e.g. editor-fx-sdk/build/Effects/my_effect.ptfx)
+  -o, --output OUTPUT   Output .ptfx file path (e.g. editor-fx-sdk/build/System/Effects/my_effect.ptfx)
   --name NAME           Override PTFX_NAME (max 31 chars)
   --flags FLAGS         Override PTFX_FLAGS (comma-separated)
   --scratch SCRATCH     Override PTFX_SCRATCH size in bytes
@@ -209,9 +209,9 @@ int32_t plugin_process_block(const int16_t** in, int16_t** out, uint32_t samples
 | :--- | :--- | :--- |
 | `EFFECT` | `PTFX_FLAG_EFFECT` (`0x0000`) | Standard audio effect transforming `in` to `out` across the selected sample range (plus optional prepended/appended samples via `set_extra_samples`). Disabled on empty sample slots. |
 | `GENERATOR` | `PTFX_FLAG_GENERATOR` (`0x0001`) | Audio generator/synthesizer. Can run on empty instrument slots (`in` is `NULL`), produces `88,200` samples (`2.0 s`) by default, or the length it asks for with `set_extra_samples(0, n)` from `plugin_set_param()`, and stops early if `plugin_process_block` returns `<= 0`, activates inactive instruments upon apply, and names them `"Gen XX"`. |
-| `STEREO` | `PTFX_FLAG_STEREO` (`0x0002`) | Processes independent Left/Right channels when `channels == 2` on Tracker+ / Tracker Mini. On Original Tracker (`MK66`), `channels` is always `1`. |
+| `STEREO` | `PTFX_FLAG_STEREO` (`0x0002`) | Processes independent Left/Right channels (`channels == 2` across all platforms). If a mono sample produces different L/R output, the Sample Editor automatically upgrades it to stereo. |
 | `WAVETABLE` | `PTFX_FLAG_WAVETABLE` (`0x0004`) | Automatically sets `instrument.playMode = playModeWavetable` when committed. |
-| `CONVERT_TO_MONO` | `PTFX_FLAG_CONVERT_TO_MONO` (`0x0008`) | Signals `cSampleEditor::isCurrentSampleStereo()` on IMX platforms to export only the Left channel (`memoryAddressR = memoryAddressL`) when saving back to project sample memory, reclaiming 50% sample RAM. |
+| `CONVERT_TO_MONO` | `PTFX_FLAG_CONVERT_TO_MONO` (`0x0008`) | Signals `cSampleEditor::isCurrentSampleStereo()` to export only the Left channel (`memoryAddressR = memoryAddressL`) when saving back to project sample memory, reclaiming 50% sample RAM. |
 | `IMX_ONLY` | `PTFX_FLAG_IMX_ONLY` (`0x0010`) | Requires Cortex-M7 speeds or `> 32 KB` code/BSS size; blocked from executing on Original Tracker (`MK66`). |
 
 ---
@@ -380,7 +380,7 @@ Generators synthesize audio from scratch (`in` is `NULL`) and can run even when 
 - The default generation window is `88,200` samples (`2.0 seconds` at `44.1 kHz`). To render longer, call `host->set_extra_samples(0, n)` from `plugin_set_param()`; the firmware calls every `plugin_set_param()` after `plugin_init()` and before rendering, then uses `n` as the length. Keep it within the Sample Editor's edit buffer (`EDIT_BUFF_SIZE`, `core/source/mtStructs.h`): the host doesn't clamp the length for you. A 24-step loop at 60 BPM is 6 s (264,600 samples), well inside it. [`drum_loop_gen.c`](../editor-fx-sdk/effects/drum_loop_gen.c) sizes its output this way.
 - To generate a shorter sample (such as a `300 ms` drum hit or a single-cycle oscillator waveform of `689` samples), stop generating once your target sample count is reached and return `0` on the next call (or return the exact remaining sample count `< samples` and `0` thereafter).
 - When `plugin_process_block()` finishes early, the firmware automatically trims `processed[ch].selection.length` and `processed[ch].area.length` to the exact number of samples generated.
-- Write identical samples to all `channels` (`for (uint8_t c = 0; c < channels; c++) out[c][i] = pcm;`) so stereo instruments on Tracker+ / Tracker Mini receive both Left and Right channels.
+- Write identical samples to all `channels` (`for (uint8_t c = 0; c < channels; c++) out[c][i] = pcm;`) so stereo instruments receive both Left and Right channels.
 - See [`editor-fx-sdk/effects/analog_kick_gen.c`](../editor-fx-sdk/effects/analog_kick_gen.c) and [`editor-fx-sdk/effects/chiptune_gen.c`](../editor-fx-sdk/effects/chiptune_gen.c).
 
 ### 7.5 Pattern D: Using Working Scratch RAM (`PTFX_SCRATCH`)
@@ -521,7 +521,7 @@ All `float` fields in `PtfxParamDef` are strictly 4-byte aligned so Cortex-M4/M7
 
 ```mermaid
 flowchart TD
-    subgraph Storage ["SD Card (/Effects/**/*.ptfx)"]
+    subgraph Storage ["SD Card (/System/Effects/**/*.ptfx)"]
         FX1["analog_kick_gen.ptfx (Generator)"]
         FX2["stereo_delay.ptfx (Stereo Effect)"]
         FX3["stereo_to_mono.ptfx (Stereo-to-Mono Converter)"]
@@ -586,7 +586,7 @@ All `.ptfx` execution, working scratch, secondary `.wav` decoding, and concurren
 | Resource / Limit | Original Tracker (`MK66`) | Tracker+ & Tracker Mini (`IMX`) |
 | :--- | :--- | :--- |
 | **MCU & Core** | NXP MK66FX1M0 (`Cortex-M4F` @ 180 MHz) | NXP i.MX RT1051/RT1064 (`Cortex-M7F` @ 600 MHz) |
-| **Plugin Discovery** | On-demand via `Load Effect...` (`GlobalFileBrowser` in `/Effects`, unlimited with subfolders) | On-demand via `Load Effect...` (`GlobalFileBrowser` in `/Effects`, unlimited with subfolders) |
+| **Plugin Discovery** | On-demand via `Load Effect...` (`GlobalFileBrowser` in `/System/Effects`, unlimited with subfolders) | On-demand via `Load Effect...` (`GlobalFileBrowser` in `/System/Effects`, unlimited with subfolders) |
 | **Max Parameters per Plugin** | `12` (`3` pages of `4`) | `12` (`3` pages of `4`) |
 | **Executable Code + BSS Limit** | `PtfxLoader::getMaxCodeSize()` at base of `externalRamScratchBuff` — see [`memory_map.md`](memory_map.md#3-shared-768-kb-scratch-buffer-map-externalramscratchbuff) | `PtfxLoader::getMaxCodeSize()` at `0x80000000` (`externalRamScratchBuff` base) — see [`memory_map.md`](memory_map.md#3-shared-768-kb-scratch-buffer-map-externalramscratchbuff) |
 | **Plugin Scratch (`scratch_mem`) & Secondary WAV** | Capped by `PtfxLoader::getMaxScratchSize()` + `kPtfxSecondarySampleBytes` — see [`memory_map.md`](memory_map.md#3-shared-768-kb-scratch-buffer-map-externalramscratchbuff) | Capped by `PtfxLoader::getMaxScratchSize()` + `kPtfxSecondarySampleBytes` — see [`memory_map.md`](memory_map.md#3-shared-768-kb-scratch-buffer-map-externalramscratchbuff) |
@@ -594,7 +594,7 @@ All `.ptfx` execution, working scratch, secondary `.wav` decoding, and concurren
 
 > [!IMPORTANT]
 > **On-Demand `.ptfx` Loading & Non-Overlapping Scratch Partition (`externalRamScratchBuff`)**:
-> - **Zero Startup Scan & Subfolder Support**: Entering the Sample Editor does not scan `/Effects/` or cap the number of `.ptfx` plugins; selecting **`Load Effect...`** opens [`GlobalFileBrowser`](global_file_browser.md) in `/Effects` with a 472-byte `PtfxHeader` inspector (`onDescribeItem()`) and pretty `display_name` formatting in the Explorer list (`onFormatItemLabel()`). Once loaded, the active plugin (`s_activeEntry`) appears in the effect list immediately above **`Load Effect...`**.
+> - **Zero Startup Scan & Subfolder Support**: Entering the Sample Editor does not scan `/System/Effects/` or cap the number of `.ptfx` plugins; selecting **`Load Effect...`** opens [`GlobalFileBrowser`](global_file_browser.md) in `/System/Effects` with a 472-byte `PtfxHeader` inspector (`onDescribeItem()`) and pretty `display_name` formatting in the Explorer list (`onFormatItemLabel()`). Once loaded, the active plugin (`s_activeEntry`) appears in the effect list immediately above **`Load Effect...`**.
 > - **Single-Pass Loader**: `PtfxLoader::loadPlugin()` opens the chosen `.ptfx` file once, validates the 472-byte `PtfxHeader`, and reads the executable code payload in the same `f_open` session.
 > - **Concurrent `GlobalFileBrowser` Safety**: Because `cGlobalFileBrowser` uses only the top slice of `externalRamScratchBuff` above `kPtfxSecondarySampleOffset + kPtfxSecondarySampleBytes` (see [`docs/memory_map.md`](memory_map.md#3-shared-768-kb-scratch-buffer-map-externalramscratchbuff)), opening the file browser from inside the Sample Editor or an effect parameter never overwrites active plugin code, `scratch_mem`, or loaded secondary WAV audio.
 
@@ -622,7 +622,7 @@ In [`core/effector/mtEffect.cpp`](../core/effector/mtEffect.cpp):
 Any `.ptfx` plugin declaring at least one parameter (`num_params >= 1`) automatically gains an extra **Presets** page appended to the end of its `More` button page cycle in [`core/interface/sampleEditor/fSampleEdit.cpp`](../core/interface/sampleEditor/fSampleEdit.cpp) (`Load`, `Save`, and `Reset`) — plugin authors do not need to write any preset serialization code.
 
 ### Preset Directory & Browser Integration
-* Presets are stored on the SD card under `/Effects/Presets/<SanitizedPluginName>/*.ptp`.
+* Presets are stored on the SD card under `/System/Effects/Presets/<SanitizedPluginName>/*.ptp`.
 * Selecting **Load** or **Save** on the Presets page opens [`GlobalFileBrowser`](global_file_browser.md) filtered to `.ptp` (`extensionFilter = ".ptp"`).
 * **Reset** restores every parameter to its descriptor's `default_val` and clears any selected file paths.
 

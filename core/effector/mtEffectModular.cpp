@@ -191,7 +191,7 @@ int32_t mtEffectModular::processBlock()
         }
     }
 
-    // Process block across active channels (kChannels = 1 on MK66, 2 on IMX)
+    // Process block across active channels
     int32_t count = m_processBlockFunc(
         isGenerator ? m_srcAddr : inPtrs,
         m_dstAddr,

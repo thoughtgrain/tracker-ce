@@ -14,7 +14,7 @@ Built directly from the original Polyend firmware source code, Tracker CE opens 
 Automatically built from the latest changes in `main` (for all 3 devices):
 
 * Download the latest [Beta Firmware builds (`.zip`)](https://nightly.link/polyend/tracker-ce/workflows/build.yml/main/polyend-tracker-ce-firmware.zip)
-* Download the latest [SD Card Content (`.zip`)](https://nightly.link/polyend/tracker-ce/workflows/build.yml/main/polyend-tracker-ce-sd-card.zip) (`/Words`, `/Effects`, `/Synths`)
+* Download the latest [SD Card Content (`.zip`)](https://nightly.link/polyend/tracker-ce/workflows/build.yml/main/polyend-tracker-ce-sd-card.zip) (`/System/`)
 * See [`UPCOMING.md`](UPCOMING.md) to find out what's new in these Beta Builds.
 
 ---
@@ -132,10 +132,10 @@ make original   # -> build/PolyendTracker_CE_1.0.0.ptf
 make plus       # -> build/TrackerPlus_CE_1.0.0.ptf
 make mini       # -> build/TrackerMini_CE_1.0.0.ptf
 
-# Build reference .ptfx Sample Editor effects into editor-fx-sdk/build/Effects/:
+# Build reference .ptfx Sample Editor effects into editor-fx-sdk/build/System/Effects/:
 make ptfx
 
-# Build open-source .psyn synth (CHIP.psyn) and stage all factory + open-source .psyn plugins into build/Synths/:
+# Build open-source .psyn synth (CHIP.psyn) and stage all factory + open-source .psyn plugins into build/System/Synths/:
 make psyn
 
 # Or compile only the synth-plugin-sdk reference plugin (CHIP.psyn -> synth-plugin-sdk/build/):
@@ -185,7 +185,7 @@ Full user and developer documentation is available in [`docs/`](docs/Home.md) an
 * **User Guides**:
   * [Custom Themes & Fonts](docs/custom_themes_and_fonts.md) + [Live Web Editor](https://polyend.github.io/tracker-theme-editor/) ([`polyend/tracker-theme-editor`](https://github.com/polyend/tracker-theme-editor))
   * [Wavetable Envelopes, LFOs & Step FX](docs/wavetable_envelopes.md)
-  * [SD Card Image Viewer](docs/image_viewer.md)
+  * [File Manager & Built-In File Viewer](docs/info_viewer.md)
 * **Developer & Architecture Guides**:
   * [Firmware Memory Map, Budgets & Subsystem Limits](docs/memory_map.md)
   * [Firmware Architecture, Hardware Limits & Developer Gotchas](docs/developer_guide.md)
